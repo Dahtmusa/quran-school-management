@@ -280,8 +280,8 @@ export async function loadEvaluationCampaigns() {
   if(error||!data) return []; return data;
 }
 
-export async function createEvaluationCampaign(input:{termId:string;evaluationNumber:1|2|3;title:string;calendarEventId:string;classIds:string[]}) {
-  const { data,error } = await supabase().rpc('create_evaluation_campaign',{p_term_id:input.termId,p_evaluation_number:input.evaluationNumber,p_title:input.title,p_calendar_event_id:input.calendarEventId,p_class_ids:input.classIds});
+export async function createEvaluationCampaign(input:{termId:string;evaluationNumber:1|2|3;title:string;opensAt:string;closesAt:string;classIds:string[]}) {
+  const { data,error } = await supabase().rpc('create_evaluation_campaign',{p_term_id:input.termId,p_evaluation_number:input.evaluationNumber,p_title:input.title,p_opens_at:new Date(input.opensAt).toISOString(),p_closes_at:new Date(input.closesAt).toISOString(),p_class_ids:input.classIds});
   if(error) throw error; return data as string;
 }
 
