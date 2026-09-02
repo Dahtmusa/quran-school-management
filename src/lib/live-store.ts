@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/client';
 import type { Evaluation, EvaluationStatus, Student, Direction } from '@/lib/data';
 import type { Position } from '@/lib/quran';
 
+// Backward-compatible re-export: older page imports can safely resolve CMS settings.
+export { loadCMSSettings } from '@/lib/cms-live-store';
+
 const supabase = () => createClient();
 
 function mapDirection(value: string): Direction {

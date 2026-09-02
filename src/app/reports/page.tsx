@@ -1,7 +1,8 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
-import {getCurrentProfile,loadEvaluations,loadOperationalTerms,loadStudents,loadParentStudents,loadCMSSettings,loadTermCompletions,completeTerm} from '@/lib/live-store';
+import {getCurrentProfile,loadEvaluations,loadOperationalTerms,loadStudents,loadParentStudents,loadTermCompletions,completeTerm} from '@/lib/live-store';
+import {loadCMSSettings} from '@/lib/cms-live-store';
 import {useEffect,useMemo,useState} from 'react';
 export default function Reports(){
  const [settings,setSettings]=useState<any>({}),[students,setStudents]=useState<any[]>([]),[evals,setEvals]=useState<any[]>([]),[terms,setTerms]=useState<any[]>([]),[completed,setCompleted]=useState<any[]>([]),[termId,setTermId]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState(''),[selected,setSelected]=useState<any|null>(null),[role,setRole]=useState('');
