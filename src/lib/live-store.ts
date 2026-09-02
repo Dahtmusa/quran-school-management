@@ -2,6 +2,9 @@ import { createClient } from '@/lib/supabase/client';
 import type { Evaluation, EvaluationStatus, Student, Direction } from '@/lib/data';
 import type { Position } from '@/lib/quran';
 
+// Backward-compatible re-export: older page imports can safely resolve CMS settings.
+export { loadCMSSettings } from '@/lib/cms-live-store';
+
 const supabase = () => createClient();
 
 function mapDirection(value: string): Direction {
@@ -30,7 +33,7 @@ export async function loadStudents(): Promise<Student[]> {
   const { data, error } = await supabase().rpc('admin_get_student_directory');
   if (error || !data) { console.error('Student directory load failed:', error); return []; }
   return data.map((s:any) => ({
-    id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null, idExpiresOn:s.id_expires_on ?? null,
+    id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null,
     section:s.section === 'boarding' ? 'Boarding' : 'Day', year:mapYear(s.program_year),
     attendance:Number(s.attendance_percent ?? 0), fees:Number(s.fees_due ?? 0), teacher:s.teacher_name ?? 'Unassigned',
     start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
@@ -42,7 +45,7 @@ export async function loadStudents(): Promise<Student[]> {
 export async function loadParentStudents(): Promise<Student[]> {
   const { data, error } = await supabase().from('parent_students').select('student_id,relationship,students:student_id(*,classes:class_id(name))');
   if(error||!data) return [];
-  return (data as any[]).map((r:any)=>{const st=r.students;return {id:st.id,admissionNo:st.admission_no,name:st.full_name,studentIdNumber:st.student_id_number??null,idExpiresOn:st.id_expires_on??null,section:st.section==='boarding'?'Boarding':'Day',year:mapYear(st.program_year),attendance:0,fees:0,teacher:'',start:{surah:st.start_surah??114,ayah:st.start_ayah??1},current:{surah:st.current_surah??st.start_surah??114,ayah:st.current_ayah??st.start_ayah??1},direction:mapDirection(st.memorization_direction),className:st.classes?.name??null,photoUrl:st.photo_url??null} satisfies Student});
+  return (data as any[]).map((r:any)=>{const st=r.students;return {id:st.id,admissionNo:st.admission_no,name:st.full_name,studentIdNumber:st.student_id_number??null,section:st.section==='boarding'?'Boarding':'Day',year:mapYear(st.program_year),attendance:0,fees:0,teacher:'',start:{surah:st.start_surah??114,ayah:st.start_ayah??1},current:{surah:st.current_surah??st.start_surah??114,ayah:st.current_ayah??st.start_ayah??1},direction:mapDirection(st.memorization_direction),className:st.classes?.name??null,photoUrl:st.photo_url??null} satisfies Student});
 }
 
 export async function loadEvaluations(): Promise<Evaluation[]> {
@@ -55,10 +58,10 @@ export async function loadEvaluations(): Promise<Evaluation[]> {
     status:mapStatus(e.status), from:{surah:e.from_surah,ayah:e.from_ayah} as Position,
     to:{surah:e.to_surah,ayah:e.to_ayah} as Position, memorizedAyahs:e.memorized_ayahs,
     memorizedPages:e.memorized_pages, memorizedHizbs:e.memorized_hizbs,
-    memorization:Math.max(1,Math.min(5,Math.round(Number(e.memorization_score??e.accuracy_score??3)))) as 1|2|3|4|5,
-    accuracy:Math.max(1,Math.min(5,Math.round(Number(e.accuracy_score??3)))) as 1|2|3|4|5, fluency:Math.max(1,Math.min(5,Math.round(Number(e.fluency_score??3)))) as 1|2|3|4|5,
-    tajweed:Math.max(1,Math.min(5,Math.round(Number(e.tajweed_score??3)))) as 1|2|3|4|5, retention:Math.max(1,Math.min(5,Math.round(Number(e.retention_score??3)))) as 1|2|3|4|5,
-    score:Number(e.score??0), grade:e.grade??null, comment:e.teacher_comment??''
+    memorization:Math.max(1,Math.min(5,Math.round(Number(e.accuracy_score??3)))) as 1|2|3|4|5,
+    fluency:Math.max(1,Math.min(5,Math.round(Number(e.fluency_score??3)))) as 1|2|3|4|5,
+    tajweed:Math.max(1,Math.min(5,Math.round(Number(e.tajweed_score??3)))) as 1|2|3|4|5,
+    score:Number(e.score??0), comment:e.teacher_comment??''
   }));
 }
 
@@ -219,7 +222,7 @@ export async function updateStudentBasic(studentId: string, input: Partial<{
 }
 
 export async function loadStaffProfiles() {
-  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on').order('full_name');
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at').order('full_name');
   if (error || !data) return [];
   return data;
 }
@@ -257,15 +260,15 @@ export async function loadTeacherDirectory() {
 }
 
 export async function loadTeacherEvaluations() {
-  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb,memorization_direction),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false});
+  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false});
   if (error || !data) return [];
   return data;
 }
 
-export async function submitTeacherEvaluation(input:{evaluationId:string;toSurah:number;toAyah:number;memorization:number;accuracy:number;fluency:number;tajweed:number;retention:number;score:number;comment:string}) {
+export async function submitTeacherEvaluation(input:{evaluationId:string;toSurah:number;toAyah:number;accuracy:number;fluency:number;tajweed:number;score:number;comment:string}) {
   const { error } = await supabase().rpc('submit_teacher_evaluation',{
-    p_evaluation_id:input.evaluationId,p_to_surah:input.toSurah,p_to_ayah:input.toAyah,p_memorization:input.memorization,p_accuracy:input.accuracy,
-    p_fluency:input.fluency,p_tajweed:input.tajweed,p_retention:input.retention,p_score:input.score,p_comment:input.comment||null,
+    p_evaluation_id:input.evaluationId,p_to_surah:input.toSurah,p_to_ayah:input.toAyah,p_accuracy:input.accuracy,
+    p_fluency:input.fluency,p_tajweed:input.tajweed,p_score:input.score,p_comment:input.comment||null,
   });
   if(error) throw error;
 }
@@ -351,13 +354,3 @@ export async function loadSchoolCalendar(){const {data,error}=await supabase().f
 export async function saveSchoolCalendarEvent(input:any){const user=await getCurrentUser();const {data,error}=await supabase().from('school_calendar_events').insert({...input,created_by:user?.id||null}).select().single();if(error)throw error;return data;}
 export async function deleteSchoolCalendarEvent(id:string){const {error}=await supabase().from('school_calendar_events').delete().eq('id',id);if(error)throw error;}
 export async function pushEvaluationToTeacher(id:string){const {error}=await supabase().rpc('push_evaluation_to_teacher',{p_evaluation_id:id});if(error)throw error;}
-
-export async function loadCurrentAcademicTerm(){
-  const {data,error}=await supabase().rpc('get_current_academic_term');
-  if(error) return null;
-  return data && data.term_id ? data : null;
-}
-export async function setCurrentAcademicTerm(termId:string){
-  const {data,error}=await supabase().rpc('set_current_academic_term',{p_term_id:termId});
-  if(error) throw error; return data;
-}

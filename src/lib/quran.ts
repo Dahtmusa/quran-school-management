@@ -43,3 +43,19 @@ export function remainingFrom(current:Position,direction:'Nas-to-Baqarah'|'Baqar
   if(direction==='Baqarah-to-Nas') return {ayahs:Math.max(0,TOTAL_AYAHS-ordinal),pages:Math.max(0,TOTAL_PAGES-pageForPosition(current)),hizbs:Math.max(0,TOTAL_HIZBS-hizbForPosition(current))};
   return {ayahs:Math.max(0,ordinal-1),pages:Math.max(0,pageForPosition(current)-1),hizbs:Math.max(0,hizbForPosition(current)-1)};
 }
+
+export type EvaluationCalculation = {
+  memorizedAyahs: number;
+  memorizedPages: number;
+  memorizedHizbs: number;
+  percent: number;
+  grade: string;
+};
+
+/** Calculate the amount covered between the locked starting point and teacher stopping point. */
+export function calculateEvaluation(from: Position, to: Position, direction: 'Nas-to-Baqarah'|'Baqarah-to-Nas'='Baqarah-to-Nas'): EvaluationCalculation {
+  const p = progressBetween(from, to, direction);
+  const score = Math.max(0, Math.min(100, Number(p.percent || 0)));
+  const grade = score >= 90 ? 'Excellent' : score >= 80 ? 'Very Good' : score >= 70 ? 'Good' : score >= 60 ? 'Satisfactory' : 'Needs Improvement';
+  return { memorizedAyahs: p.ayahs, memorizedPages: p.pages, memorizedHizbs: p.hizbs, percent: Math.round(score * 10) / 10, grade };
+}
