@@ -18,7 +18,7 @@ function isPublic(path:string){return publicPaths.some(p=>path===p||path.startsW
 function dashboard(role:string){if(role==='teacher')return '/teacher';if(role==='parent')return '/parent';if(role==='security')return '/attendance';if(role==='finance')return '/fees';if(role==='admissions')return '/admissions';return '/admin'}
 export async function updateSession(request:NextRequest){
  let response=NextResponse.next({request});
- const supabase=createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{cookies:{getAll(){return request.cookies.getAll()},setAll(cookiesToSet){cookiesToSet.forEach(({name,value,options})=>request.cookies.set(name,value,options));response=NextResponse.next({request});cookiesToSet.forEach(({name,value,options})=>response.cookies.set(name,value,options))}}});
+ const supabase=createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{cookies:{getAll(){return request.cookies.getAll()},setAll(cookiesToSet){cookiesToSet.forEach(({name,value,options})=>request.cookies.set(name,value));response=NextResponse.next({request});cookiesToSet.forEach(({name,value,options})=>response.cookies.set(name,value,options))}}});
  const {data:{user}}=await supabase.auth.getUser(); const path=request.nextUrl.pathname;
  if(!user){if(isPublic(path))return response;return NextResponse.redirect(new URL('/auth/login',request.url));}
  const {data:profile}=await supabase.from('profiles').select('role').eq('id',user.id).maybeSingle();
