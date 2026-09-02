@@ -3,14 +3,14 @@ import AdminShell from '@/components/AdminShell';
 import { assignTeacherToClass,createClass,createStaffAccount,loadAcademicYears,loadClasses,loadStaffProfiles,removeTeacherFromClass,updateStaffProfile,uploadProfileImage,type LiveClass } from '@/lib/live-store';
 import { useEffect,useMemo,useState } from 'react';
 
-type Teacher={id:string;name:string;staff_id?:string;avatar_url?:string|null;phone?:string|null;job_title?:string|null;employment_status?:string};
+type Teacher={id:string;name:string;full_name?:string|null;staff_id?:string;avatar_url?:string|null;phone?:string|null;job_title?:string|null;employment_status?:string;department?:string|null;joined_on?:string|null;role?:string|null;created_at?:string|null};
 type AcademicYear={id:string;name:string;is_current:boolean};
 export default function ClassesPage(){
  const [classes,setClasses]=useState<LiveClass[]>([]),[teachers,setTeachers]=useState<Teacher[]>([]),[years,setYears]=useState<AcademicYear[]>([]),[showCreate,setShowCreate]=useState(false),[showTeacher,setShowTeacher]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [form,setForm]=useState({name:'',code:'',academicYearId:'',programYear:'',capacity:''});
  const [teacherForm,setTeacherForm]=useState({fullName:'',email:'',password:'',phone:'',jobTitle:'Qur’an Teacher',department:'Qur’an Memorization',joinedOn:''});
  const [selectedTeacher,setSelectedTeacher]=useState<Record<string,string>>({});
- const refresh=async()=>{const [c,t,y]=await Promise.all([loadClasses(),loadStaffProfiles(),loadAcademicYears()]);setClasses(c);setTeachers(t.filter((x:any)=>x.role==='teacher')) ;setYears(y)};
+ const refresh=async()=>{const [c,t,y]=await Promise.all([loadClasses(),loadStaffProfiles(),loadAcademicYears()]);setClasses(c);setTeachers(t.filter((x:any)=>x.role==='teacher').map((x:any)=>({...x,name:x.full_name||x.name||'Unnamed teacher'}))) ;setYears(y)};
  useEffect(()=>{refresh()},[]);
  async function submitClass(e:React.FormEvent){e.preventDefault();setBusy(true);try{await createClass({name:form.name,code:form.code,academicYearId:form.academicYearId||null,programYear:(form.programYear||null) as any,capacity:form.capacity?Number(form.capacity):null});setForm({name:'',code:'',academicYearId:'',programYear:'',capacity:''});setShowCreate(false);await refresh();setMessage('Class created successfully.')}catch(err:any){setMessage(err?.message??'Unable to create class.')}finally{setBusy(false)}}
  async function createTeacher(e:React.FormEvent){e.preventDefault();setBusy(true);try{const r=await createStaffAccount({...teacherForm,role:'teacher'});setShowTeacher(false);setTeacherForm({fullName:'',email:'',password:'',phone:'',jobTitle:'Qur’an Teacher',department:'Qur’an Memorization',joinedOn:''});await refresh();setMessage(`Teacher account created. Staff ID: ${r?.staff_id||'assigned automatically'}.`)}catch(err:any){setMessage(err?.message??'Unable to create teacher.')}finally{setBusy(false)}}
