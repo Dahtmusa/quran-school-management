@@ -1,4 +1,4 @@
-import {Position, progressBetween, remainingFrom, label, pageForPosition, hizbForPosition} from './quran';
+import {Position, progressBetween, remainingFrom, absoluteProgress, label, pageForPosition, hizbForPosition} from './quran';
 export type Direction='Nas-to-Baqarah'|'Baqarah-to-Nas';
 export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction,className?:string|null,photoUrl?:string|null,studentIdNumber?:string|null,idExpiresOn?:string|null};
 const mk=(id:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction):Student=>({id,admissionNo:id,name,section,year,attendance,fees,teacher,start,current,direction});
@@ -9,7 +9,7 @@ mk('ST-1003','Maryam Ahmed','Boarding','Year 2',98,0,'Ustadha Fatima',{surah:2,a
 mk('ST-1004','Abdullah Umar','Day','Year 2',94,25000,'Ustadh Musa',{surah:2,ayah:1},{surah:9,ayah:64},'Baqarah-to-Nas'),
 mk('ST-1005','Hauwa Sani','Boarding','Year 1',89,85000,'Ustadha Fatima',{surah:93,ayah:1},{surah:78,ayah:30},'Nas-to-Baqarah'),
 mk('ST-1006','Yusuf Musa','Day','Year 2',97,0,'Ustadh Hamza',{surah:2,ayah:1},{surah:50,ayah:12},'Baqarah-to-Nas')];
-export function studentStats(s:Student){const p=progressBetween(s.start,s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...p,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current)};}
+export function studentStats(s:Student){const absolute=absoluteProgress(s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...absolute,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current),memorizationFromStart:progressBetween(s.start,s.current,s.direction)};}
 export type EvaluationStatus='Approved'|'Pending Approval'|'Draft'|'Returned';
 export type Rubric=1|2|3|4|5;
 export type Evaluation={id:string,studentId:string,student:string,term:string,number:number,status:EvaluationStatus,from:Position,to:Position,memorizedAyahs:number,memorizedPages:number,memorizedHizbs:number,memorization:Rubric,accuracy:Rubric,fluency:Rubric,tajweed:Rubric,retention:Rubric,score:number,grade?:string|null,comment:string,campaignId?:string|null,campaign?:any};

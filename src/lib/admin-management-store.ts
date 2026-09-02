@@ -42,8 +42,8 @@ export async function deletePublicMedia(media: { id: string; storage_path: strin
 export async function loadFinanceSummary() {
   const client = db();
   const [{ data: structures }, { data: fees }, { data: payments }] = await Promise.all([
-    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name)'),
-    client.from('student_fees').select('student_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section)'),
+    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)'),
+    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number),academic_years:academic_year_id(name))'),
     client.from('payments').select('id,student_id,amount,paid_on,method,reference,notes,students:student_id(full_name,admission_no) ').order('paid_on', { ascending: false }),
   ]);
   return { structures: structures || [], fees: fees || [], payments: payments || [] };
@@ -53,6 +53,25 @@ export async function loadFeeStructures() {
   const { data, error } = await db().from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name)').order('due_date', { ascending: true });
   if (error || !data) return [];
   return data;
+}
+
+export async function updateFeeStructure(id: string, input: { academicYearId: string; termId?: string | null; section: 'day' | 'boarding'; name: string; amount: number; dueDate?: string | null }) {
+  const { data, error } = await db().from('fee_structures').update({
+    academic_year_id: input.academicYearId,
+    term_id: input.termId || null,
+    section: input.section,
+    name: input.name.trim(),
+    amount: input.amount,
+    due_date: input.dueDate || null,
+  }).eq('id', id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function syncStudentFeeAllocations(termId: string) {
+  const { data, error } = await db().rpc('sync_student_fee_allocations', { p_term_id: termId });
+  if (error) throw error;
+  return Number(data || 0);
 }
 
 export async function createFeeStructure(input: { academicYearId: string; termId?: string | null; section: 'day' | 'boarding'; name: string; amount: number; dueDate?: string | null }) {

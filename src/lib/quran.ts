@@ -38,6 +38,16 @@ export function progressBetween(start:Position,current:Position,direction:'Nas-t
   const hizbs=direction==='Baqarah-to-Nas'?Math.max(1,hizbForPosition(current)-hizbForPosition(start)+1):Math.max(1,hizbForPosition(start)-hizbForPosition(current)+1);
   return {ayahs:covered,pages,hizbs,percent,scope};
 }
+export function absoluteProgress(current:Position,direction:'Nas-to-Baqarah'|'Baqarah-to-Nas'='Baqarah-to-Nas'){
+  const ordinal=positionOrdinal(current);
+  const ayahs=direction==='Baqarah-to-Nas'?Math.min(TOTAL_AYAHS,ordinal):Math.min(TOTAL_AYAHS,TOTAL_AYAHS-ordinal+1);
+  const remaining=Math.max(0,TOTAL_AYAHS-ayahs);
+  const percent=Math.min(100,(ayahs/TOTAL_AYAHS)*100);
+  const pages=direction==='Baqarah-to-Nas'?Math.min(TOTAL_PAGES,pageForPosition(current)):Math.min(TOTAL_PAGES,TOTAL_PAGES-pageForPosition(current)+1);
+  const hizbs=direction==='Baqarah-to-Nas'?Math.min(TOTAL_HIZBS,hizbForPosition(current)):Math.min(TOTAL_HIZBS,TOTAL_HIZBS-hizbForPosition(current)+1);
+  return {ayahs,pages,hizbs,percent,remainingAyahs:remaining};
+}
+
 export function remainingFrom(current:Position,direction:'Nas-to-Baqarah'|'Baqarah-to-Nas'='Baqarah-to-Nas'){
   const ordinal=positionOrdinal(current);
   if(direction==='Baqarah-to-Nas') return {ayahs:Math.max(0,TOTAL_AYAHS-ordinal),pages:Math.max(0,TOTAL_PAGES-pageForPosition(current)),hizbs:Math.max(0,TOTAL_HIZBS-hizbForPosition(current))};
