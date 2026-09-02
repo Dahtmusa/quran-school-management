@@ -1,4 +1,3 @@
-import { loadCMSSettings as loadCMSSettingsFromCMS } from './cms-live-store';
 import { createClient } from '@/lib/supabase/client';
 import type { Evaluation, EvaluationStatus, Student, Direction } from '@/lib/data';
 import type { Position } from '@/lib/quran';
@@ -362,6 +361,3 @@ export async function setCurrentAcademicTerm(termId:string){
   const {data,error}=await supabase().rpc('set_current_academic_term',{p_term_id:termId});
   if(error) throw error; return data;
 }
-
-// Backward-compatible export for older pages. New code should import from cms-live-store.
-export async function loadCMSSettings(){ return loadCMSSettingsFromCMS(); }

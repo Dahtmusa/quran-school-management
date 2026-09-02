@@ -1,8 +1,7 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
-import {getCurrentProfile,loadEvaluations,loadOperationalTerms,loadStudents,loadParentStudents,loadTermCompletions,completeTerm,loadCurrentAcademicTerm} from '@/lib/live-store';
-import {loadCMSSettings} from '@/lib/cms-live-store';
+import {getCurrentProfile,loadEvaluations,loadOperationalTerms,loadStudents,loadParentStudents,loadCMSSettings,loadTermCompletions,completeTerm,loadCurrentAcademicTerm} from '@/lib/live-store';
 import {useEffect,useMemo,useState} from 'react';
 import {studentStats} from '@/lib/data';
 export default function Reports(){
