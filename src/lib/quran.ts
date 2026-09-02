@@ -43,3 +43,8 @@ export function remainingFrom(current:Position,direction:'Nas-to-Baqarah'|'Baqar
   if(direction==='Baqarah-to-Nas') return {ayahs:Math.max(0,TOTAL_AYAHS-ordinal),pages:Math.max(0,TOTAL_PAGES-pageForPosition(current)),hizbs:Math.max(0,TOTAL_HIZBS-hizbForPosition(current))};
   return {ayahs:Math.max(0,ordinal-1),pages:Math.max(0,pageForPosition(current)-1),hizbs:Math.max(0,hizbForPosition(current)-1)};
 }
+
+export function calculateEvaluation(start: Position, stop: Position, direction: 'Nas-to-Baqarah'|'Baqarah-to-Nas'='Baqarah-to-Nas') {
+  const result = progressBetween(start, stop, direction);
+  return { memorizedAyahs: result.ayahs, memorizedPages: result.pages, memorizedHizbs: result.hizbs, percentage: Math.round(result.percent * 10) / 10 };
+}
