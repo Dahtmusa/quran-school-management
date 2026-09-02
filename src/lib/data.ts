@@ -1,6 +1,6 @@
 import {Position, progressBetween, remainingFrom, label, pageForPosition, hizbForPosition} from './quran';
 export type Direction='Nas-to-Baqarah'|'Baqarah-to-Nas';
-export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction,className?:string|null,photoUrl?:string|null};
+export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction,className?:string|null,photoUrl?:string|null,studentIdNumber?:string|null};
 const mk=(id:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction):Student=>({id,admissionNo:id,name,section,year,attendance,fees,teacher,start,current,direction});
 export const students:Student[]=[
 mk('ST-1001','Amina Yusuf','Boarding','Year 1',96,120000,'Ustadh Musa',{surah:114,ayah:1},{surah:85,ayah:12},'Nas-to-Baqarah'),
@@ -12,7 +12,7 @@ mk('ST-1006','Yusuf Musa','Day','Year 2',97,0,'Ustadh Hamza',{surah:2,ayah:1},{s
 export function studentStats(s:Student){const p=progressBetween(s.start,s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...p,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current)};}
 export type EvaluationStatus='Approved'|'Pending Approval'|'Draft'|'Returned';
 export type Rubric=1|2|3|4|5;
-export type Evaluation={id:string,studentId:string,student:string,term:string,number:number,status:EvaluationStatus,from:Position,to:Position,memorizedAyahs:number,memorizedPages:number,memorizedHizbs:number,memorization:Rubric,fluency:Rubric,tajweed:Rubric,score:number,comment:string};
+export type Evaluation={id:string,studentId:string,student:string,term:string,number:number,status:EvaluationStatus,from:Position,to:Position,memorizedAyahs:number,memorizedPages:number,memorizedHizbs:number,memorization:Rubric,fluency:Rubric,tajweed:Rubric,score:number,comment:string,campaignId?:string|null,campaign?:any};
 export const evaluations:Evaluation[]=[
 {id:'EV-301',studentId:'ST-1001',student:'Amina Yusuf',term:'Term 1',number:1,status:'Approved',from:{surah:114,ayah:1},to:{surah:82,ayah:19},memorizedAyahs:196,memorizedPages:8,memorizedHizbs:2,memorization:4,fluency:4,tajweed:5,score:87,comment:'Strong memorization with good fluency and very good tajweed.'},
 {id:'EV-302',studentId:'ST-1002',student:'Ibrahim Bello',term:'Term 1',number:1,status:'Pending Approval',from:{surah:114,ayah:1},to:{surah:106,ayah:2},memorizedAyahs:32,memorizedPages:2,memorizedHizbs:1,memorization:4,fluency:3,tajweed:4,score:73,comment:'Good progress. Continue strengthening fluency and daily revision.'},

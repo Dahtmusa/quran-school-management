@@ -1,105 +1,52 @@
 'use client';
-import AdminShell from '@/components/AdminShell';import SectionBadge from '@/components/SectionBadge';
-import QuranProgress from '@/components/QuranProgress';
-import {automatedComment,calculateEvaluation,Evaluation,Rubric,Student} from '@/lib/data';
-import {loadEvaluations,loadStudents,pushEvaluationToTeacher} from '@/lib/live-store';import {createClient} from '@/lib/supabase/client';
-import {SURAHS,Position,label,pageForPosition,hizbForPosition} from '@/lib/quran';
-import {useEffect,useMemo,useState} from 'react';
+import AdminShell from '@/components/AdminShell';
+import SectionBadge from '@/components/SectionBadge';
+import { completeTerm, createEvaluationCampaign, loadClasses, loadEvaluationCampaigns, loadEvaluations, loadOperationalTerms, loadSchoolCalendar, loadStudents, reviewEvaluation } from '@/lib/live-store';
+import { useEffect, useMemo, useState } from 'react';
 
-const rubrics=[1,2,3,4,5] as Rubric[];
-const rubricText=(n:number)=>['Needs significant support','Developing','Satisfactory','Strong','Excellent'][n-1];
+export default function EvaluationsAdmin(){
+  const [evals,setEvals]=useState<any[]>([]),[students,setStudents]=useState<any[]>([]),[campaigns,setCampaigns]=useState<any[]>([]),[terms,setTerms]=useState<any[]>([]),[calendar,setCalendar]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]);
+  const [termId,setTermId]=useState(''),[number,setNumber]=useState<1|2|3>(1),[title,setTitle]=useState('Evaluation 1'),[eventId,setEventId]=useState(''),[selectedClasses,setSelectedClasses]=useState<string[]>([]);
+  const [filter,setFilter]=useState('all'),[campaignFilter,setCampaignFilter]=useState('all'),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const refresh=async()=>{const [e,s,c,t,cal,cl]=await Promise.all([loadEvaluations(),loadStudents(),loadEvaluationCampaigns(),loadOperationalTerms(),loadSchoolCalendar(),loadClasses()]);setEvals(e);setStudents(s);setCampaigns(c);setTerms(t);setCalendar(cal);setClasses(cl);};
+  useEffect(()=>{refresh()},[]);
+  const activeCampaigns=campaigns.filter(c=>c.status==='open'||c.status==='scheduled');
+  const pending=evals.filter(e=>e.status==='Pending Approval');
+  const returned=evals.filter(e=>e.status==='Returned');
+  const approved=evals.filter(e=>e.status==='Approved');
+  const currentCampaign=campaigns.find(c=>c.term_id===termId&&c.evaluation_number===number);
+  const visibleEvents=calendar.filter(e=>e.event_type===`evaluation_${number}` && e.term_id===termId && e.starts_at && e.ends_at);
+  const filtered=useMemo(()=>filter==='all'?evals:evals.filter(e=>e.status===filter),[evals,filter]);
+  const statusForStudent=(studentId:string,term:string)=>{
+    const rows=evals.filter(e=>e.studentId===studentId&&e.term===term);
+    return [1,2,3].map(n=>rows.find(e=>e.number===n)?.status||'Not created');
+  };
+  async function createCampaign(){
+    if(!termId||!eventId||!selectedClasses.length){setMessage('Choose the operational term, calendar window and at least one class.');return;}
+    setBusy(true);setMessage('');try{await createEvaluationCampaign({termId,evaluationNumber:number,title,calendarEventId:eventId,classIds:selectedClasses});setMessage(`Evaluation ${number} created for ${selectedClasses.length} class${selectedClasses.length===1?'':'es'}. Teachers will see it automatically when the calendar window opens.`);await refresh();}catch(e:any){setMessage(e?.message||'Unable to create evaluation.')}finally{setBusy(false)}
+  }
+  async function review(id:string,action:'approve'|'return') {setBusy(true);try{await reviewEvaluation(id,action,action==='return'?'Please correct the evaluation and resubmit.':'');await refresh();setMessage(action==='approve'?'Evaluation approved. Official Quran progress and report-card eligibility updated.':'Evaluation returned to the teacher for correction.')}catch(e:any){setMessage(e?.message||'Review failed')}finally{setBusy(false)}}
+  async function finishTerm(){
+    const target=terms.find(t=>t.id===termId); if(!target)return;
+    if(!confirm(`Mark ${target.name} complete? This requires all active students to have Evaluation 1, 2 and 3 approved and will prepare next-term invoices.`))return;
+    setBusy(true);try{const r:any=await completeTerm(termId);setMessage(`Term completed. ${Number(r?.next_term_invoices_generated||0)} next-term invoice(s) generated.`);await refresh()}catch(e:any){setMessage(e?.message||'Term cannot be completed yet.')}finally{setBusy(false)}
+  }
+  return <AdminShell title="Quran Evaluations">
+    <div className="space-y-6">
+      <section className="rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-900 to-[#9c7420] p-6 text-white shadow-xl md:p-8"><div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">Assessment control centre</div><h2 className="mt-2 text-3xl font-black md:text-4xl">Run evaluations by class, not by student.</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">Admin creates each evaluation, chooses exactly which classes receive it, and links it to the School Calendar. Teachers enter the results during the open window; Admin alone reviews and approves them.</p></div><div className="rounded-2xl bg-white/10 p-4 text-sm backdrop-blur"><div className="text-emerald-100/70">Automation</div><div className="mt-1 font-black">Open → Teacher entry → Auto-submit → Review → Approve</div></div></div></section>
+      {message&&<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5"><Kpi label="Pending approval" value={pending.length} tone="amber"/><Kpi label="Approved" value={approved.length} tone="green"/><Kpi label="Returned" value={returned.length} tone="rose"/><Kpi label="Active windows" value={activeCampaigns.length} tone="blue"/><Kpi label="Students" value={students.length} tone="slate"/></div>
 
-type Term='Term 1'|'Term 2'|'Term 3';
+      <section className="card overflow-hidden"><div className="border-b p-5"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-black">Create & send an evaluation</h2><p className="text-sm text-slate-500">There is no student-level entry here. Select classes and the system creates the teacher work queue.</p></div><span className="pill bg-emerald-50 text-emerald-700">Admin only</span></div></div><div className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
+        <div className="space-y-3"><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Operational term<select className="input mt-1" value={termId} onChange={e=>{setTermId(e.target.value);setEventId('')}}><option value="">Select term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.academic_years?.name||'Academic year'} · {t.name} · {t.starts_on} → {t.ends_on}</option>)}</select></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Evaluation<select className="input mt-1" value={number} onChange={e=>{setNumber(Number(e.target.value) as 1|2|3);setTitle(`Evaluation ${e.target.value}`);setEventId('')}}><option value="1">Evaluation 1</option><option value="2">Evaluation 2</option><option value="3">Evaluation 3</option></select></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Title<input className="input mt-1" value={title} onChange={e=>setTitle(e.target.value)}/></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Calendar window<select className="input mt-1" value={eventId} onChange={e=>setEventId(e.target.value)}><option value="">Select calendar evaluation window</option>{visibleEvents.map(e=><option key={e.id} value={e.id}>{e.title} · {new Date(e.starts_at).toLocaleString()} → {new Date(e.ends_at).toLocaleString()}</option>)}</select></label>{termId&&!visibleEvents.length&&<div className="rounded-xl bg-amber-50 p-3 text-xs font-semibold text-amber-900">No matching Evaluation {number} calendar window is configured for this term. Create it in School Calendar first.</div>}</div>
+        <div><div className="text-xs font-black uppercase tracking-wide text-slate-500">Send to classes</div><div className="mt-1 rounded-2xl border bg-slate-50 p-3"><label className="flex items-center gap-3 rounded-xl bg-white p-3 font-bold"><input type="checkbox" checked={selectedClasses.length===classes.filter(c=>c.active).length&&classes.length>0} onChange={e=>setSelectedClasses(e.target.checked?classes.filter(c=>c.active).map(c=>c.id):[])}/><span>All active classes</span></label><div className="mt-2 grid gap-2 sm:grid-cols-2">{classes.filter(c=>c.active).map(c=><label key={c.id} className={`flex items-center justify-between rounded-xl border p-3 ${selectedClasses.includes(c.id)?'border-emerald-500 bg-emerald-50':'bg-white'}`}><span className="min-w-0"><input type="checkbox" className="mr-2" checked={selectedClasses.includes(c.id)} onChange={e=>setSelectedClasses(v=>e.target.checked?[...v,c.id]:v.filter(x=>x!==c.id))}/><b>{c.name}</b><span className="ml-1 text-xs text-slate-400">{c.code}</span></span><span className="text-xs text-slate-500">{c.teachers?.length||0} teacher(s)</span></label>)}</div></div><div className="mt-4 rounded-2xl bg-emerald-950 p-4 text-sm text-emerald-50"><b className="text-white">What happens next?</b><ul className="mt-2 space-y-1 text-xs leading-5 text-emerald-100/80"><li>• Draft evaluation records are created for students in the selected classes.</li><li>• They automatically open to assigned teachers at the calendar start time.</li><li>• At the closing time, unfinished drafts are auto-submitted for Admin review.</li><li>• Submitted records disappear from the teacher until Admin returns one.</li></ul></div></div>
+      </div><div className="flex flex-wrap justify-end gap-2 border-t bg-slate-50 p-4"><button className="btn bg-white" onClick={()=>{setTermId('');setEventId('');setSelectedClasses([])}}>Reset</button><button className="btn btn-primary" disabled={busy||!termId||!eventId||!selectedClasses.length||!!currentCampaign} onClick={createCampaign}>{currentCampaign?'Already created':'Create & send evaluation'}</button></div></section>
 
-export default function Evaluations(){
- const [items,setItems]=useState<Evaluation[]>([]);
- const [studentList,setStudentList]=useState<Student[]>([]);
- const [studentId,setStudentId]=useState('');
- const [term,setTerm]=useState<Term>('Term 1');
- const [number,setNumber]=useState<1|2|3>(1);
- const [selectedId,setSelectedId]=useState('');
- const [to,setTo]=useState<Position>({surah:2,ayah:1});
- const [memorization,setMem]=useState<Rubric>(4),[fluency,setFlu]=useState<Rubric>(4),[tajweed,setTaj]=useState<Rubric>(4);
- useEffect(()=>{loadEvaluations().then(setItems);loadStudents().then(s=>{setStudentList(s);if(s[0])setStudentId(s[0].id)})},[]);
- const student=studentList.find(s=>s.id===studentId);
- const selected=items.find(e=>e.id===selectedId);
- const current=student?.current ?? {surah:2,ayah:1};
- const locked=!!selected && selected.status==='Approved';
- const submitted=!!selected && selected.status==='Pending Approval';
- useEffect(()=>{
-   if(selected){
-     setStudentId(selected.studentId); setTerm(selected.term as Term); setNumber(selected.number as 1|2|3); setTo(selected.to); setMem(selected.memorization); setFlu(selected.fluency); setTaj(selected.tajweed);
-   } else if(student){ setTo(student.current); setMem(4); setFlu(4); setTaj(4); }
- },[selectedId,student?.id]);
- const from=selected?.from ?? current;
- const calc=useMemo(()=>calculateEvaluation(from,to,student?.direction||'Baqarah-to-Nas'),[from,to,student?.direction]);
- const comment=automatedComment(memorization,fluency,tajweed);
- const score=Math.round(((memorization+fluency+tajweed)/15)*100);
- const direction=student?.direction || 'Baqarah-to-Nas';
- const ordinal=(p:Position)=>SURAHS.slice(0,p.surah-1).reduce((n,s)=>n+s.ayahs,0)+p.ayah;
- const validStop=direction==='Baqarah-to-Nas'?ordinal(to)>ordinal(from):ordinal(to)<ordinal(from);
+      <section className="card overflow-hidden"><div className="flex flex-col gap-3 border-b p-5 lg:flex-row lg:items-center lg:justify-between"><div><h2 className="text-xl font-black">Evaluation campaigns</h2><p className="text-sm text-slate-500">Each campaign is tied to a calendar window and a specific set of classes.</p></div><div className="flex flex-wrap gap-2">{['all','scheduled','open','closed','completed'].map(x=><button key={x} className={`btn ${campaignFilter===x?'bg-slate-900 text-white':'bg-slate-100'}`} onClick={()=>setCampaignFilter(x)}>{x}</button>)}</div></div><div className="divide-y">{campaigns.filter(c=>campaignFilter==='all'||c.status===campaignFilter).map(c=><div key={c.id} className="p-5"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{c.title}</h3><span className={`pill ${c.status==='open'?'bg-emerald-50 text-emerald-700':c.status==='scheduled'?'bg-blue-50 text-blue-700':'bg-slate-100'}`}>{c.status}</span></div><div className="mt-1 text-xs text-slate-500">{c.terms?.name||'Term'} · Evaluation {c.evaluation_number} · {new Date(c.opens_at).toLocaleString()} → {new Date(c.closes_at).toLocaleString()}</div></div><div className="text-sm font-bold">{(c.evaluation_campaign_classes||[]).length} classes</div></div><div className="mt-3 flex flex-wrap gap-2">{(c.evaluation_campaign_classes||[]).map((x:any)=><span className="pill bg-slate-50" key={x.class_id}>{x.classes?.name||'Class'}</span>)}</div></div>)}{!campaigns.length&&<div className="p-10 text-center text-sm text-slate-500">No evaluation campaigns yet.</div>}</div></section>
 
- const chooseEvaluation=(id:string)=>{setSelectedId(id);};
- const clearBuilder=()=>{setSelectedId('');if(student){setTo(student.current);setMem(4);setFlu(4);setTaj(4)}};
- const updateStatus=async (id:string,status:Evaluation['status'])=>{
-   const db=createClient(); const nextDbStatus=status==='Approved'?'approved':status==='Returned'?'returned':'pending_approval';
-   const user=(await db.auth.getUser()).data.user; if(!user){alert('Please sign in again.');return;}
-   const patch:any={status:nextDbStatus}; if(status==='Approved'){patch.approved_by=user.id;patch.approved_at=new Date().toISOString();}
-   const {error}=await db.from('evaluations').update(patch).eq('id',id); if(error){alert(error.message);return;}
-   const next=await loadEvaluations(); setItems(next); const nextStudents=await loadStudents(); setStudentList(nextStudents);
- };
- const submit=async()=>{
-   if(!student)return;
-   if(!validStop){alert(`The stopping position must move ${direction==='Baqarah-to-Nas'?'forward':'backward'} from the student's current official position.`);return;}
-   const existing=items.find(e=>e.studentId===student.id&&e.term===term&&e.number===number);
-   if(existing && !['Draft','Returned'].includes(existing.status)){alert(`Evaluation ${number} for ${student.name} already has status: ${existing.status}. It cannot be overwritten.`);return;}
-   const base:Evaluation={
-     id:existing?.id || 'EV-'+Date.now(),studentId:student.id,student:student.name,term,number,status:'Pending Approval',from,to,
-     ...calculateEvaluation(from,to,direction),memorization,fluency,tajweed,score,comment
-   };
-   const db=createClient(); const user=(await db.auth.getUser()).data.user; if(!user){alert('Please sign in again.');return;}
-   const {data:defs}=await db.from('program_term_definitions').select('id,term_number').eq('term_number',Number(term.split(' ')[1])).limit(1);
-   const termDefinitionId=defs?.[0]?.id; if(!termDefinitionId){alert('The selected programme term definition is not available in the database yet.');return;}
-   const payload:any={student_id:student.id,teacher_id:user.id,term_definition_id:termDefinitionId,evaluation_number:number,status:'pending_approval',score,tajweed_score:tajweed,fluency_score:fluency,accuracy_score:memorization,teacher_comment:comment,submitted_at:new Date().toISOString(),from_surah:from.surah,from_ayah:from.ayah,to_surah:to.surah,to_ayah:to.ayah,memorized_ayahs:calc.memorizedAyahs,memorized_pages:calc.memorizedPages,memorized_hizbs:calc.memorizedHizbs};
-   if(existing){const {error}=await db.from('evaluations').update(payload).eq('id',existing.id);if(error){alert(error.message);return;}setSelectedId(existing.id);}else{const {data,error}=await db.from('evaluations').insert(payload).select('id').single();if(error){alert(error.message);return;}setSelectedId(data.id);}
-   setItems(await loadEvaluations()); alert('Submitted to Admin. Official Quran progress and report-card eligibility remain unchanged until Admin approval.');
- };
- return <AdminShell title="Quran Evaluations">
-  <div className="grid gap-4 md:grid-cols-4">
-   <Stat label="Formal evaluations / term" value="3" sub="Evaluation 1 · 2 · 3"/>
-   <Stat label="Pending approval" value={String(items.filter(e=>e.status==='Pending Approval').length)} sub="Excluded from reports"/>
-   <Stat label="Approved" value={String(items.filter(e=>e.status==='Approved').length)} sub="Official progress records"/>
-   <Stat label="Returned" value={String(items.filter(e=>e.status==='Returned').length)} sub="Teacher correction required"/>
-  </div>
-
-  <div className="card mt-6 p-5">
-   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold">Approval queue</h2><p className="text-xs text-slate-500">Only approved evaluations can update the student's official stage or appear on a report card.</p></div><button className="btn btn-green" onClick={clearBuilder}>+ New evaluation</button></div>
-   <div className="mt-4 space-y-3">{items.map(e=><div className="flex flex-col gap-3 rounded-xl border p-4 lg:flex-row lg:items-center lg:justify-between" key={e.id}><div><div className="flex items-center gap-2"><div className="font-semibold">{e.student}</div><SectionBadge section={studentList.find(s=>s.id===e.studentId)?.section}/></div><div className="text-xs text-slate-500">{e.term} · Evaluation {e.number} · {label(e.from)} → {label(e.to)} · {e.score}%</div><div className="mt-1 text-xs text-slate-500">Memorized: {e.memorizedAyahs} ayahs · {e.memorizedPages} pages · {e.memorizedHizbs} Hizb</div></div><div className="flex flex-wrap items-center gap-2"><span className="pill bg-slate-100">{e.status}</span><button onClick={()=>chooseEvaluation(e.id)} className="btn bg-slate-100">Review</button>{(e.status==='Pending Approval'||e.status==='Returned')&&<button onClick={async()=>{try{await pushEvaluationToTeacher(e.id);setItems(await loadEvaluations());}catch(err:any){alert(err?.message||'Unable to push')}}} className="btn bg-blue-50 text-blue-700">Push to teacher</button>}{e.status==='Pending Approval'&&<><button onClick={()=>updateStatus(e.id,'Approved')} className="btn btn-green">Approve</button><button onClick={()=>updateStatus(e.id,'Returned')} className="btn bg-rose-50 text-rose-700">Return</button></>}</div></div>)}</div>
-  </div>
-
-  <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.15fr]">
-   {student&&<QuranProgress student={student}/>} 
-   <div className="card p-5">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-bold">Evaluation builder</h2><p className="text-xs text-slate-500">The starting position is automatically taken from the student's current official stage.</p></div>{locked?<span className="pill bg-emerald-50 text-emerald-700">Approved & locked</span>:submitted?<span className="pill bg-amber-50 text-amber-700">Awaiting Admin</span>:<span className="pill bg-blue-50 text-blue-700">Teacher entry</span>}</div>
-    <div className="mt-4 grid gap-3 sm:grid-cols-3">
-      <label className="text-xs font-bold">Student<select className="input mt-1" value={studentId} disabled={locked||submitted} onChange={e=>{setStudentId(e.target.value);setSelectedId('')}}>{studentList.map(s=><option key={s.id} value={s.id}>{s.name} · {s.section} · {s.id}</option>)}</select></label>
-      <label className="text-xs font-bold">Term<select className="input mt-1" value={term} disabled={locked||submitted} onChange={e=>{setTerm(e.target.value as Term);setSelectedId('')}}><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></label>
-      <label className="text-xs font-bold">Evaluation<select className="input mt-1" value={number} disabled={locked||submitted} onChange={e=>{setNumber(Number(e.target.value) as 1|2|3);setSelectedId('')}}><option value={1}>Evaluation 1</option><option value={2}>Evaluation 2</option><option value={3}>Evaluation 3</option></select></label>
+      <section className="card overflow-hidden"><div className="flex flex-col gap-3 border-b p-5 lg:flex-row lg:items-center lg:justify-between"><div><h2 className="text-xl font-black">Student status & progress — one glance</h2><p className="text-sm text-slate-500">Admin sees every student's evaluation state. Only approved evaluations count as official Quran progress.</p></div><div className="flex flex-wrap gap-2">{[['all','All'],['Pending Approval','Pending'],['Approved','Approved'],['Returned','Returned']].map(([v,l])=><button key={v} className={`btn ${filter===v?'bg-slate-900 text-white':'bg-slate-100'}`} onClick={()=>setFilter(v)}>{l}</button>)}<button className="btn bg-emerald-50 text-emerald-800" onClick={finishTerm} disabled={busy||!termId}>Mark selected term complete</button></div></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500"><tr><th className="p-4">Student</th><th>Class</th><th>Progress</th><th>Eval 1</th><th>Eval 2</th><th>Eval 3</th><th>Action</th></tr></thead><tbody>{students.map(s=>{const rows=evals.filter(e=>e.studentId===s.id); const statuses=termId?statusForStudent(s.id,terms.find(t=>t.id===termId)?.name||''):['Not selected','Not selected','Not selected']; const row=rows.find(e=>e.status==='Pending Approval')||rows.find(e=>e.status==='Returned'); return <tr key={s.id} className="border-t"><td className="p-4"><div className="flex items-center gap-3"><div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100">{s.photoUrl?<img src={s.photoUrl} className="h-full w-full object-cover" alt=""/>:<div className="grid h-full place-items-center font-black text-slate-400">{s.name.charAt(0)}</div>}</div><div><b>{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo}</div></div></div></td><td>{s.className||'Unassigned'}<div className="text-xs"><SectionBadge section={s.section}/></div></td><td><div className="font-black text-emerald-800">Surah {s.current?.surah}:{s.current?.ayah}</div><div className="text-xs text-slate-500">{s.year}</div></td>{statuses.map((st,i)=><td key={i}><StatusBadge status={st}/></td>)}<td>{row?<div className="flex flex-wrap gap-2">{row.status==='Pending Approval'&&<button className="btn btn-green" disabled={busy} onClick={()=>review(row.id,'approve')}>Approve</button>}{row.status==='Pending Approval'&&<button className="btn bg-rose-50 text-rose-700" disabled={busy} onClick={()=>review(row.id,'return')}>Return</button>}{row.status==='Returned'&&<span className="text-xs font-bold text-rose-700">Awaiting teacher correction</span>}</div>:<span className="text-xs text-slate-400">No review action</span>}</td></tr>})}</tbody></table></div></section>
     </div>
-    {student&&<div className="mt-4 rounded-xl bg-slate-50 p-4"><div className="text-xs font-bold uppercase tracking-wide text-slate-500">Current official memorization position</div><div className="mt-1 text-xl font-black text-slate-900">{label(current)}</div><div className="mt-1 text-xs text-slate-500">Direction: {student.direction} · Page {pageForPosition(student.current)} · Hizb {hizbForPosition(student.current)}</div></div>}
-    <div className="mt-4 grid gap-3 sm:grid-cols-2"><PositionField title="Starting position (locked to current stage)" value={from} onChange={()=>{}} disabled/><PositionField title="New stopping position" value={to} onChange={setTo} disabled={locked||submitted}/></div>
-    <div className="mt-4 grid grid-cols-3 gap-2 text-center"><Metric value={calc.memorizedAyahs} label="Ayahs memorized"/><Metric value={calc.memorizedPages} label="Pages covered"/><Metric value={calc.memorizedHizbs} label="Hizbs covered"/></div>
-    {!validStop&&<div className="mt-3 rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">Invalid stopping position for this student's memorization direction.</div>}
-    <RubricField title="Memorization" value={memorization} setValue={setMem} disabled={locked||submitted}/><RubricField title="Fluency" value={fluency} setValue={setFlu} disabled={locked||submitted}/><RubricField title="Tajweed" value={tajweed} setValue={setTaj} disabled={locked||submitted}/>
-    <div className="mt-4 rounded-xl bg-slate-50 p-4"><div className="text-xs font-bold text-slate-500">AUTOMATED COMMENT</div><p className="mt-1 text-sm">{comment}</p><div className="mt-2 text-xs font-bold">Overall rubric score: {score}%</div></div>
-    {!locked&&!submitted&&<button disabled={!student||!validStop} onClick={submit} className="btn btn-primary mt-4 w-full disabled:opacity-40">Submit to Admin for Approval</button>}
-    {submitted&&<div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm font-semibold text-amber-900">This evaluation is pending Admin approval. It does not change the official student stage and cannot enter the report card yet.</div>}
-    {locked&&<div className="mt-4 rounded-xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">Approved. The student's official memorization stage has advanced to {label(to)}. This evaluation is now locked.</div>}
-   </div>
-  </div>
- </AdminShell>
+  </AdminShell>
 }
-function Stat({label,value,sub}:{label:string,value:string,sub:string}){return <div className="card p-5"><div className="text-sm text-slate-500">{label}</div><div className="mt-2 text-3xl font-black">{value}</div><div className="mt-1 text-xs text-slate-500">{sub}</div></div>}
-function Metric({value,label}:{value:number;label:string}){return <div className="rounded-xl bg-slate-50 p-3"><b className="block text-xl">{value.toLocaleString()}</b><span className="text-xs">{label}</span></div>}
-function PositionField({title,value,onChange,disabled=false}:{title:string,value:Position,onChange:(p:Position)=>void,disabled?:boolean}){const s=SURAHS.find(x=>x.id===value.surah)!;return <div><label className="text-xs font-bold">{title}</label><select disabled={disabled} value={value.surah} onChange={e=>onChange({surah:Number(e.target.value),ayah:1})} className="input mt-1 disabled:bg-slate-50">{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select><input disabled={disabled} type="number" min={1} max={s.ayahs} value={value.ayah} onChange={e=>onChange({surah:value.surah,ayah:Math.min(s.ayahs,Math.max(1,Number(e.target.value)||1))})} className="input mt-2 disabled:bg-slate-50"/><div className="mt-1 text-[11px] text-slate-500">Selected: {label(value)} · max {s.ayahs} ayahs</div></div>}
-function RubricField({title,value,setValue,disabled}:{title:string,value:Rubric,setValue:(v:Rubric)=>void,disabled:boolean}){return <div className="mt-4"><div className="text-xs font-bold">{title}</div><div className="mt-2 grid grid-cols-5 gap-1">{rubrics.map(n=><button disabled={disabled} key={n} onClick={()=>setValue(n)} className={`rounded-lg border p-2 text-xs font-bold disabled:opacity-50 ${value===n?'bg-[#102a43] text-white':'bg-white'}`}><span className="block text-base">{n}</span>{rubricText(n)}</button>)}</div></div>}
+function Kpi({label,value,tone}:{label:string,value:number,tone:string}){const bg=tone==='green'?'bg-emerald-50 text-emerald-900':tone==='amber'?'bg-amber-50 text-amber-900':tone==='rose'?'bg-rose-50 text-rose-900':tone==='blue'?'bg-blue-50 text-blue-900':'bg-slate-50 text-slate-900';return <div className={`rounded-2xl p-5 ${bg}`}><div className="text-xs font-bold uppercase tracking-wide opacity-70">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
+function StatusBadge({status}:{status:string}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':status==='Draft'?'bg-blue-50 text-blue-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}</span>}

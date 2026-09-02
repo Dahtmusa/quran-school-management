@@ -25,42 +25,33 @@ export async function getCurrentProfile() {
 }
 
 export async function loadStudents(): Promise<Student[]> {
-  const db = supabase();
-  const { data, error } = await db.from('students').select('*,classes:class_id(name)').order('full_name');
-  if (error || !data) return [];
-  const ids = data.map(s => s.id);
-  const [{ data: teachers }, { data: fees }, { data: attendance }] = await Promise.all([
-    ids.length ? db.from('teacher_students').select('student_id,teacher_id,profiles:teacher_id(full_name)').in('student_id', ids) : Promise.resolve({data: [] as any[]}),
-    ids.length ? db.from('student_fees').select('student_id,amount_due,amount_paid').in('student_id', ids) : Promise.resolve({data: [] as any[]}),
-    ids.length ? db.from('attendance_records').select('student_id,status').in('student_id', ids) : Promise.resolve({data: [] as any[]}),
-  ]);
-  return data.map((s: any) => {
-    const ts = (teachers ?? []).find((x:any)=>x.student_id===s.id);
-    const sf = (fees ?? []).filter((x:any)=>x.student_id===s.id);
-    const ar = (attendance ?? []).filter((x:any)=>x.student_id===s.id);
-    const attended = ar.filter((x:any)=>x.status==='present'||x.status==='late').length;
-    const attendancePct = ar.length ? Math.round(attended/ar.length*100) : 0;
-    const due = sf.reduce((n:any,x:any)=>n+Number(x.amount_due||0)-Number(x.amount_paid||0),0);
-    return {
-      id:s.id, admissionNo:s.admission_no, name:s.full_name,
-      section:s.section === 'boarding' ? 'Boarding' : 'Day', year:mapYear(s.program_year),
-      attendance:attendancePct, fees:due, teacher:ts?.profiles?.full_name ?? 'Unassigned',
-      start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
-      current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
-      direction:mapDirection(s.memorization_direction),
-      className:s.classes?.name ?? null,
-      photoUrl:s.photo_url ?? null,
-    } satisfies Student;
-  });
+  const profile = await getCurrentProfile();
+  if (profile?.role === 'parent') return loadParentStudents();
+  const { data, error } = await supabase().rpc('admin_get_student_directory');
+  if (error || !data) { console.error('Student directory load failed:', error); return []; }
+  return data.map((s:any) => ({
+    id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null,
+    section:s.section === 'boarding' ? 'Boarding' : 'Day', year:mapYear(s.program_year),
+    attendance:Number(s.attendance_percent ?? 0), fees:Number(s.fees_due ?? 0), teacher:s.teacher_name ?? 'Unassigned',
+    start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
+    current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
+    direction:mapDirection(s.memorization_direction), className:s.class_name ?? null, photoUrl:s.photo_url ?? null,
+  } satisfies Student));
+}
+
+export async function loadParentStudents(): Promise<Student[]> {
+  const { data, error } = await supabase().from('parent_students').select('student_id,relationship,students:student_id(*,classes:class_id(name))');
+  if(error||!data) return [];
+  return (data as any[]).map((r:any)=>{const st=r.students;return {id:st.id,admissionNo:st.admission_no,name:st.full_name,studentIdNumber:st.student_id_number??null,section:st.section==='boarding'?'Boarding':'Day',year:mapYear(st.program_year),attendance:0,fees:0,teacher:'',start:{surah:st.start_surah??114,ayah:st.start_ayah??1},current:{surah:st.current_surah??st.start_surah??114,ayah:st.current_ayah??st.start_ayah??1},direction:mapDirection(st.memorization_direction),className:st.classes?.name??null,photoUrl:st.photo_url??null} satisfies Student});
 }
 
 export async function loadEvaluations(): Promise<Evaluation[]> {
   const db = supabase();
-  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name)').order('submitted_at',{ascending:false});
+  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false});
   if (error || !data) return [];
   return data.map((e:any) => ({
     id:e.id, studentId:e.student_id, student:e.students?.full_name ?? 'Student',
-    term:e.term_definition_id ? `Term ${e.evaluation_number}` : 'Term', number:e.evaluation_number,
+    term:e.terms?.name ?? 'Term', number:e.evaluation_number, campaignId:e.campaign_id ?? null, campaign:e.evaluation_campaigns ?? null,
     status:mapStatus(e.status), from:{surah:e.from_surah,ayah:e.from_ayah} as Position,
     to:{surah:e.to_surah,ayah:e.to_ayah} as Position, memorizedAyahs:e.memorized_ayahs,
     memorizedPages:e.memorized_pages, memorizedHizbs:e.memorized_hizbs,
@@ -75,6 +66,11 @@ export async function loadAdmissions() {
   const { data, error } = await supabase().from('admissions').select('*').order('created_at',{ascending:false});
   if (error || !data) return [];
   return data.map((a:any)=>({id:a.application_no,name:a.applicant_name,parent:a.parent_name,section:a.requested_section==='boarding'?'Boarding':'Day',year:mapYear(a.requested_program_year),status:a.status}));
+}
+
+export async function loadInvoices(){
+  const {data,error}=await supabase().from('invoices').select('*,students:student_id(full_name,admission_no,photo_url),terms:term_id(name,term_number,academic_years:academic_year_id(name))').order('generated_at',{ascending:false});
+  if(error||!data)return []; return data;
 }
 
 export async function loadPayments() {
@@ -261,9 +257,52 @@ export async function loadTeacherDirectory() {
 }
 
 export async function loadTeacherEvaluations() {
-  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url)').eq('teacher_visible',true).order('teacher_visible_at',{ascending:false});
+  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false});
   if (error || !data) return [];
   return data;
+}
+
+export async function submitTeacherEvaluation(input:{evaluationId:string;toSurah:number;toAyah:number;accuracy:number;fluency:number;tajweed:number;score:number;comment:string}) {
+  const { error } = await supabase().rpc('submit_teacher_evaluation',{
+    p_evaluation_id:input.evaluationId,p_to_surah:input.toSurah,p_to_ayah:input.toAyah,p_accuracy:input.accuracy,
+    p_fluency:input.fluency,p_tajweed:input.tajweed,p_score:input.score,p_comment:input.comment||null,
+  });
+  if(error) throw error;
+}
+
+export async function reviewEvaluation(id:string,action:'approve'|'return',adminComment?:string) {
+  const { error } = await supabase().rpc('review_evaluation',{p_evaluation_id:id,p_action:action,p_admin_comment:adminComment||null});
+  if(error) throw error;
+}
+
+export async function loadEvaluationCampaigns() {
+  const { data, error } = await supabase().from('evaluation_campaigns').select('*,terms:term_id(name,term_number),evaluation_campaign_classes(class_id,classes:class_id(name))').order('created_at',{ascending:false});
+  if(error||!data) return []; return data;
+}
+
+export async function createEvaluationCampaign(input:{termId:string;evaluationNumber:1|2|3;title:string;calendarEventId:string;classIds:string[]}) {
+  const { data,error } = await supabase().rpc('create_evaluation_campaign',{p_term_id:input.termId,p_evaluation_number:input.evaluationNumber,p_title:input.title,p_calendar_event_id:input.calendarEventId,p_class_ids:input.classIds});
+  if(error) throw error; return data as string;
+}
+
+export async function loadOperationalTerms() {
+  const { data,error } = await supabase().from('terms').select('id,name,term_number,starts_on,ends_on,academic_year_id,academic_years:academic_year_id(name,is_current)').order('starts_on',{ascending:false}).order('term_number');
+  if(error||!data) return []; return data;
+}
+
+export async function ensureAcademicTerm(input:{yearName:string;yearStart:string;yearEnd:string;termNumber:number;termStart:string;termEnd:string}) {
+  const { data,error } = await supabase().rpc('ensure_academic_term',{p_year_name:input.yearName,p_year_start:input.yearStart,p_year_end:input.yearEnd,p_term_number:input.termNumber,p_term_start:input.termStart,p_term_end:input.termEnd});
+  if(error) throw error; return data as string;
+}
+
+export async function completeTerm(termId:string,notes?:string) {
+  const { data,error } = await supabase().rpc('complete_term',{p_term_id:termId,p_notes:notes||null});
+  if(error) throw error; return data;
+}
+
+export async function loadTermCompletions() {
+  const { data,error } = await supabase().from('term_completions').select('*').order('completed_at',{ascending:false});
+  if(error||!data) return []; return data;
 }
 
 export async function recordTeacherAttendance(studentId:string,status:'present'|'absent'|'late'|'excused',note?:string) {
