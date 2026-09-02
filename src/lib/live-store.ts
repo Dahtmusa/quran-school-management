@@ -49,6 +49,7 @@ export async function loadStudents(): Promise<Student[]> {
       current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
       direction:mapDirection(s.memorization_direction),
       className:s.classes?.name ?? null,
+      photoUrl:s.photo_url ?? null,
     } satisfies Student;
   });
 }
@@ -179,7 +180,7 @@ export async function updateStudentClass(studentId: string, classId: string | nu
 }
 
 export async function createStudent(input: {
-  admissionNo: string;
+  admissionNo?: string;
   fullName: string;
   dateOfBirth?: string;
   gender?: string;
@@ -189,9 +190,10 @@ export async function createStudent(input: {
   startSurah: number;
   startAyah: number;
   classId?: string | null;
+  photoUrl?: string | null;
 }) {
   const { data, error } = await supabase().from('students').insert({
-    admission_no: input.admissionNo.trim(),
+    admission_no: input.admissionNo?.trim() || 'auto',
     full_name: input.fullName.trim(),
     date_of_birth: input.dateOfBirth || null,
     gender: input.gender || null,
@@ -202,9 +204,10 @@ export async function createStudent(input: {
     start_ayah: input.startAyah,
     class_id: input.classId || null,
     status: 'active',
-  }).select('id').single();
+    photo_url: input.photoUrl || null,
+  }).select('id,admission_no').single();
   if (error) throw error;
-  return data.id as string;
+  return data as { id: string; admission_no: string };
 }
 
 export async function updateStudentBasic(studentId: string, input: Partial<{
@@ -213,24 +216,30 @@ export async function updateStudentBasic(studentId: string, input: Partial<{
   date_of_birth: string | null;
   gender: string | null;
   status: string;
+  photo_url?: string | null;
 }>) {
   const { error } = await supabase().from('students').update(input).eq('id', studentId);
   if (error) throw error;
 }
 
 export async function loadStaffProfiles() {
-  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,created_at').order('full_name');
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at').order('full_name');
   if (error || !data) return [];
   return data;
 }
 
-export async function createStaffAccount(input: {fullName:string;email:string;password:string;role:string;phone?:string}) {
+export async function createStaffAccount(input: {fullName:string;email:string;password:string;role:string;phone?:string;jobTitle?:string;department?:string;joinedOn?:string}) {
   const { data, error } = await supabase().functions.invoke('admin-create-user', { body: {
-    full_name: input.fullName, email: input.email, password: input.password, role: input.role, phone: input.phone || null,
+    full_name: input.fullName, email: input.email, password: input.password, role: input.role, phone: input.phone || null, job_title: input.jobTitle || null, department: input.department || null, joined_on: input.joinedOn || null,
   }});
   if (error) throw error;
   if (data?.error) throw new Error(data.error);
   return data;
+}
+
+export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null}) {
+  const { error } = await supabase().from('profiles').update(input).eq('id',id);
+  if (error) throw error;
 }
 
 export async function loadSurahs() {

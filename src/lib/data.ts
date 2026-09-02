@@ -1,6 +1,6 @@
 import {Position, progressBetween, remainingFrom, label, pageForPosition, hizbForPosition} from './quran';
 export type Direction='Nas-to-Baqarah'|'Baqarah-to-Nas';
-export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction,className?:string|null};
+export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction,className?:string|null,photoUrl?:string|null};
 const mk=(id:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction):Student=>({id,admissionNo:id,name,section,year,attendance,fees,teacher,start,current,direction});
 export const students:Student[]=[
 mk('ST-1001','Amina Yusuf','Boarding','Year 1',96,120000,'Ustadh Musa',{surah:114,ayah:1},{surah:85,ayah:12},'Nas-to-Baqarah'),
