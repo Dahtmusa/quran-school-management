@@ -1,0 +1,10 @@
+{
+  "name":"Al Huda Quran Memorization School",
+  "short_name":"Al Huda School",
+  "start_url":"/",
+  "display":"standalone",
+  "background_color":"#f7f5ef",
+  "theme_color":"#062d2a",
+  "description":"Quran memorization school website and management platform",
+  "icons":[]
+}

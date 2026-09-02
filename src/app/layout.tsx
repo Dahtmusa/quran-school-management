@@ -1,0 +1,5 @@
+import './globals.css';
+import type {Metadata,Viewport} from 'next';
+export const metadata:Metadata={title:'Al Huda Quran Memorization School',description:'International-standard Quran memorization school website and management platform',applicationName:'Al Huda School',manifest:'/manifest.webmanifest'};
+export const viewport:Viewport={width:'device-width',initialScale:1,viewportFit:'cover',themeColor:'#062d2a'};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

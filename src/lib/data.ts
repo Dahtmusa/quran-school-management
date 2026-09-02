@@ -1,0 +1,24 @@
+import {Position, progressBetween, remainingFrom, label, pageForPosition, hizbForPosition} from './quran';
+export type Direction='Nas-to-Baqarah'|'Baqarah-to-Nas';
+export type Student={id:string,admissionNo:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction};
+const mk=(id:string,name:string,section:'Day'|'Boarding',year:'Year 1'|'Year 2',attendance:number,fees:number,teacher:string,start:Position,current:Position,direction:Direction):Student=>({id,admissionNo:id,name,section,year,attendance,fees,teacher,start,current,direction});
+export const students:Student[]=[
+mk('ST-1001','Amina Yusuf','Boarding','Year 1',96,120000,'Ustadh Musa',{surah:114,ayah:1},{surah:85,ayah:12},'Nas-to-Baqarah'),
+mk('ST-1002','Ibrahim Bello','Day','Year 1',91,45000,'Ustadh Hamza',{surah:114,ayah:1},{surah:104,ayah:5},'Nas-to-Baqarah'),
+mk('ST-1003','Maryam Ahmed','Boarding','Year 2',98,0,'Ustadha Fatima',{surah:2,ayah:1},{surah:19,ayah:42},'Baqarah-to-Nas'),
+mk('ST-1004','Abdullah Umar','Day','Year 2',94,25000,'Ustadh Musa',{surah:2,ayah:1},{surah:9,ayah:64},'Baqarah-to-Nas'),
+mk('ST-1005','Hauwa Sani','Boarding','Year 1',89,85000,'Ustadha Fatima',{surah:93,ayah:1},{surah:78,ayah:30},'Nas-to-Baqarah'),
+mk('ST-1006','Yusuf Musa','Day','Year 2',97,0,'Ustadh Hamza',{surah:2,ayah:1},{surah:50,ayah:12},'Baqarah-to-Nas')];
+export function studentStats(s:Student){const p=progressBetween(s.start,s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...p,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current)};}
+export type EvaluationStatus='Approved'|'Pending Approval'|'Draft'|'Returned';
+export type Rubric=1|2|3|4|5;
+export type Evaluation={id:string,studentId:string,student:string,term:string,number:number,status:EvaluationStatus,from:Position,to:Position,memorizedAyahs:number,memorizedPages:number,memorizedHizbs:number,memorization:Rubric,fluency:Rubric,tajweed:Rubric,score:number,comment:string};
+export const evaluations:Evaluation[]=[
+{id:'EV-301',studentId:'ST-1001',student:'Amina Yusuf',term:'Term 1',number:1,status:'Approved',from:{surah:114,ayah:1},to:{surah:82,ayah:19},memorizedAyahs:196,memorizedPages:8,memorizedHizbs:2,memorization:4,fluency:4,tajweed:5,score:87,comment:'Strong memorization with good fluency and very good tajweed.'},
+{id:'EV-302',studentId:'ST-1002',student:'Ibrahim Bello',term:'Term 1',number:1,status:'Pending Approval',from:{surah:114,ayah:1},to:{surah:106,ayah:2},memorizedAyahs:32,memorizedPages:2,memorizedHizbs:1,memorization:4,fluency:3,tajweed:4,score:73,comment:'Good progress. Continue strengthening fluency and daily revision.'},
+{id:'EV-303',studentId:'ST-1003',student:'Maryam Ahmed',term:'Term 1',number:2,status:'Approved',from:{surah:14,ayah:52},to:{surah:19,ayah:42},memorizedAyahs:143,memorizedPages:7,memorizedHizbs:2,memorization:5,fluency:5,tajweed:4,score:93,comment:'Excellent memorization, confident fluency and strong tajweed.'},
+{id:'EV-304',studentId:'ST-1004',student:'Abdullah Umar',term:'Term 1',number:2,status:'Draft',from:{surah:8,ayah:1},to:{surah:9,ayah:64},memorizedAyahs:139,memorizedPages:10,memorizedHizbs:2,memorization:4,fluency:4,tajweed:4,score:80,comment:''},
+{id:'EV-305',studentId:'ST-1005',student:'Hauwa Sani',term:'Term 1',number:1,status:'Pending Approval',from:{surah:90,ayah:1},to:{surah:87,ayah:12},memorizedAyahs:74,memorizedPages:3,memorizedHizbs:1,memorization:3,fluency:4,tajweed:3,score:67,comment:'Steady progress. More revision will help improve retention and tajweed.'}];
+export const admissions=[{id:'AD-2026-014',name:'Fatima Ibrahim',parent:'Ibrahim Ahmed',section:'Boarding',year:'Year 1',status:'Under review'},{id:'AD-2026-015',name:'Omar Bello',parent:'Sani Bello',section:'Day',year:'Year 1',status:'Submitted'},{id:'AD-2026-016',name:'Aisha Yusuf',parent:'Yusuf Musa',section:'Boarding',year:'Year 2',status:'Accepted'}];
+export function automatedComment(m:Rubric,f:Rubric,t:Rubric){const avg=(m+f+t)/3; if(avg>=4.5)return 'Excellent memorization with confident fluency and very strong tajweed.'; if(avg>=3.8)return 'Strong progress with good fluency and tajweed. Continue regular revision.'; if(avg>=3)return 'Good progress. Continue strengthening retention, fluency and tajweed through consistent revision.'; return 'Progress is developing. Focus on daily revision, fluency and tajweed before the next evaluation.';}
+export function calculateEvaluation(from:Position,to:Position,direction:Direction='Baqarah-to-Nas'){const a=progressBetween(from,to,direction);return {memorizedAyahs:a.ayahs,memorizedPages:a.pages,memorizedHizbs:a.hizbs};}
