@@ -86,3 +86,36 @@ export async function deleteAlumniProfile(id: string) {
   const { error } = await db().from('alumni_profiles').delete().eq('id', id);
   if (error) throw error;
 }
+
+export async function loadPublicHomepageMedia() {
+  const { data, error } = await db().from('homepage_media').select('*').eq('visible', true).order('sort_order').order('created_at', { ascending: false });
+  return error || !data ? [] : data;
+}
+
+export async function loadAdminHomepageMedia() {
+  const { data, error } = await db().from('homepage_media').select('*').order('sort_order').order('created_at', { ascending: false });
+  return error || !data ? [] : data;
+}
+
+export async function saveHomepageMedia(item: any) {
+  const { data, error } = await db().from('homepage_media').upsert({
+    id: item.id || undefined,
+    title: item.title,
+    description: item.description || null,
+    category: item.category || 'Student Activities',
+    media_type: item.media_type,
+    public_url: item.public_url,
+    storage_path: item.storage_path || null,
+    alt_text: item.alt_text || null,
+    visible: item.visible !== false,
+    sort_order: Number(item.sort_order || 0),
+    updated_at: new Date().toISOString(),
+  }).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteHomepageMedia(id: string) {
+  const { error } = await db().from('homepage_media').delete().eq('id', id);
+  if (error) throw error;
+}

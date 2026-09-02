@@ -9,7 +9,7 @@ function dashboardFor(role?:string){
  if(role==='parent') return '/parent';
  if(role==='security') return '/attendance';
  if(role==='finance') return '/fees';
- if(role==='admissions') return '/admissions';
+ if(role==='admissions') return '/admissions/manage';
  return '/admin';
 }
 export default function Login(){const [email,setEmail]=useState('');const [password,setPassword]=useState('');const [busy,setBusy]=useState(false);const [error,setError]=useState('');
