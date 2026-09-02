@@ -170,7 +170,7 @@ export async function removeTeacherFromClass(classId: string, teacherId: string)
 }
 
 export async function updateStudentSection(studentId: string, section: 'day' | 'boarding') {
-  const { error } = await supabase().rpc('update_student_section', { p_student_id: studentId, p_section: section });
+  const { error } = await supabase().from('students').update({section}).eq('id', studentId);
   if (error) throw error;
 }
 
@@ -246,3 +246,69 @@ export async function loadSurahs() {
   const { data, error } = await supabase().from('quran_surahs').select('id,name,ayah_count').order('id');
   return error || !data ? [] : data;
 }
+
+export async function loadTeacherDirectory() {
+  const { data, error } = await supabase().rpc('get_teacher_student_directory');
+  if (error || !data) return [];
+  return data.map((r:any) => ({
+    id:r.student_id, admissionNo:r.admission_no, name:r.full_name, dateOfBirth:r.date_of_birth, gender:r.gender,
+    section:r.section === 'boarding' ? 'Boarding' : 'Day', year:r.program_year === 'year_2' ? 'Year 2' : 'Year 1',
+    status:r.status, photoUrl:r.photo_url, start:{surah:r.start_surah,ayah:r.start_ayah},
+    current:{surah:r.current_surah,ayah:r.current_ayah,page:r.current_page,hizb:r.current_hizb},
+    className:r.class_name, classId:r.class_id,
+    parent:{name:r.parent_name,phone:r.parent_phone,relationship:r.parent_relationship},
+  }));
+}
+
+export async function loadTeacherEvaluations() {
+  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url)').eq('teacher_visible',true).order('teacher_visible_at',{ascending:false});
+  if (error || !data) return [];
+  return data;
+}
+
+export async function recordTeacherAttendance(studentId:string,status:'present'|'absent'|'late'|'excused',note?:string) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('You are not signed in');
+  const client=supabase(); const attendance_date=new Date().toISOString().slice(0,10);
+  const {data:existing}=await client.from('attendance_records').select('id').eq('student_id',studentId).eq('attendance_date',attendance_date).maybeSingle();
+  const {error}=existing ? await client.from('attendance_records').update({recorded_by:user.id,status,note:note||null}).eq('id',existing.id) : await client.from('attendance_records').insert({student_id:studentId,recorded_by:user.id,attendance_date,status,note:note||null});
+  if(error) throw error;
+}
+
+export async function updateOwnProfile(input:{phone?:string|null;avatar_url?:string|null}) {
+  const user = await getCurrentUser();
+  if (!user) throw new Error('You are not signed in');
+  const { error } = await supabase().from('profiles').update(input).eq('id',user.id);
+  if (error) throw error;
+}
+
+export async function uploadProfileImage(file:File,folder:'staff'|'students') {
+  const client=supabase(); const safe=file.name.toLowerCase().replace(/[^a-z0-9._-]+/g,'-');
+  const path=`${folder}/${new Date().getFullYear()}/${crypto.randomUUID()}-${safe}`;
+  const {error}=await client.storage.from('school-profile-media').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type||undefined});
+  if(error) throw error;
+  const {data}=client.storage.from('school-profile-media').getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function submitAdmissionApplication(input:any){
+ const {data,error}=await supabase().rpc('submit_admission_application',{
+  p_applicant_name:input.applicantName,p_date_of_birth:input.dateOfBirth||null,p_gender:input.gender||null,
+  p_parent_name:input.parentName,p_parent_phone:input.parentPhone,p_guardian_name:input.guardianName||null,
+  p_guardian_phone:input.guardianPhone||null,p_guardian_email:input.guardianEmail||null,p_guardian_relationship:input.guardianRelationship||null,
+  p_address:input.address,p_state:input.state,p_lga:input.lga,p_requested_section:input.section,p_requested_program_year:input.programYear,
+  p_previous_school:input.previousSchool||null,p_quran_level:input.quranLevel||null,p_starting_surah:input.startingSurah||null,p_starting_ayah:input.startingAyah||null,
+ });
+ if(error) throw error; return data;
+}
+
+export async function loadAdmissionApplications(){
+ const {data,error}=await supabase().from('admissions').select('*').order('created_at',{ascending:false});
+ if(error||!data)return []; return data;
+}
+export async function updateAdmissionApplication(id:string,input:any){const {error}=await supabase().from('admissions').update(input).eq('id',id);if(error)throw error;}
+export async function enrollAdmissionApplication(id:string,classId:string|null,startSurah:number|null,startAyah:number|null,score:number|null,notes:string){const {data,error}=await supabase().rpc('enroll_admission_application',{p_application_id:id,p_class_id:classId||null,p_starting_surah:startSurah,p_starting_ayah:startAyah,p_screening_score:score,p_screening_notes:notes||null});if(error)throw error;return data;}
+export async function loadSchoolCalendar(){const {data,error}=await supabase().from('school_calendar_events').select('*').order('starts_on');return error||!data?[]:data;}
+export async function saveSchoolCalendarEvent(input:any){const user=await getCurrentUser();const {data,error}=await supabase().from('school_calendar_events').insert({...input,created_by:user?.id||null}).select().single();if(error)throw error;return data;}
+export async function deleteSchoolCalendarEvent(id:string){const {error}=await supabase().from('school_calendar_events').delete().eq('id',id);if(error)throw error;}
+export async function pushEvaluationToTeacher(id:string){const {error}=await supabase().rpc('push_evaluation_to_teacher',{p_evaluation_id:id});if(error)throw error;}

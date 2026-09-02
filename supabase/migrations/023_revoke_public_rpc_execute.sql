@@ -1,0 +1,16 @@
+revoke execute on function public.assign_staff_id() from public;
+revoke execute on function public.assign_student_admission_no() from public;
+revoke execute on function public.generate_staff_id(public.user_role,integer) from public;
+revoke execute on function public.generate_student_admission_no(integer) from public;
+revoke execute on function public.next_school_number(text,integer) from public;
+revoke execute on function public.is_teacher_profile(uuid) from public;
+revoke execute on function public.sync_class_teacher_students() from public;
+revoke execute on function public.update_student_section(uuid,public.section_type) from public;
+revoke execute on function public.get_teacher_student_directory() from public;
+revoke execute on function public.enroll_admission_application(uuid,uuid,smallint,smallint,numeric,text) from public;
+revoke execute on function public.push_evaluation_to_teacher(uuid) from public;
+revoke execute on function public.submit_admission_application(text,date,text,text,text,text,text,text,text,text,text,text,public.section_type,public.program_year,text,text,smallint,smallint) from public;
+grant execute on function public.get_teacher_student_directory() to authenticated;
+grant execute on function public.enroll_admission_application(uuid,uuid,smallint,smallint,numeric,text) to authenticated;
+grant execute on function public.push_evaluation_to_teacher(uuid) to authenticated;
+grant execute on function public.submit_admission_application(text,date,text,text,text,text,text,text,text,text,text,text,public.section_type,public.program_year,text,text,smallint,smallint) to anon;

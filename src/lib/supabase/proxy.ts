@@ -7,15 +7,16 @@ const roleRoutes:{prefix:string;roles:string[]}[]=[
  {prefix:'/cms',roles:['super_admin','admin','principal']},
  {prefix:'/students',roles:['super_admin','admin','principal','admissions']},
  {prefix:'/classes',roles:['super_admin','admin','principal']},
- {prefix:'/teacher',roles:['teacher','super_admin','admin','principal']},
+ {prefix:'/admissions/manage',roles:['super_admin','admin','principal','admissions']},
+ {prefix:'/teacher',roles:['teacher']},
  {prefix:'/parent',roles:['parent','super_admin','admin','principal']},
  {prefix:'/fees',roles:['finance','super_admin','admin','principal','parent']},
- {prefix:'/attendance',roles:['security','teacher','super_admin','admin','principal','parent']},
- {prefix:'/evaluations',roles:['teacher','super_admin','admin','principal','parent']},
- {prefix:'/reports',roles:['teacher','super_admin','admin','principal','parent']},
+ {prefix:'/attendance',roles:['security','super_admin','admin','principal']},
+ {prefix:'/evaluations',roles:['super_admin','admin','principal']},
+ {prefix:'/reports',roles:['super_admin','admin','principal','parent']},
 ];
-function isPublic(path:string){return publicPaths.some(p=>path===p||path.startsWith(p+'/'))}
-function dashboard(role:string){if(role==='teacher')return '/teacher';if(role==='parent')return '/parent';if(role==='security')return '/attendance';if(role==='finance')return '/fees';if(role==='admissions')return '/admissions';return '/admin'}
+function isPublic(path:string){return publicPaths.some(p=>p==='/admissions'?path==='/admissions':path===p||path.startsWith(p+'/'))}
+function dashboard(role:string){if(role==='teacher')return '/teacher';if(role==='parent')return '/parent';if(role==='security')return '/attendance';if(role==='finance')return '/fees';if(role==='admissions')return '/admissions/manage';return '/admin'}
 export async function updateSession(request:NextRequest){
  let response=NextResponse.next({request});
  const supabase=createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{cookies:{getAll(){return request.cookies.getAll()},setAll(cookiesToSet){cookiesToSet.forEach(({name,value,options})=>request.cookies.set(name,value));response=NextResponse.next({request});cookiesToSet.forEach(({name,value,options})=>response.cookies.set(name,value,options))}}});

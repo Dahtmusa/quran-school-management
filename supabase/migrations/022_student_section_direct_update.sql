@@ -1,0 +1,1 @@
+-- Application now uses the students UPDATE RLS policy directly for section changes.
