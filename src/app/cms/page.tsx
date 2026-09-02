@@ -1,6 +1,6 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
-import {defaultHomepage,loadHomepage,loadTeam,saveHomepage,loadAlumni,saveAlumni,HomepageConfig,TeamProfile,AlumniProfile} from '@/lib/cms-store';
+import {defaultHomepage,loadHomepage,loadTeam,saveTeam,saveHomepage,loadAlumni,saveAlumni,HomepageConfig,TeamProfile,AlumniProfile} from '@/lib/cms-store';
 import {useEffect,useState} from 'react';
 import type {ChangeEvent} from 'react';
 
