@@ -1,5 +1,5 @@
-import { loadCMSSettings } from '@/lib/cms-live-store';
 'use client';
+import { loadCMSSettings } from '@/lib/cms-live-store';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import {getCurrentProfile,loadEvaluations,loadOperationalTerms,loadStudents,loadParentStudents,loadTermCompletions,completeTerm,loadCurrentAcademicTerm} from '@/lib/live-store';
