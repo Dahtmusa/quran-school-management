@@ -177,3 +177,63 @@ export async function updateStudentClass(studentId: string, classId: string | nu
   const { error } = await supabase().from('students').update({ class_id: classId || null }).eq('id', studentId);
   if (error) throw error;
 }
+
+export async function createStudent(input: {
+  admissionNo: string;
+  fullName: string;
+  dateOfBirth?: string;
+  gender?: string;
+  section: 'day'|'boarding';
+  programYear: 'year_1'|'year_2';
+  memorizationDirection: 'nas_to_baqarah'|'baqarah_to_nas';
+  startSurah: number;
+  startAyah: number;
+  classId?: string | null;
+}) {
+  const { data, error } = await supabase().from('students').insert({
+    admission_no: input.admissionNo.trim(),
+    full_name: input.fullName.trim(),
+    date_of_birth: input.dateOfBirth || null,
+    gender: input.gender || null,
+    section: input.section,
+    program_year: input.programYear,
+    memorization_direction: input.memorizationDirection,
+    start_surah: input.startSurah,
+    start_ayah: input.startAyah,
+    class_id: input.classId || null,
+    status: 'active',
+  }).select('id').single();
+  if (error) throw error;
+  return data.id as string;
+}
+
+export async function updateStudentBasic(studentId: string, input: Partial<{
+  full_name: string;
+  admission_no: string;
+  date_of_birth: string | null;
+  gender: string | null;
+  status: string;
+}>) {
+  const { error } = await supabase().from('students').update(input).eq('id', studentId);
+  if (error) throw error;
+}
+
+export async function loadStaffProfiles() {
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,created_at').order('full_name');
+  if (error || !data) return [];
+  return data;
+}
+
+export async function createStaffAccount(input: {fullName:string;email:string;password:string;role:string;phone?:string}) {
+  const { data, error } = await supabase().functions.invoke('admin-create-user', { body: {
+    full_name: input.fullName, email: input.email, password: input.password, role: input.role, phone: input.phone || null,
+  }});
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
+  return data;
+}
+
+export async function loadSurahs() {
+  const { data, error } = await supabase().from('quran_surahs').select('id,name,ayah_count').order('id');
+  return error || !data ? [] : data;
+}

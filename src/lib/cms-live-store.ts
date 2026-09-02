@@ -1,0 +1,88 @@
+import { createClient } from '@/lib/supabase/client';
+
+export type CMSSection = {
+  id: string;
+  section_key: string;
+  title: string | null;
+  content: Record<string, any>;
+  sort_order: number;
+  visible: boolean;
+};
+
+export type CMSSettings = Record<string, any>;
+
+const db = () => createClient();
+
+export async function loadCMSSections(includeHidden = false): Promise<CMSSection[]> {
+  let query = db().from('homepage_sections').select('id,section_key,title,content,sort_order,visible').order('sort_order');
+  if (!includeHidden) query = query.eq('visible', true);
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return data as CMSSection[];
+}
+
+export async function loadCMSSettings(): Promise<CMSSettings> {
+  const { data, error } = await db().from('site_settings').select('key,value');
+  if (error || !data) return {};
+  return Object.fromEntries(data.map((r: any) => [r.key, r.value]));
+}
+
+export async function saveCMSSection(section: Pick<CMSSection, 'id'|'section_key'|'title'|'content'|'sort_order'|'visible'>) {
+  const { error } = await db().from('homepage_sections').upsert({
+    id: section.id,
+    section_key: section.section_key,
+    title: section.title,
+    content: section.content,
+    sort_order: section.sort_order,
+    visible: section.visible,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'section_key' });
+  if (error) throw error;
+}
+
+export async function saveCMSSetting(key: string, value: any) {
+  const { error } = await db().from('site_settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) throw error;
+}
+
+export async function loadPublicTeam() {
+  const { data, error } = await db().from('public_team_profiles').select('*').eq('published', true).eq('display_on_homepage', true).order('sort_order');
+  return error || !data ? [] : data;
+}
+
+export async function loadPublicAlumni() {
+  const { data, error } = await db().from('alumni_profiles').select('*').eq('published', true).order('display_order');
+  return error || !data ? [] : data;
+}
+
+export async function loadAdminTeam() {
+  const { data, error } = await db().from('public_team_profiles').select('*').order('sort_order').order('full_name');
+  return error || !data ? [] : data;
+}
+
+export async function loadAdminAlumni() {
+  const { data, error } = await db().from('alumni_profiles').select('*').order('display_order').order('full_name');
+  return error || !data ? [] : data;
+}
+
+export async function saveTeamProfile(profile: any) {
+  const { data, error } = await db().from('public_team_profiles').upsert(profile).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTeamProfile(id: string) {
+  const { error } = await db().from('public_team_profiles').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function saveAlumniProfile(profile: any) {
+  const { data, error } = await db().from('alumni_profiles').upsert(profile).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteAlumniProfile(id: string) {
+  const { error } = await db().from('alumni_profiles').delete().eq('id', id);
+  if (error) throw error;
+}
