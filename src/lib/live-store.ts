@@ -26,7 +26,7 @@ export async function getCurrentProfile() {
 
 export async function loadStudents(): Promise<Student[]> {
   const db = supabase();
-  const { data, error } = await db.from('students').select('*').order('full_name');
+  const { data, error } = await db.from('students').select('*,classes:class_id(name)').order('full_name');
   if (error || !data) return [];
   const ids = data.map(s => s.id);
   const [{ data: teachers }, { data: fees }, { data: attendance }] = await Promise.all([
@@ -48,6 +48,7 @@ export async function loadStudents(): Promise<Student[]> {
       start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
       current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
       direction:mapDirection(s.memorization_direction),
+      className:s.classes?.name ?? null,
     } satisfies Student;
   });
 }
@@ -88,7 +89,6 @@ export type LiveClass = {
   code: string;
   academicYearId: string | null;
   academicYearName: string | null;
-  section: 'Day' | 'Boarding' | null;
   programYear: 'Year 1' | 'Year 2' | null;
   capacity: number | null;
   active: boolean;
@@ -118,7 +118,7 @@ export async function loadClasses(): Promise<LiveClass[]> {
   const db = supabase();
   const { data, error } = await db
     .from('classes')
-    .select('id,name,code,academic_year_id,section,program_year,capacity,active,academic_years:academic_year_id(name),class_teachers(teacher_id,is_primary,profiles:teacher_id(full_name))')
+    .select('id,name,code,academic_year_id,program_year,capacity,active,academic_years:academic_year_id(name),class_teachers(teacher_id,is_primary,profiles:teacher_id(full_name))')
     .order('name');
   if (error || !data) return [];
   return data.map((c: any) => ({
@@ -127,7 +127,6 @@ export async function loadClasses(): Promise<LiveClass[]> {
     code: c.code,
     academicYearId: c.academic_year_id,
     academicYearName: c.academic_years?.name ?? null,
-    section: c.section === 'boarding' ? 'Boarding' : c.section === 'day' ? 'Day' : null,
     programYear: c.program_year === 'year_2' ? 'Year 2' : c.program_year === 'year_1' ? 'Year 1' : null,
     capacity: c.capacity,
     active: c.active,
@@ -139,7 +138,6 @@ export async function createClass(input: {
   name: string;
   code: string;
   academicYearId?: string | null;
-  section?: 'day' | 'boarding' | null;
   programYear?: 'year_1' | 'year_2' | null;
   capacity?: number | null;
 }) {
@@ -148,7 +146,6 @@ export async function createClass(input: {
     name: input.name.trim(),
     code: input.code.trim().toUpperCase(),
     academic_year_id: input.academicYearId || null,
-    section: input.section || null,
     program_year: input.programYear || null,
     capacity: input.capacity || null,
     created_by: user?.id ?? null,
@@ -168,5 +165,15 @@ export async function assignTeacherToClass(classId: string, teacherId: string, p
 
 export async function removeTeacherFromClass(classId: string, teacherId: string) {
   const { error } = await supabase().from('class_teachers').delete().eq('class_id', classId).eq('teacher_id', teacherId);
+  if (error) throw error;
+}
+
+export async function updateStudentSection(studentId: string, section: 'day' | 'boarding') {
+  const { error } = await supabase().rpc('update_student_section', { p_student_id: studentId, p_section: section });
+  if (error) throw error;
+}
+
+export async function updateStudentClass(studentId: string, classId: string | null) {
+  const { error } = await supabase().from('students').update({ class_id: classId || null }).eq('id', studentId);
   if (error) throw error;
 }

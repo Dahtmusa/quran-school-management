@@ -1,5 +1,5 @@
 'use client';
-import AdminShell from '@/components/AdminShell';
+import AdminShell from '@/components/AdminShell';import SectionBadge from '@/components/SectionBadge';
 import QuranProgress from '@/components/QuranProgress';
 import {automatedComment,calculateEvaluation,Evaluation,Rubric,Student} from '@/lib/data';
 import {loadEvaluations,loadStudents} from '@/lib/live-store';import {createClient} from '@/lib/supabase/client';
@@ -74,7 +74,7 @@ export default function Evaluations(){
 
   <div className="card mt-6 p-5">
    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold">Approval queue</h2><p className="text-xs text-slate-500">Only approved evaluations can update the student's official stage or appear on a report card.</p></div><button className="btn btn-green" onClick={clearBuilder}>+ New evaluation</button></div>
-   <div className="mt-4 space-y-3">{items.map(e=><div className="flex flex-col gap-3 rounded-xl border p-4 lg:flex-row lg:items-center lg:justify-between" key={e.id}><div><div className="font-semibold">{e.student}</div><div className="text-xs text-slate-500">{e.term} · Evaluation {e.number} · {label(e.from)} → {label(e.to)} · {e.score}%</div><div className="mt-1 text-xs text-slate-500">Memorized: {e.memorizedAyahs} ayahs · {e.memorizedPages} pages · {e.memorizedHizbs} Hizb</div></div><div className="flex flex-wrap items-center gap-2"><span className="pill bg-slate-100">{e.status}</span><button onClick={()=>chooseEvaluation(e.id)} className="btn bg-slate-100">Review</button>{e.status==='Pending Approval'&&<><button onClick={()=>updateStatus(e.id,'Approved')} className="btn btn-green">Approve</button><button onClick={()=>updateStatus(e.id,'Returned')} className="btn bg-rose-50 text-rose-700">Return</button></>}</div></div>)}</div>
+   <div className="mt-4 space-y-3">{items.map(e=><div className="flex flex-col gap-3 rounded-xl border p-4 lg:flex-row lg:items-center lg:justify-between" key={e.id}><div><div className="flex items-center gap-2"><div className="font-semibold">{e.student}</div><SectionBadge section={studentList.find(s=>s.id===e.studentId)?.section}/></div><div className="text-xs text-slate-500">{e.term} · Evaluation {e.number} · {label(e.from)} → {label(e.to)} · {e.score}%</div><div className="mt-1 text-xs text-slate-500">Memorized: {e.memorizedAyahs} ayahs · {e.memorizedPages} pages · {e.memorizedHizbs} Hizb</div></div><div className="flex flex-wrap items-center gap-2"><span className="pill bg-slate-100">{e.status}</span><button onClick={()=>chooseEvaluation(e.id)} className="btn bg-slate-100">Review</button>{e.status==='Pending Approval'&&<><button onClick={()=>updateStatus(e.id,'Approved')} className="btn btn-green">Approve</button><button onClick={()=>updateStatus(e.id,'Returned')} className="btn bg-rose-50 text-rose-700">Return</button></>}</div></div>)}</div>
   </div>
 
   <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_1.15fr]">
@@ -82,7 +82,7 @@ export default function Evaluations(){
    <div className="card p-5">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h2 className="font-bold">Evaluation builder</h2><p className="text-xs text-slate-500">The starting position is automatically taken from the student's current official stage.</p></div>{locked?<span className="pill bg-emerald-50 text-emerald-700">Approved & locked</span>:submitted?<span className="pill bg-amber-50 text-amber-700">Awaiting Admin</span>:<span className="pill bg-blue-50 text-blue-700">Teacher entry</span>}</div>
     <div className="mt-4 grid gap-3 sm:grid-cols-3">
-      <label className="text-xs font-bold">Student<select className="input mt-1" value={studentId} disabled={locked||submitted} onChange={e=>{setStudentId(e.target.value);setSelectedId('')}}>{studentList.map(s=><option key={s.id} value={s.id}>{s.name} · {s.id}</option>)}</select></label>
+      <label className="text-xs font-bold">Student<select className="input mt-1" value={studentId} disabled={locked||submitted} onChange={e=>{setStudentId(e.target.value);setSelectedId('')}}>{studentList.map(s=><option key={s.id} value={s.id}>{s.name} · {s.section} · {s.id}</option>)}</select></label>
       <label className="text-xs font-bold">Term<select className="input mt-1" value={term} disabled={locked||submitted} onChange={e=>{setTerm(e.target.value as Term);setSelectedId('')}}><option>Term 1</option><option>Term 2</option><option>Term 3</option></select></label>
       <label className="text-xs font-bold">Evaluation<select className="input mt-1" value={number} disabled={locked||submitted} onChange={e=>{setNumber(Number(e.target.value) as 1|2|3);setSelectedId('')}}><option value={1}>Evaluation 1</option><option value={2}>Evaluation 2</option><option value={3}>Evaluation 3</option></select></label>
     </div>
