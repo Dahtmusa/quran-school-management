@@ -21,7 +21,7 @@ type ExtProfile = {
 const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,nationality:'Nigerian',parent_name:null,parent_phone:null,parent_email:null,guardian_name:null,guardian_phone:null,guardian_email:null,guardian_relationship:null,emergency_contact_name:null,emergency_contact_phone:null,date_of_birth:null,gender:null};
 
 export default function Students(){
- const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All');
+ const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
  const [selected,setSelected]=useState<Student|null>(null);
  const [extProfile,setExtProfile]=useState<ExtProfile>(blankExt);
@@ -40,7 +40,12 @@ export default function Students(){
    setActiveTab('academic');
  },[selected]);
 
- const filtered=useMemo(()=>all.filter(s=>(section==='All'||s.section===section)&&s.name.toLowerCase().includes(q.toLowerCase())),[all,q,section]);
+ const filtered=useMemo(()=>all.filter(s=>
+   (section==='All'||s.section===section)&&
+   (gender==='All'||s.gender===gender.toLowerCase())&&
+   (classFilter==='All'||(s.className??'Unassigned')===classFilter)&&
+   s.name.toLowerCase().includes(q.toLowerCase())
+ ),[all,q,section,gender,classFilter]);
 
  async function saveStudent(){
    if(!edit)return; setSaving(true); setMessage('');
@@ -79,9 +84,21 @@ export default function Students(){
      <div><h2 className="font-bold">Student Directory</h2><p className="text-xs text-slate-500">Admin can create, edit, place and manage students.</p></div>
      <button className="btn btn-primary" onClick={()=>setShowCreate(true)}>+ Add Student</button>
    </div>
-   <div className="flex flex-col gap-3 border-b p-4 md:flex-row">
-     <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search student..." className="rounded-lg border px-3 py-2 text-sm md:w-72"/>
-     <select value={section} onChange={e=>setSection(e.target.value)} className="rounded-lg border px-3 py-2 text-sm"><option>All</option><option>Day</option><option>Boarding</option></select>
+   <div className="flex flex-wrap gap-3 border-b p-4">
+     <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search student..." className="rounded-lg border px-3 py-2 text-sm md:w-64"/>
+     <select value={section} onChange={e=>setSection(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+       <option value="All">All sections</option><option value="Day">Day</option><option value="Boarding">Boarding</option>
+     </select>
+     <select value={gender} onChange={e=>setGender(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+       <option value="All">All genders</option><option value="Male">Male</option><option value="Female">Female</option>
+     </select>
+     <select value={classFilter} onChange={e=>setClassFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+       <option value="All">All classes</option>
+       {[...new Set(all.map(s=>s.className??'Unassigned'))].sort().map(c=><option key={c} value={c}>{c}</option>)}
+     </select>
+     {(section!=='All'||gender!=='All'||classFilter!=='All'||q)&&
+       <button onClick={()=>{setQ('');setSection('All');setGender('All');setClassFilter('All');}} className="rounded-lg border px-3 py-2 text-sm text-slate-500 hover:bg-slate-50">✕ Clear</button>}
+     <span className="self-center text-xs text-slate-400">{filtered.length} student{filtered.length!==1?'s':''}</span>
    </div>
    <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase"><tr><th className="p-4">Student</th><th>Section</th><th>Class</th><th>Year</th><th>Direction</th><th>Attendance</th><th>Outstanding</th><th></th></tr></thead>
    <tbody>{filtered.map(s=><tr className="border-t" key={s.id}>

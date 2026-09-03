@@ -36,6 +36,7 @@ export async function loadStudents(): Promise<Student[]> {
     start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
     current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
     direction:mapDirection(s.memorization_direction), className:s.class_name ?? null, photoUrl:s.photo_url ?? null,
+    gender:s.gender ?? null,
   } satisfies Student));
 }
 
