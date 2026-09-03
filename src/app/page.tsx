@@ -186,18 +186,18 @@ export default function Home() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_25%,rgba(243,191,67,.34),transparent_23%)]" />
         <div className="relative mx-auto grid min-h-[540px] max-w-[1320px] items-center px-5 py-14 sm:px-7 lg:min-h-[600px] lg:grid-cols-[1.12fr_.88fr] lg:py-20">
           <div className="max-w-3xl">
-            <div className="eyebrow">{hero.eyebrow || 'A two-year journey with the Book of Allah'}</div>
-            <h1 className="mt-5 max-w-4xl whitespace-pre-line font-serif text-4xl font-black leading-[1.02] sm:text-6xl lg:text-[66px]">{hero.title || 'Memorizing the Book of Allah\nBuilding a Better Ummah'}</h1>
-            <p className="mt-6 max-w-2xl text-base leading-7 text-white/85 sm:text-lg">{hero.subtitle || "A structured 2-year Qur'an memorization programme that nurtures hearts, strengthens faith and builds a strong foundation for a life with the Qur'an."}</p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              {admissionOpen && <Link href={hero.primary_href || '/admissions'} className="btn rounded-xl bg-[#d9a11e] px-6 py-3.5 text-slate-950 shadow-lg">{hero.primary_cta || 'Apply for Admission'} <span>→</span></Link>}
-              <Link href={hero.secondary_href || '/about'} className="btn rounded-xl border border-white/30 bg-white/95 px-6 py-3.5 text-emerald-950">{hero.secondary_cta || 'Learn More'} <span>▶</span></Link>
+            <div className="eyebrow hero-fade-up" style={{animationDelay:'0ms'}}>{hero.eyebrow || 'A two-year journey with the Book of Allah'}</div>
+            <h1 className="mt-5 max-w-4xl whitespace-pre-line font-serif text-4xl font-black leading-[1.02] sm:text-6xl lg:text-[66px] hero-fade-up" style={{animationDelay:'140ms'}}>{hero.title || 'Memorizing the Book of Allah\nBuilding a Better Ummah'}</h1>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-white/85 sm:text-lg hero-fade-up" style={{animationDelay:'280ms'}}>{hero.subtitle || "A structured 2-year Qur'an memorization programme that nurtures hearts, strengthens faith and builds a strong foundation for a life with the Qur'an."}</p>
+            <div className="mt-8 flex flex-wrap gap-3 hero-fade-up" style={{animationDelay:'400ms'}}>
+              {admissionOpen && <Link href={hero.primary_href || '/admissions'} className="btn rounded-xl bg-[#d9a11e] px-6 py-3.5 text-slate-950 shadow-lg transition-transform hover:scale-105 active:scale-95">{hero.primary_cta || 'Apply for Admission'} <span>→</span></Link>}
+              <Link href={hero.secondary_href || '/about'} className="btn rounded-xl border border-white/30 bg-white/95 px-6 py-3.5 text-emerald-950 transition-transform hover:scale-105 active:scale-95">{hero.secondary_cta || 'Learn More'} <span>▶</span></Link>
             </div>
-            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-white/80"><span>✓ Qur'an Memorization</span><span>✓ Day & Boarding</span><span>✓ 3 Evaluations Per Term</span></div>
+            <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs font-semibold text-white/80 hero-fade-up" style={{animationDelay:'520ms'}}><span>✓ Qur'an Memorization</span><span>✓ Day & Boarding</span><span>✓ 3 Evaluations Per Term</span></div>
           </div>
-          <div className="hidden justify-end lg:flex">
-            <div className="max-w-[370px] rounded-[2rem] border border-white/20 bg-black/15 p-7 text-right backdrop-blur-md">
-              <div className="font-serif text-6xl text-[#f3bf43]">الله</div>
+          <div className="hidden justify-end lg:flex hero-fade-up" style={{animationDelay:'200ms'}}>
+            <div className="hero-float max-w-[370px] rounded-[2rem] border border-white/20 bg-black/15 p-7 text-right backdrop-blur-md shadow-2xl">
+              <div className="hero-glow font-serif text-6xl text-[#f3bf43]">الله</div>
               <p className="mt-5 font-serif text-xl font-bold leading-8">"{hero.quote || 'Indeed, it is We who sent down the Qur\'an and indeed, We will be its guardian.'}"</p>
               <div className="mt-4 text-sm font-semibold text-[#f3bf43]">— {hero.quote_source || 'Al-Hijr (15:9)'}</div>
             </div>
