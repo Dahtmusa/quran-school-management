@@ -1,0 +1,280 @@
+'use client';
+import AdminShell from '@/components/AdminShell';
+import Link from 'next/link';
+import { loadStaffProfiles, createStaffAccount, updateStaffProfile, loadClasses, uploadProfileImage, type LiveClass } from '@/lib/live-store';
+import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
+import { useEffect, useState, useMemo } from 'react';
+
+type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean};
+type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number};
+
+const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
+const STATUS_OPTS=['active','inactive','suspended','left'];
+const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0};
+
+export default function StaffPage(){
+ const [tab,setTab]=useState<'teaching'|'leadership'>('teaching');
+ const [staff,setStaff]=useState<StaffProfile[]>([]);
+ const [classes,setClasses]=useState<LiveClass[]>([]);
+ const [team,setTeam]=useState<TeamProfile[]>([]);
+ const [message,setMessage]=useState('');
+ const [busy,setBusy]=useState(false);
+
+ /* ── teaching edit ── */
+ const [editT,setEditT]=useState<StaffProfile|null>(null);
+ const [photoFile,setPhotoFile]=useState<File|null>(null);
+
+ /* ── create teacher ── */
+ const [showCreate,setShowCreate]=useState(false);
+ const [cf,setCf]=useState({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:''});
+
+ /* ── leadership edit ── */
+ const [editL,setEditL]=useState<Partial<TeamProfile>|null>(null);
+ const [lPhotoFile,setLPhotoFile]=useState<File|null>(null);
+
+ const refresh=async()=>{
+   const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
+   setStaff(s as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
+ };
+ useEffect(()=>{refresh()},[]);
+
+ const teachers=useMemo(()=>staff.filter(s=>s.role==='teacher'),[staff]);
+ const teacherClasses=useMemo(()=>{const m:Record<string,string[]>={};for(const c of classes)for(const t of c.teachers){if(!m[t.id])m[t.id]=[];m[t.id].push(c.name)}return m;},[classes]);
+
+ async function saveTeacher(){
+   if(!editT)return; setBusy(true);
+   try{
+     let avatar_url=editT.avatar_url;
+     if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
+     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website});
+     await refresh();setEditT(null);setPhotoFile(null);setMessage('Staff profile updated.');
+   }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
+ }
+
+ async function createTeacher(e:React.FormEvent){
+   e.preventDefault();setBusy(true);
+   try{
+     const r=await createStaffAccount({...cf,role:'teacher'});
+     setShowCreate(false);setCf({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:''});
+     await refresh();setMessage(`Teacher created. Staff ID: ${r?.staff_id||'auto-assigned'}.`);
+   }catch(e:any){setMessage(e?.message??'Unable to create teacher.')}finally{setBusy(false)}
+ }
+
+ async function saveLeader(){
+   if(!editL)return; setBusy(true);
+   try{
+     let photo_url=editL.photo_url??null;
+     if(lPhotoFile){photo_url=await uploadProfileImage(lPhotoFile,'staff');}
+     await saveTeamProfile({...editL,photo_url});
+     await refresh();setEditL(null);setLPhotoFile(null);setMessage('Profile saved.');
+   }catch(e:any){setMessage(e?.message??'Save failed.')}finally{setBusy(false)}
+ }
+
+ async function deleteLeader(id:string){
+   if(!confirm('Delete this profile? This cannot be undone.'))return;
+   setBusy(true);
+   try{await deleteTeamProfile(id);await refresh();setMessage('Profile deleted.');}
+   catch(e:any){setMessage(e?.message??'Delete failed.')}finally{setBusy(false)}
+ }
+
+ async function toggleWebsite(s:StaffProfile){
+   setBusy(true);
+   try{await updateStaffProfile(s.id,{show_on_website:!s.show_on_website});await refresh();}
+   catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
+ }
+
+ async function toggleHomepage(t:TeamProfile){
+   setBusy(true);
+   try{await saveTeamProfile({...t,display_on_homepage:!t.display_on_homepage});await refresh();}
+   catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
+ }
+
+ return <AdminShell title="Staff">
+  <div className="space-y-6">
+
+   <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-900 to-indigo-900 p-6 text-white shadow-xl md:p-8">
+     <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+       <div>
+         <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">People Management</div>
+         <h2 className="mt-2 text-3xl font-black">Staff</h2>
+         <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">Manage teaching staff profiles, bios, website visibility, and school leadership. Class assignments are done in <Link href="/classes" className="underline underline-offset-2">Classes & Teachers</Link>.</p>
+       </div>
+       <div className="flex flex-wrap gap-2">
+         {tab==='teaching'&&<button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button>}
+         {tab==='leadership'&&<button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button>}
+       </div>
+     </div>
+   </section>
+
+   {message&&<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}<button className="ml-3 text-emerald-600" onClick={()=>setMessage('')}>✕</button></div>}
+
+   {/* Tabs */}
+   <div className="flex gap-1 rounded-2xl border bg-slate-50 p-1">
+     {(['teaching','leadership'] as const).map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':'Leadership & Management'}</button>)}
+   </div>
+
+   {/* ── TEACHING STAFF ── */}
+   {tab==='teaching'&&<>
+     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+       {teachers.map(t=><article key={t.id} className="card overflow-hidden">
+         <div className="p-5">
+           <div className="flex items-start gap-4">
+             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+               {t.avatar_url?<img src={t.avatar_url} alt={t.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}
+             </div>
+             <div className="min-w-0 flex-1">
+               <div className="font-black truncate">{t.full_name}</div>
+               <div className="text-xs text-emerald-700 font-semibold">{t.staff_id||'Staff ID pending'}</div>
+               <div className="text-xs text-slate-500 mt-0.5">{t.job_title||'Teacher'} {t.department?`· ${t.department}`:''}</div>
+               <span className={`pill mt-1.5 text-[10px] ${t.employment_status==='active'?'bg-emerald-50 text-emerald-700':t.employment_status==='inactive'?'bg-slate-100 text-slate-600':'bg-rose-50 text-rose-700'}`}>{t.employment_status}</span>
+             </div>
+           </div>
+           {(teacherClasses[t.id]??[]).length>0&&<div className="mt-3 flex flex-wrap gap-1">{(teacherClasses[t.id]).map(n=><span key={n} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">{n}</span>)}</div>}
+           {(teacherClasses[t.id]??[]).length===0&&<p className="mt-3 text-xs text-slate-400">No class assigned — go to <Link href="/classes" className="underline">Classes</Link> to assign.</p>}
+           {t.bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-2">{t.bio}</p>}
+         </div>
+         <div className="flex items-center gap-2 border-t px-5 py-3">
+           <button onClick={()=>toggleWebsite(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black transition ${t.show_on_website?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
+             <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
+             {t.show_on_website?'On website':'Hidden from website'}
+           </button>
+           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setPhotoFile(null)}}>Edit</button>
+         </div>
+       </article>)}
+       {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet. Click "Create teacher" to add the first one.</div>}
+     </div>
+
+     {/* Stats row */}
+     <div className="grid grid-cols-3 gap-3">
+       {[['Total teachers',String(teachers.length)],['Active',String(teachers.filter(t=>t.employment_status==='active').length)],['On website',String(teachers.filter(t=>t.show_on_website).length)]].map(([l,v])=><div key={l} className="card p-4"><div className="text-xs font-bold uppercase text-slate-400">{l}</div><div className="mt-1 text-2xl font-black">{v}</div></div>)}
+     </div>
+   </>}
+
+   {/* ── LEADERSHIP ── */}
+   {tab==='leadership'&&<>
+     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+       {team.map((t:any)=><article key={t.id} className="card overflow-hidden">
+         <div className="p-5">
+           <div className="flex items-start gap-4">
+             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+               {t.photo_url?<img src={t.photo_url} alt={t.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}
+             </div>
+             <div className="min-w-0 flex-1">
+               <div className="font-black truncate">{t.full_name}</div>
+               <div className="text-xs text-emerald-700 font-semibold">{t.role_title}</div>
+               <span className="pill mt-1 bg-indigo-50 text-indigo-700 text-[10px]">{t.category}</span>
+               {!t.published&&<span className="pill ml-1 bg-slate-100 text-slate-500 text-[10px]">Draft</span>}
+             </div>
+           </div>
+           {t.brief_bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-3">{t.brief_bio}</p>}
+         </div>
+         <div className="flex items-center gap-2 border-t px-5 py-3">
+           <button onClick={()=>toggleHomepage(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black transition ${t.display_on_homepage?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
+             <span className={`h-2 w-2 rounded-full ${t.display_on_homepage?'bg-emerald-500':'bg-slate-300'}`}/>
+             {t.display_on_homepage?'On homepage':'Hidden'}
+           </button>
+           <button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditL({...t});setLPhotoFile(null)}}>Edit</button>
+           <button className="btn bg-rose-50 text-rose-700 text-sm py-1.5" onClick={()=>deleteLeader(t.id)}>Delete</button>
+         </div>
+       </article>)}
+       {!team.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No leadership profiles yet. Click "Add leader" to create the first one.</div>}
+     </div>
+     <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-800 leading-5">Leadership and management profiles shown here will appear on the school website homepage when "On homepage" is enabled. Teachers with website visibility are controlled separately in the Teaching Staff tab.</div>
+   </>}
+
+  </div>
+
+  {/* ── EDIT TEACHER MODAL ── */}
+  {editT&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
+   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Edit teacher</h2><p className="text-sm text-slate-500">{editT.full_name} · {editT.staff_id||'Staff ID pending'}</p></div><button onClick={()=>setEditT(null)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+   <div className="divide-y overflow-y-auto max-h-[75vh]">
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Profile</div>
+       <div className="grid gap-3 sm:grid-cols-2">
+         <label className="text-xs font-bold sm:col-span-2">Full name<input className="input mt-1 w-full" value={editT.full_name} onChange={e=>setEditT({...editT,full_name:e.target.value})}/></label>
+         <label className="text-xs font-bold">Phone<input className="input mt-1 w-full" value={editT.phone||''} onChange={e=>setEditT({...editT,phone:e.target.value||null})}/></label>
+         <label className="text-xs font-bold">Employment status<select className="input mt-1 w-full" value={editT.employment_status} onChange={e=>setEditT({...editT,employment_status:e.target.value})}>{STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
+         <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
+         <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
+       </div>
+       <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
+       <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
+         <div className={`h-5 w-9 rounded-full transition-colors ${editT.show_on_website?'bg-emerald-500':'bg-slate-200'}`}><div className={`mt-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${editT.show_on_website?'translate-x-4':'translate-x-0.5'}`}/></div>
+         <input type="checkbox" hidden checked={editT.show_on_website} onChange={e=>setEditT({...editT,show_on_website:e.target.checked})}/>
+         <div><div className="text-sm font-bold">Show on school website</div><div className="text-xs text-slate-500">Display this teacher's profile publicly</div></div>
+       </label>
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Profile photo</div>
+       {editT.avatar_url&&<img src={editT.avatar_url} className="h-20 w-20 rounded-2xl object-cover"/>}
+       <label className="btn block w-full bg-slate-100 text-center cursor-pointer">Change photo<input hidden type="file" accept="image/*" onChange={e=>setPhotoFile(e.target.files?.[0]||null)}/></label>
+       {photoFile&&<div className="text-xs text-slate-500">Selected: {photoFile.name}</div>}
+     </div>
+   </div>
+   <div className="flex justify-end gap-2 border-t p-4">
+     <button className="btn bg-slate-100" onClick={()=>setEditT(null)}>Cancel</button>
+     <button className="btn btn-primary" disabled={busy} onClick={saveTeacher}>{busy?'Saving…':'Save changes'}</button>
+   </div>
+  </div></div>}
+
+  {/* ── CREATE TEACHER MODAL ── */}
+  {showCreate&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-8 w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+   <div className="flex items-center justify-between"><div><h2 className="text-xl font-black">Create teacher</h2><p className="text-sm text-slate-500">Creates a system account. Teacher will use the Teacher Workspace.</p></div><button className="btn bg-slate-100" onClick={()=>setShowCreate(false)}>Close</button></div>
+   <form onSubmit={createTeacher} className="mt-5 grid gap-3 md:grid-cols-2">
+     <input required className="input" placeholder="Full name" value={cf.fullName} onChange={e=>setCf({...cf,fullName:e.target.value})}/>
+     <input required type="email" className="input" placeholder="Email address" value={cf.email} onChange={e=>setCf({...cf,email:e.target.value})}/>
+     <input required minLength={8} type="password" className="input" placeholder="Temporary password (8+ chars)" value={cf.password} onChange={e=>setCf({...cf,password:e.target.value})}/>
+     <input className="input" placeholder="Phone" value={cf.phone} onChange={e=>setCf({...cf,phone:e.target.value})}/>
+     <input className="input" placeholder="Job title" value={cf.jobTitle} onChange={e=>setCf({...cf,jobTitle:e.target.value})}/>
+     <input className="input" placeholder="Department" value={cf.department} onChange={e=>setCf({...cf,department:e.target.value})}/>
+     <input type="date" className="input" value={cf.joinedOn} onChange={e=>setCf({...cf,joinedOn:e.target.value})}/>
+     <div className="md:col-span-2 flex justify-end gap-2"><button type="button" className="btn bg-slate-100" onClick={()=>setShowCreate(false)}>Cancel</button><button disabled={busy} className="btn btn-primary">{busy?'Creating…':'Create teacher'}</button></div>
+   </form>
+  </div></div>}
+
+  {/* ── EDIT LEADERSHIP MODAL ── */}
+  {editL&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
+   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">{editL.id?'Edit profile':'New leadership profile'}</h2></div><button onClick={()=>setEditL(null)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+   <div className="divide-y overflow-y-auto max-h-[75vh]">
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Identity</div>
+       <div className="grid gap-3 sm:grid-cols-2">
+         <label className="text-xs font-bold sm:col-span-2">Full name<input required className="input mt-1 w-full" placeholder="e.g. Dr. Aliyu Musa" value={editL.full_name||''} onChange={e=>setEditL({...editL,full_name:e.target.value})}/></label>
+         <label className="text-xs font-bold">Role / title<select className="input mt-1 w-full" value={editL.role_title||'Director'} onChange={e=>setEditL({...editL,role_title:e.target.value})}>{ROLE_TITLES.map(r=><option key={r}>{r}</option>)}</select></label>
+         <label className="text-xs font-bold">Category<select className="input mt-1 w-full" value={editL.category||'leadership'} onChange={e=>setEditL({...editL,category:e.target.value})}><option value="leadership">Leadership</option><option value="management">Management</option><option value="staff">General Staff</option></select></label>
+         <label className="text-xs font-bold">Sort order<input type="number" min="0" className="input mt-1 w-full" value={editL.sort_order??0} onChange={e=>setEditL({...editL,sort_order:Number(e.target.value)})}/></label>
+       </div>
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Bio</div>
+       <label className="text-xs font-bold">Brief bio <span className="font-normal text-slate-400">(shown on homepage card)</span><textarea className="input mt-1 w-full resize-none" rows={3} value={editL.brief_bio||''} onChange={e=>setEditL({...editL,brief_bio:e.target.value})}/></label>
+       <label className="text-xs font-bold">Full profile <span className="font-normal text-slate-400">(shown on "Read more" page)</span><textarea className="input mt-1 w-full resize-none" rows={5} placeholder="Detailed biography, qualifications, achievements…" value={editL.full_profile||''} onChange={e=>setEditL({...editL,full_profile:e.target.value})}/></label>
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Photo</div>
+       {editL.photo_url&&<img src={editL.photo_url} className="h-20 w-20 rounded-2xl object-cover"/>}
+       <label className="btn block w-full bg-slate-100 text-center cursor-pointer">Upload photo<input hidden type="file" accept="image/*" onChange={e=>setLPhotoFile(e.target.files?.[0]||null)}/></label>
+       {lPhotoFile&&<div className="text-xs text-slate-500">Selected: {lPhotoFile.name}</div>}
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Visibility</div>
+       <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
+         <div className={`h-5 w-9 rounded-full transition-colors ${editL.display_on_homepage?'bg-emerald-500':'bg-slate-200'}`}><div className={`mt-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${editL.display_on_homepage?'translate-x-4':'translate-x-0.5'}`}/></div>
+         <input type="checkbox" hidden checked={!!editL.display_on_homepage} onChange={e=>setEditL({...editL,display_on_homepage:e.target.checked})}/>
+         <div><div className="text-sm font-bold">Show on homepage</div><div className="text-xs text-slate-500">Display on the public school website homepage</div></div>
+       </label>
+       <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
+         <div className={`h-5 w-9 rounded-full transition-colors ${editL.published?'bg-emerald-500':'bg-slate-200'}`}><div className={`mt-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${editL.published?'translate-x-4':'translate-x-0.5'}`}/></div>
+         <input type="checkbox" hidden checked={!!editL.published} onChange={e=>setEditL({...editL,published:e.target.checked})}/>
+         <div><div className="text-sm font-bold">Published</div><div className="text-xs text-slate-500">Unpublished profiles are hidden from all public views</div></div>
+       </label>
+     </div>
+   </div>
+   <div className="flex justify-end gap-2 border-t p-4">
+     <button className="btn bg-slate-100" onClick={()=>setEditL(null)}>Cancel</button>
+     <button className="btn btn-primary" disabled={busy||!editL.full_name} onClick={saveLeader}>{busy?'Saving…':'Save'}</button>
+   </div>
+  </div></div>}
+
+ </AdminShell>;
+}
