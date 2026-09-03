@@ -35,7 +35,7 @@ export async function loadStudents(): Promise<Student[]> {
     attendance:Number(s.attendance_percent ?? 0), fees:Number(s.fees_due ?? 0), teacher:s.teacher_name ?? 'Unassigned',
     start:{surah:s.start_surah ?? 114, ayah:s.start_ayah ?? 1},
     current:{surah:s.current_surah ?? s.start_surah ?? 114, ayah:s.current_ayah ?? s.start_ayah ?? 1},
-    direction:mapDirection(s.memorization_direction), className:s.class_name ?? null, photoUrl:s.photo_url ?? null,
+    direction:mapDirection(s.memorization_direction), className:s.class_name ?? null, classId:s.class_id ?? null, photoUrl:s.photo_url ?? null,
     gender:s.gender ?? null,
   } satisfies Student));
 }
@@ -399,4 +399,70 @@ export async function loadStudentExtended(studentId:string){
 export async function updateStudentExtended(studentId:string,input:{blood_group?:string|null;genotype?:string|null;home_address?:string|null;nationality?:string|null;parent_name?:string|null;parent_phone?:string|null;parent_email?:string|null;guardian_name?:string|null;guardian_phone?:string|null;guardian_email?:string|null;guardian_relationship?:string|null;emergency_contact_name?:string|null;emergency_contact_phone?:string|null}){
   const {error}=await supabase().from('students').update(input).eq('id',studentId);
   if(error) throw error;
+}
+
+export type HistoricalEvalEntry = {
+  studentId: string;
+  startSurah: number; startAyah: number;
+  eval1Surah: number; eval1Ayah: number;
+  eval2Surah: number; eval2Ayah: number;
+  eval1: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
+  eval2: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
+};
+
+export async function bulkImportHistoricalEvals(
+  entries: HistoricalEvalEntry[],
+  termId: string
+): Promise<{ imported: number }> {
+  const db = supabase();
+  const user = await getCurrentUser();
+  if (!user) throw new Error('Not authenticated');
+
+  const valid = entries.filter(e =>
+    e.startSurah && e.startAyah && e.eval1Surah && e.eval1Ayah && e.eval2Surah && e.eval2Ayah
+  );
+  if (!valid.length) throw new Error('No valid entries to import');
+
+  const now = new Date().toISOString();
+
+  await Promise.all(valid.map(e =>
+    db.from('students').update({
+      start_surah: e.startSurah, start_ayah: e.startAyah,
+      current_surah: e.eval2Surah, current_ayah: e.eval2Ayah,
+    }).eq('id', e.studentId)
+  ));
+
+  const eval1Rows = valid.map(e => ({
+    student_id: e.studentId, teacher_id: user.id, term_id: termId,
+    evaluation_number: 1, status: 'approved',
+    from_surah: e.startSurah, from_ayah: e.startAyah,
+    to_surah: e.eval1Surah, to_ayah: e.eval1Ayah,
+    memorized_ayahs: e.eval1.ayahs, memorized_pages: e.eval1.pages, memorized_hizbs: e.eval1.hizbs,
+    score: e.eval1.score, accuracy_score: e.eval1.rubric, fluency_score: e.eval1.rubric,
+    tajweed_score: e.eval1.rubric, retention_score: e.eval1.rubric,
+    grade: e.eval1.grade, teacher_comment: 'Imported from historical records.',
+    submitted_at: now, approved_at: now,
+  }));
+
+  const eval2Rows = valid.map(e => ({
+    student_id: e.studentId, teacher_id: user.id, term_id: termId,
+    evaluation_number: 2, status: 'approved',
+    from_surah: e.eval1Surah, from_ayah: e.eval1Ayah,
+    to_surah: e.eval2Surah, to_ayah: e.eval2Ayah,
+    memorized_ayahs: e.eval2.ayahs, memorized_pages: e.eval2.pages, memorized_hizbs: e.eval2.hizbs,
+    score: e.eval2.score, accuracy_score: e.eval2.rubric, fluency_score: e.eval2.rubric,
+    tajweed_score: e.eval2.rubric, retention_score: e.eval2.rubric,
+    grade: e.eval2.grade, teacher_comment: 'Imported from historical records.',
+    submitted_at: now, approved_at: now,
+  }));
+
+  const { error: e1 } = await db.from('evaluations')
+    .upsert(eval1Rows, { onConflict: 'student_id,term_id,evaluation_number' });
+  if (e1) throw e1;
+
+  const { error: e2 } = await db.from('evaluations')
+    .upsert(eval2Rows, { onConflict: 'student_id,term_id,evaluation_number' });
+  if (e2) throw e2;
+
+  return { imported: valid.length };
 }
