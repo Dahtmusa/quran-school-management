@@ -47,10 +47,12 @@ export async function loadParentStudents(): Promise<Student[]> {
 
 export async function loadEvaluations(): Promise<Evaluation[]> {
   const db = supabase();
-  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false});
+  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name,admission_no,photo_url,class_id,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false});
   if (error || !data) return [];
   return data.map((e:any) => ({
     id:e.id, studentId:e.student_id, student:e.students?.full_name ?? 'Student',
+    admissionNo:e.students?.admission_no ?? '', photoUrl:e.students?.photo_url ?? null,
+    classId:e.students?.class_id ?? null, className:e.students?.classes?.name ?? null,
     term:e.terms?.name ?? 'Term', number:e.evaluation_number, campaignId:e.campaign_id ?? null, campaign:e.evaluation_campaigns ?? null,
     status:mapStatus(e.status), from:{surah:e.from_surah,ayah:e.from_ayah} as Position,
     to:{surah:e.to_surah,ayah:e.to_ayah} as Position, memorizedAyahs:e.memorized_ayahs,
