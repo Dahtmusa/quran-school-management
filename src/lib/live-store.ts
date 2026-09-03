@@ -250,9 +250,15 @@ export async function createStaffAccount(input: {fullName:string;email:string;pa
   return data;
 }
 
-export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null}) {
+export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null;role?:string}) {
   const { error } = await supabase().from('profiles').update(input).eq('id',id);
   if (error) throw error;
+}
+
+export async function resetStaffPassword(userId:string,newPassword:string){
+  const{data,error}=await supabase().functions.invoke('reset-user-password',{body:{user_id:userId,new_password:newPassword}});
+  if(error)throw error;
+  if(data?.error)throw new Error(data.error);
 }
 
 export async function loadSurahs() {

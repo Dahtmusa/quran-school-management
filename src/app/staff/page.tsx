@@ -1,7 +1,7 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
-import { loadStaffProfiles, createStaffAccount, updateStaffProfile, loadClasses, uploadProfileImage, type LiveClass } from '@/lib/live-store';
+import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPassword, loadClasses, uploadProfileImage, type LiveClass } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
@@ -13,7 +13,7 @@ const STATUS_OPTS=['active','inactive','suspended','left'];
 const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0};
 
 export default function StaffPage(){
- const [tab,setTab]=useState<'teaching'|'leadership'>('teaching');
+ const [tab,setTab]=useState<'teaching'|'leadership'|'accounts'>('teaching');
  const [staff,setStaff]=useState<StaffProfile[]>([]);
  const [classes,setClasses]=useState<LiveClass[]>([]);
  const [team,setTeam]=useState<TeamProfile[]>([]);
@@ -23,6 +23,7 @@ export default function StaffPage(){
  /* ── teaching edit ── */
  const [editT,setEditT]=useState<StaffProfile|null>(null);
  const [photoFile,setPhotoFile]=useState<File|null>(null);
+ const [newPassword,setNewPassword]=useState('');
 
  /* ── create teacher ── */
  const [showCreate,setShowCreate]=useState(false);
@@ -31,6 +32,9 @@ export default function StaffPage(){
  /* ── leadership edit ── */
  const [editL,setEditL]=useState<Partial<TeamProfile>|null>(null);
  const [lPhotoFile,setLPhotoFile]=useState<File|null>(null);
+
+ /* ── account role edit ── */
+ const [editA,setEditA]=useState<StaffProfile|null>(null);
 
  const refresh=async()=>{
    const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
@@ -47,7 +51,8 @@ export default function StaffPage(){
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
      await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null});
-     await refresh();setEditT(null);setPhotoFile(null);setMessage('Staff profile updated.');
+     if(newPassword.trim().length>=8){await resetStaffPassword(editT.id,newPassword.trim());}
+     await refresh();setEditT(null);setPhotoFile(null);setNewPassword('');setMessage('Staff profile updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
  }
 
@@ -86,6 +91,15 @@ export default function StaffPage(){
    catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
  }
 
+ async function saveAccountRole(){
+   if(!editA)return; setBusy(true);
+   try{
+     await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role});
+     if(newPassword.trim().length>=8){await resetStaffPassword(editA.id,newPassword.trim());}
+     await refresh();setEditA(null);setNewPassword('');setMessage('Account updated.');
+   }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
+ }
+
  async function toggleHomepage(t:TeamProfile){
    setBusy(true);
    try{await saveTeamProfile({...t,display_on_homepage:!t.display_on_homepage});await refresh();}
@@ -106,6 +120,7 @@ export default function StaffPage(){
          {tab==='teaching'&&<button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button>}
          {tab==='leadership'&&<button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button>}
        </div>
+
      </div>
    </section>
 
@@ -113,7 +128,7 @@ export default function StaffPage(){
 
    {/* Tabs */}
    <div className="flex gap-1 rounded-2xl border bg-slate-50 p-1">
-     {(['teaching','leadership'] as const).map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':'Leadership & Management'}</button>)}
+     {(['teaching','leadership','accounts'] as const).map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':'Accounts & Access'}</button>)}
    </div>
 
    {/* ── TEACHING STAFF ── */}
@@ -142,7 +157,7 @@ export default function StaffPage(){
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
-           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setPhotoFile(null)}}>Edit</button>
+           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setPhotoFile(null);setNewPassword('')}}>Edit</button>
          </div>
        </article>)}
        {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet. Click "Create teacher" to add the first one.</div>}
@@ -186,11 +201,39 @@ export default function StaffPage(){
      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-800 leading-5">Leadership and management profiles shown here will appear on the school website homepage when "On homepage" is enabled. Teachers with website visibility are controlled separately in the Teaching Staff tab.</div>
    </>}
 
+   {/* ── ACCOUNTS & ACCESS ── */}
+   {tab==='accounts'&&(()=>{
+     const ROLE_LABELS:Record<string,string>={super_admin:'Super Admin',admin:'Administrator',principal:'Principal',finance:'Finance',admissions:'Admissions',security:'Security',teacher:'Teacher',parent:'Parent'};
+     const CHANGEABLE_ROLES=['admin','principal','finance','admissions','security'];
+     const accounts=staff.filter(s=>s.role!=='teacher'&&s.role!=='parent');
+     return<>
+       <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs text-amber-800 leading-5">Use this tab to change a staff member's access level. Granting Administrator access gives full system access — only do this for trusted staff.</div>
+       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+         {accounts.map(a=><article key={a.id} className="card overflow-hidden">
+           <div className="p-5 flex items-start gap-4">
+             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+               {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-slate-300">{a.full_name.charAt(0)}</div>}
+             </div>
+             <div className="min-w-0 flex-1">
+               <div className="font-black truncate">{a.full_name}</div>
+               <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
+               <span className={`pill mt-1.5 text-[10px] ${a.role==='admin'||a.role==='super_admin'?'bg-indigo-100 text-indigo-700':'bg-slate-100 text-slate-600'}`}>{ROLE_LABELS[a.role]||a.role}</span>
+             </div>
+           </div>
+           <div className="flex items-center gap-2 border-t px-5 py-3">
+             <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>setEditA({...a})}>Change role / password</button>
+           </div>
+         </article>)}
+         {!accounts.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No staff accounts found.</div>}
+       </div>
+     </>;
+   })()}
+
   </div>
 
   {/* ── EDIT TEACHER MODAL ── */}
   {editT&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
-   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Edit teacher</h2><p className="text-sm text-slate-500">{editT.full_name} · {editT.staff_id||'Staff ID pending'}</p></div><button onClick={()=>setEditT(null)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Edit teacher</h2><p className="text-sm text-slate-500">{editT.full_name} · {editT.staff_id||'Staff ID pending'}</p></div><button onClick={()=>{setEditT(null);setNewPassword('')}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
    <div className="divide-y overflow-y-auto max-h-[75vh]">
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Profile</div>
@@ -201,6 +244,7 @@ export default function StaffPage(){
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
          <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(for Teacher tab on sign-in page)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
+         <label className="text-xs font-bold sm:col-span-2">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span><input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
@@ -217,7 +261,7 @@ export default function StaffPage(){
      </div>
    </div>
    <div className="flex justify-end gap-2 border-t p-4">
-     <button className="btn bg-slate-100" onClick={()=>setEditT(null)}>Cancel</button>
+     <button className="btn bg-slate-100" onClick={()=>{setEditT(null);setNewPassword('')}}>Cancel</button>
      <button className="btn btn-primary" disabled={busy} onClick={saveTeacher}>{busy?'Saving…':'Save changes'}</button>
    </div>
   </div></div>}
@@ -281,6 +325,30 @@ export default function StaffPage(){
      <button className="btn btn-primary" disabled={busy||!editL.full_name} onClick={saveLeader}>{busy?'Saving…':'Save'}</button>
    </div>
   </div></div>}
+
+  {/* ── EDIT ACCOUNT MODAL ── */}
+  {editA&&(()=>{
+   const CHANGEABLE_ROLES=['admin','principal','finance','admissions','security'];
+   const [aPass,setAPass]=[newPassword,setNewPassword];
+   return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
+    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Account: {editA.full_name}</h2><p className="text-sm text-slate-500">{editA.staff_id||'No staff ID'}</p></div><button onClick={()=>{setEditA(null);setNewPassword('')}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+    <div className="p-5 space-y-4">
+     <label className="text-xs font-bold block">Access role
+      <select className="input mt-1 w-full" value={editA.role} onChange={e=>setEditA({...editA,role:e.target.value})}>
+       {CHANGEABLE_ROLES.map(r=><option key={r} value={r}>{r==='admin'?'Administrator':r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
+      </select>
+      {editA.role==='admin'&&<p className="mt-1 text-xs text-amber-600">Administrator has full system access — only grant to trusted staff.</p>}
+     </label>
+     <label className="text-xs font-bold block">New password <span className="font-normal text-slate-400">(leave blank to keep current)</span>
+      <input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/>
+     </label>
+    </div>
+    <div className="flex justify-end gap-2 border-t p-4">
+     <button className="btn bg-slate-100" onClick={()=>{setEditA(null);setNewPassword('')}}>Cancel</button>
+     <button className="btn btn-primary" disabled={busy} onClick={saveAccountRole}>{busy?'Saving…':'Save changes'}</button>
+    </div>
+   </div></div>;
+  })()}
 
  </AdminShell>;
 }
