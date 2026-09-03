@@ -223,8 +223,20 @@ export async function updateStudentBasic(studentId: string, input: Partial<{
   if (error) throw error;
 }
 
+export async function updateStudentMemorization(studentId: string, input: {
+  memorization_direction: 'nas_to_baqarah'|'baqarah_to_nas';
+  start_surah: number;
+  start_ayah: number;
+  current_surah: number;
+  current_ayah: number;
+  program_year: 'year_1'|'year_2';
+}) {
+  const { error } = await supabase().from('students').update(input).eq('id', studentId);
+  if (error) throw error;
+}
+
 export async function loadStaffProfiles() {
-  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on').order('full_name');
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website').order('full_name');
   if (error || !data) return [];
   return data;
 }
@@ -238,7 +250,7 @@ export async function createStaffAccount(input: {fullName:string;email:string;pa
   return data;
 }
 
-export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null}) {
+export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean}) {
   const { error } = await supabase().from('profiles').update(input).eq('id',id);
   if (error) throw error;
 }

@@ -4,11 +4,11 @@ import QuranProgress from '@/components/QuranProgress';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { Student } from '@/lib/data';
-import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, uploadProfileImage, loadStudentExtended, updateStudentExtended, type LiveClass } from '@/lib/live-store';
+import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, type LiveClass } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
-import { label } from '@/lib/quran';
+import { label, SURAHS } from '@/lib/quran';
 
 type ExtProfile = {
   blood_group: string|null; genotype: string|null; home_address: string|null; nationality: string|null;
@@ -52,6 +52,7 @@ export default function Students(){
      const cls=classes.find(c=>c.name===edit.className);
      await updateStudentClass(edit.id,cls?.id??null);
      await updateStudentExtended(edit.id,editExt);
+     await updateStudentMemorization(edit.id,{memorization_direction:edit.direction==='Baqarah-to-Nas'?'baqarah_to_nas':'nas_to_baqarah',start_surah:edit.start.surah,start_ayah:edit.start.ayah,current_surah:edit.current.surah,current_ayah:edit.current.ayah,program_year:edit.year==='Year 2'?'year_2':'year_1'});
      await refresh(); setEdit(null); setPhotoFile(null); setMessage('Student updated successfully.');
    }catch(e:any){setMessage(e?.message??'Unable to update student.')}finally{setSaving(false)}
  }
@@ -172,6 +173,23 @@ export default function Students(){
          <label className="text-xs font-bold">Class<select className="input mt-1 w-full" value={edit.className??''} onChange={e=>setEdit({...edit,className:e.target.value||null})}><option value="">Unassigned</option>{classes.filter(c=>c.active).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></label>
        </div>
        <label className="text-xs font-bold">Profile photo<label className="btn mt-1 block w-full bg-slate-100 text-center cursor-pointer">Change photo<input hidden type="file" accept="image/*" onChange={e=>setPhotoFile(e.target.files?.[0]||null)}/></label></label>
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Memorization Journey</div>
+       <div className="grid gap-3 sm:grid-cols-2">
+         <label className="text-xs font-bold">Memorization direction<select className="input mt-1 w-full" value={edit.direction==='Baqarah-to-Nas'?'baqarah_to_nas':'nas_to_baqarah'} onChange={e=>setEdit({...edit,direction:e.target.value==='baqarah_to_nas'?'Baqarah-to-Nas':'Nas-to-Baqarah'})}><option value="baqarah_to_nas">Baqarah → Nas (forward)</option><option value="nas_to_baqarah">Nas → Baqarah (reverse)</option></select></label>
+         <label className="text-xs font-bold">Program year<select className="input mt-1 w-full" value={edit.year} onChange={e=>setEdit({...edit,year:e.target.value as any})}><option value="Year 1">Year 1</option><option value="Year 2">Year 2</option></select></label>
+       </div>
+       <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 pt-1">Starting position</div>
+       <div className="grid gap-3 sm:grid-cols-2">
+         <label className="text-xs font-bold">Starting surah<select className="input mt-1 w-full" value={edit.start.surah} onChange={e=>setEdit({...edit,start:{...edit.start,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
+         <label className="text-xs font-bold">Starting ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.start.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.start.ayah} onChange={e=>setEdit({...edit,start:{...edit.start,ayah:Math.max(1,Number(e.target.value))}})}/></label>
+       </div>
+       <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 pt-1">Current position <span className="normal-case font-normal text-slate-400">(admin can correct this)</span></div>
+       <div className="grid gap-3 sm:grid-cols-2">
+         <label className="text-xs font-bold">Current surah<select className="input mt-1 w-full" value={edit.current.surah} onChange={e=>setEdit({...edit,current:{...edit.current,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
+         <label className="text-xs font-bold">Current ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.current.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.current.ayah} onChange={e=>setEdit({...edit,current:{...edit.current,ayah:Math.max(1,Number(e.target.value))}})}/></label>
+       </div>
      </div>
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Personal & Medical</div>

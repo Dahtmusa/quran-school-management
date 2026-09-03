@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getCurrentProfile } from '@/lib/live-store';
 import { createClient } from '@/lib/supabase/client';
-const adminLinks=[['/admin','Dashboard','⌂'],['/students','Students','◉'],['/classes','Classes & Teachers','▦'],['/admissions/manage','Admissions','▣'],['/attendance','Attendance','✓'],['/evaluations','Quran Evaluations','☾'],['/fees','Finance & Fees','₦'],['/program-setup','Program & Terms','◫'],['/calendar','School Calendar','◷'],['/reports','Report Cards','▤'],['/alumni','Alumni','★'],['/cms','Website CMS','✦']];
+const adminLinks=[['/admin','Dashboard','⌂'],['/students','Students','◉'],['/classes','Classes & Teachers','▦'],['/staff','Staff','♧'],['/admissions/manage','Admissions','▣'],['/attendance','Attendance','✓'],['/evaluations','Quran Evaluations','☾'],['/fees','Finance & Fees','₦'],['/program-setup','Program & Terms','◫'],['/calendar','School Calendar','◷'],['/reports','Report Cards','▤'],['/alumni','Alumni','★'],['/cms','Website CMS','✦']];
 const teacherLinks=[['/teacher','My Dashboard','⌂']]; const parentLinks=[['/parent','My Children','⌂'],['/reports','Reports','▤']]; const financeLinks=[['/fees','Finance & Fees','₦']]; const admissionsLinks=[['/admissions/manage','Admissions','▣'],['/students','Students','◉']]; const securityLinks=[['/attendance','Attendance','✓']];
 export default function Sidebar(){
   const path=usePathname();
