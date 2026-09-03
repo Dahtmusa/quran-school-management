@@ -233,7 +233,7 @@ export default function CalendarAdmin() {
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
         <select className="input" defaultValue={current?.term_id || ''} onChange={e => setCurrentTerm(e.target.value)}>
           <option value="">Select active term…</option>
-          {terms.map(t => <option key={t.id} value={t.id}>{t.academic_years?.name} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
+          {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <option key={t.id} value={t.id}>{t.academic_years?.name} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
         </select>
         <span className="pill bg-emerald-50 text-emerald-700 self-center">Auto-advances by date</span>
       </div>
@@ -248,7 +248,7 @@ export default function CalendarAdmin() {
         {terms.length > 0 && <div className="p-5">
           <div className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">Operational terms</div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {terms.map(t => <div key={t.id} className={`rounded-2xl p-4 border ${current?.term_id === t.id ? 'border-emerald-500 bg-emerald-50' : 'bg-slate-50'}`}>
+            {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <div key={t.id} className={`rounded-2xl p-4 border ${current?.term_id === t.id ? 'border-emerald-500 bg-emerald-50' : 'bg-slate-50'}`}>
               <div className="flex items-center justify-between">
                 <div className="text-xs font-black uppercase tracking-wide text-slate-500">{t.academic_years?.name}</div>
                 {current?.term_id === t.id && <span className="pill bg-emerald-600 text-white text-[10px]">Active</span>}
