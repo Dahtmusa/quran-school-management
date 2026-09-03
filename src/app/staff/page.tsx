@@ -5,7 +5,7 @@ import { loadStaffProfiles, createStaffAccount, updateStaffProfile, loadClasses,
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean};
+type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
@@ -26,7 +26,7 @@ export default function StaffPage(){
 
  /* ── create teacher ── */
  const [showCreate,setShowCreate]=useState(false);
- const [cf,setCf]=useState({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:''});
+ const [cf,setCf]=useState({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:'',username:''});
 
  /* ── leadership edit ── */
  const [editL,setEditL]=useState<Partial<TeamProfile>|null>(null);
@@ -46,7 +46,7 @@ export default function StaffPage(){
    try{
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
-     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website});
+     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null});
      await refresh();setEditT(null);setPhotoFile(null);setMessage('Staff profile updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
  }
@@ -55,7 +55,10 @@ export default function StaffPage(){
    e.preventDefault();setBusy(true);
    try{
      const r=await createStaffAccount({...cf,role:'teacher'});
-     setShowCreate(false);setCf({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:''});
+     if(cf.username.trim()&&r?.user_id){
+       await updateStaffProfile(r.user_id,{username:cf.username.trim().toLowerCase()});
+     }
+     setShowCreate(false);setCf({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:'',username:''});
      await refresh();setMessage(`Teacher created. Staff ID: ${r?.staff_id||'auto-assigned'}.`);
    }catch(e:any){setMessage(e?.message??'Unable to create teacher.')}finally{setBusy(false)}
  }
@@ -126,6 +129,7 @@ export default function StaffPage(){
                <div className="font-black truncate">{t.full_name}</div>
                <div className="text-xs text-emerald-700 font-semibold">{t.staff_id||'Staff ID pending'}</div>
                <div className="text-xs text-slate-500 mt-0.5">{t.job_title||'Teacher'} {t.department?`· ${t.department}`:''}</div>
+               {t.username&&<div className="text-[11px] text-indigo-600 font-semibold mt-0.5">@{t.username}</div>}
                <span className={`pill mt-1.5 text-[10px] ${t.employment_status==='active'?'bg-emerald-50 text-emerald-700':t.employment_status==='inactive'?'bg-slate-100 text-slate-600':'bg-rose-50 text-rose-700'}`}>{t.employment_status}</span>
              </div>
            </div>
@@ -196,6 +200,7 @@ export default function StaffPage(){
          <label className="text-xs font-bold">Employment status<select className="input mt-1 w-full" value={editT.employment_status} onChange={e=>setEditT({...editT,employment_status:e.target.value})}>{STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(for Teacher tab on sign-in page)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
@@ -224,6 +229,7 @@ export default function StaffPage(){
      <input required className="input" placeholder="Full name" value={cf.fullName} onChange={e=>setCf({...cf,fullName:e.target.value})}/>
      <input required type="email" className="input" placeholder="Email address" value={cf.email} onChange={e=>setCf({...cf,email:e.target.value})}/>
      <input required minLength={8} type="password" className="input" placeholder="Temporary password (8+ chars)" value={cf.password} onChange={e=>setCf({...cf,password:e.target.value})}/>
+     <input className="input" placeholder="Login username (e.g. ustaz.auwal)" value={cf.username} onChange={e=>setCf({...cf,username:e.target.value})}/>
      <input className="input" placeholder="Phone" value={cf.phone} onChange={e=>setCf({...cf,phone:e.target.value})}/>
      <input className="input" placeholder="Job title" value={cf.jobTitle} onChange={e=>setCf({...cf,jobTitle:e.target.value})}/>
      <input className="input" placeholder="Department" value={cf.department} onChange={e=>setCf({...cf,department:e.target.value})}/>
