@@ -7,8 +7,8 @@ select.input{appearance:auto}.font-serif{font-family:Georgia,'Times New Roman',s
 @media print{
   body{background:white!important}
   body *{visibility:hidden!important}
-  #certificate,#certificate *{visibility:visible!important}
-  #certificate{position:absolute!important;left:0;top:0;width:100%!important;box-shadow:none!important}
+  #certificate,#certificate *,#report-print,#report-print *{visibility:visible!important}
+  #certificate,#report-print{position:absolute!important;left:0;top:0;width:100%!important;box-shadow:none!important;padding:0!important}
 }
 button:disabled{cursor:not-allowed}
 

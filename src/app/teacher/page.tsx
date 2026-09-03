@@ -189,7 +189,10 @@ export default function TeacherDashboard() {
             const calc = done ? calculateEvaluation(start, stop, isBtoN ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah') : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
             const score = f ? Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100) : 0;
             const grade = score >= 90 ? 'Excellent' : score >= 80 ? 'Very Good' : score >= 70 ? 'Good' : score >= 60 ? 'Satisfactory' : 'Needs Improvement';
-            const progress = Math.min(100, ((ev.students?.current_page || 1) / 604) * 100);
+            const evCurrSurah = Number(ev.students?.current_surah || start.surah);
+            const _tot = isBtoN ? Math.max(1, 114 - start.surah) : Math.max(1, start.surah - 2);
+            const _done = isBtoN ? Math.max(0, evCurrSurah - start.surah) : Math.max(0, start.surah - evCurrSurah);
+            const progress = Math.min(100, (_done / _tot) * 100);
             const maxAyah = (SURAHS.find(x => x.id === (f?.toSurah || 2)) || SURAHS[0]).ayahs;
             const isReturned = ev.status === 'returned';
 
@@ -211,7 +214,7 @@ export default function TeacherDashboard() {
                     <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-200">
                       <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400" style={{ width: `${progress}%` }} />
                     </div>
-                    <span className="text-[11px] text-slate-400">Page {ev.students?.current_page || '?'} / 604</span>
+                    <span className="text-[11px] text-slate-400">S.{ev.students?.current_surah||'?'} · {Math.round(progress)}% of journey</span>
                   </div>
                 </div>
                 <div className="ml-2 shrink-0 text-xl">{done ? <span className="text-emerald-500">✓</span> : <span className="text-slate-300">○</span>}</div>
@@ -241,7 +244,7 @@ export default function TeacherDashboard() {
 
                 <div>
                   <div className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Rubric scores — 1 (weak) to 5 (excellent)</div>
-                  <div className="grid grid-cols-5 gap-2">
+                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                     {([['Memorization', 'mem'], ['Accuracy', 'acc'], ['Fluency', 'flu'], ['Tajweed', 'taj'], ['Retention', 'ret']] as [string, keyof EvalForm][]).map(([name, key]) =>
                       <div key={key} className="text-center">
                         <div className="text-[11px] font-bold text-slate-500 mb-1">{name}</div>
@@ -281,7 +284,7 @@ export default function TeacherDashboard() {
         <input value={studentSearch} onChange={e=>setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-52"/>
       </div>
       <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredStudents.map(s => <article key={s.id} className="overflow-hidden rounded-2xl border bg-white hover:shadow-md transition-shadow">
+        {filteredStudents.map(s => { const sBtoN=s.direction==='Baqarah-to-Nas'; const sStart=s.start?.surah||2; const sCurr=s.current?.surah||sStart; const sTot=sBtoN?Math.max(1,114-sStart):Math.max(1,sStart-2); const sDone=sBtoN?Math.max(0,sCurr-sStart):Math.max(0,sStart-sCurr); const sPct=Math.min(100,(sDone/sTot)*100); return <article key={s.id} className="overflow-hidden rounded-2xl border bg-white hover:shadow-md transition-shadow">
           <div className="flex items-center gap-3 border-b bg-slate-50 p-4">
             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
               {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-black text-slate-300">{s.name?.charAt(0)}</div>}
@@ -294,8 +297,8 @@ export default function TeacherDashboard() {
           </div>
           <div className="p-4 space-y-3">
             <div>
-              <div className="mb-1 flex justify-between text-xs text-slate-400"><span>Qur'an journey</span><span>Page {s.current?.page || '?'} / 604</span></div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all" style={{ width: `${Math.min(100, ((s.current?.page || 1) / 604) * 100)}%` }} /></div>
+              <div className="mb-1 flex justify-between text-xs text-slate-400"><span>Journey progress</span><span>S.{sCurr} · {Math.round(sPct)}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all" style={{ width: `${sPct}%` }} /></div>
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
               <div className="rounded-xl bg-slate-50 p-2.5"><span className="text-slate-400 block">Starting</span><b>{s.start?.surah}:{s.start?.ayah}</b></div>
@@ -308,7 +311,7 @@ export default function TeacherDashboard() {
               </select>
             </div>
           </div>
-        </article>)}
+        </article>;})}
         {!filteredStudents.length && <div className="col-span-full py-12 text-center text-sm text-slate-400">{studentSearch ? 'No students match your search.' : 'No students are assigned to your account.'}</div>}
       </div>
     </section>
