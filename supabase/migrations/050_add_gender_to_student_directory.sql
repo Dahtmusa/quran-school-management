@@ -1,6 +1,8 @@
 -- Migration 050: Add gender to admin_get_student_directory so the
 -- Students page can filter by gender.
 
+DROP FUNCTION IF EXISTS public.admin_get_student_directory();
+
 CREATE OR REPLACE FUNCTION public.admin_get_student_directory()
 RETURNS TABLE (
   id uuid, admission_no text, full_name text, student_id_number text,
