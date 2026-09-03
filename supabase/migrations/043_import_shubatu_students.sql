@@ -71,7 +71,7 @@ FROM cls, (VALUES
   ('AMQM/2025/047', 'Zainab Isa Hussaini'),
   ('AMQM/2025/048', 'Amuda Halilu Muhammad'),
   ('AMQM/2025/049', 'Mariya Halilu Muhammad'),
-  ('AMQM/2025/050', 'Ashtfagi Babanguda Myintabba'),
+  ('AMQM/2025/050', 'Ashfa Babangida Mijin Yawa'),
   ('AMQM/2025/051', 'Hauwa Umar Bamanga'),
   ('AMQM/2025/052', 'Ummu-Salma Suleiman')
 ) AS v(admission_no, full_name)
