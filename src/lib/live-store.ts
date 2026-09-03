@@ -277,7 +277,8 @@ export async function reviewEvaluation(id:string,action:'approve'|'return',admin
 
 export async function loadEvaluationCampaigns() {
   const { data, error } = await supabase().from('evaluation_campaigns').select('*,terms:term_id(name,term_number),evaluation_campaign_classes(class_id,classes:class_id(name))').order('created_at',{ascending:false});
-  if(error||!data) return []; return data;
+  if(error){console.error('[AMQM] loadEvaluationCampaigns error:',error);return [];}
+  if(!data) return []; return data;
 }
 
 export async function createEvaluationCampaign(input:{termId:string;evaluationNumber:1|2|3;title:string;opensAt:string;closesAt:string;classIds:string[]}) {
