@@ -344,7 +344,11 @@ export async function submitAdmissionApplication(input:any){
   p_address:input.address,p_state:input.state,p_lga:input.lga,p_requested_section:input.section,p_requested_program_year:input.programYear,
   p_previous_school:input.previousSchool||null,p_quran_level:input.quranLevel||null,p_starting_surah:input.startingSurah||null,p_starting_ayah:input.startingAyah||null,
  });
- if(error) throw error; return data;
+ if(error) throw error;
+ if(data?.application_no&&(input.bloodGroup||input.genotype)){
+   await supabase().from('admissions').update({blood_group:input.bloodGroup||null,genotype:input.genotype||null}).eq('application_no',data.application_no);
+ }
+ return data;
 }
 
 export async function loadAdmissionApplications(){
@@ -366,4 +370,14 @@ export async function loadCurrentAcademicTerm(){
 export async function setCurrentAcademicTerm(termId:string){
   const {data,error}=await supabase().rpc('set_current_academic_term',{p_term_id:termId});
   if(error) throw error; return data;
+}
+
+export async function loadStudentExtended(studentId:string){
+  const {data,error}=await supabase().from('students').select('blood_group,genotype,home_address,nationality,parent_name,parent_phone,parent_email,guardian_name,guardian_phone,guardian_email,guardian_relationship,emergency_contact_name,emergency_contact_phone,date_of_birth,gender').eq('id',studentId).maybeSingle();
+  if(error||!data) return null; return data;
+}
+
+export async function updateStudentExtended(studentId:string,input:{blood_group?:string|null;genotype?:string|null;home_address?:string|null;nationality?:string|null;parent_name?:string|null;parent_phone?:string|null;parent_email?:string|null;guardian_name?:string|null;guardian_phone?:string|null;guardian_email?:string|null;guardian_relationship?:string|null;emergency_contact_name?:string|null;emergency_contact_phone?:string|null}){
+  const {error}=await supabase().from('students').update(input).eq('id',studentId);
+  if(error) throw error;
 }
