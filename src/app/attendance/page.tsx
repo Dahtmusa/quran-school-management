@@ -6,7 +6,7 @@ import { Student } from '@/lib/data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type Item={studentId:string;status:string;scannedAt:string;note:string};
-type AttRecord={id:string;student_id:string;attendance_date:string;status:string;note:string|null;recorded_at:string;students:{full_name:string;admission_no:string;section:string}|null};
+type AttRecord={id:string;student_id:string;attendance_date:string;status:string;note:string|null;recorded_at:string;students:{full_name:string;admission_no:string;section:string}[]|null};
 
 export default function Attendance(){
  const [code,setCode]=useState(''); const [students,setStudents]=useState<Student[]>([]); const [items,setItems]=useState<Item[]>([]); const [camera,setCamera]=useState(false); const video=useRef<HTMLVideoElement>(null); const stream=useRef<MediaStream|null>(null);
@@ -66,8 +66,8 @@ export default function Attendance(){
          {todayRecords.map(r=><div key={r.id} className="flex items-center gap-3 px-5 py-3">
            <div className={`h-2 w-2 rounded-full shrink-0 ${r.status==='present'?'bg-emerald-400':r.status==='absent'?'bg-rose-400':r.status==='late'?'bg-amber-400':'bg-slate-300'}`}/>
            <div className="flex-1 min-w-0">
-             <div className="font-semibold text-sm truncate">{r.students?.full_name||'—'}</div>
-             <div className="text-xs text-slate-400">{r.students?.admission_no} · {new Date(r.recorded_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
+             <div className="font-semibold text-sm truncate">{r.students?.[0]?.full_name||'—'}</div>
+             <div className="text-xs text-slate-400">{r.students?.[0]?.admission_no} · {new Date(r.recorded_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</div>
            </div>
            <span className={`pill shrink-0 ${r.status==='present'?'bg-emerald-50 text-emerald-700':r.status==='absent'?'bg-rose-50 text-rose-700':r.status==='late'?'bg-amber-50 text-amber-700':'bg-slate-50 text-slate-500'}`}>{r.status}</span>
            {r.note&&<span className="max-w-[120px] truncate text-xs text-slate-400" title={r.note}>{r.note}</span>}
