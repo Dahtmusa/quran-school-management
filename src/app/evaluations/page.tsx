@@ -72,7 +72,7 @@ export default function EvaluationsAdmin(){
             {ev.grade&&<div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">{ev.grade}</div>}
             {ev.comment&&<div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700"><span className="font-bold">Teacher comment: </span>{ev.comment}</div>}
           </div>}
-          </div></div>)}</div>}</div>;})}
+          </div>)}</div>}</div>;})}
       </section>
     </div>
   </AdminShell>
