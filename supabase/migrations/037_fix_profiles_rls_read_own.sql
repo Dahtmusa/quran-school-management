@@ -10,6 +10,7 @@
 -- This one policy restores correct role-based access across the entire system:
 -- evaluation campaigns, evaluations, students, calendar, fees, etc.
 
+DROP POLICY IF EXISTS "users read own profile" ON public.profiles;
 CREATE POLICY "users read own profile"
   ON public.profiles
   FOR SELECT
