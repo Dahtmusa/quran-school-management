@@ -87,6 +87,16 @@ export async function deleteAlumniProfile(id: string) {
   if (error) throw error;
 }
 
+export async function loadPublicTeachers() {
+  const { data, error } = await db().from('profiles')
+    .select('id,full_name,job_title,department,avatar_url,bio')
+    .eq('role', 'teacher')
+    .eq('show_on_website', true)
+    .eq('employment_status', 'active')
+    .order('full_name');
+  return error || !data ? [] : data;
+}
+
 export async function loadPublicHomepageMedia() {
   const { data, error } = await db().from('homepage_media').select('*').eq('visible', true).order('sort_order').order('created_at', { ascending: false });
   return error || !data ? [] : data;

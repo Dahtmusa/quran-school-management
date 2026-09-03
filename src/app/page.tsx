@@ -8,6 +8,7 @@ import {
   loadPublicAlumni,
   loadPublicHomepageMedia,
   loadPublicTeam,
+  loadPublicTeachers,
   type CMSSection,
 } from '@/lib/cms-live-store';
 
@@ -41,6 +42,7 @@ export default function Home() {
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [settings, setSettings] = useState<any>({});
   const [team, setTeam] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
   const [alumni, setAlumni] = useState<any[]>([]);
   const [media, setMedia] = useState<any[]>([]);
   const [mobileNav, setMobileNav] = useState(false);
@@ -54,14 +56,16 @@ export default function Home() {
       loadPublicTeam(),
       loadPublicAlumni(),
       loadPublicHomepageMedia(),
+      loadPublicTeachers(),
     ])
-      .then(([s, st, t, a, md]) => {
+      .then(([s, st, t, a, md, tc]) => {
         if (!mounted) return;
         setSections(s);
         setSettings(st);
         setTeam(t);
         setAlumni(a);
         setMedia(md);
+        setTeachers(tc);
         setLoading(false);
       })
       .catch(() => mounted && setLoading(false));
@@ -88,8 +92,7 @@ export default function Home() {
   const schoolName = settings.school_name?.value || "ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION";
   const shortName = settings.short_name?.value || 'AMQM';
   const logo = settings.logo_url?.value || '';
-  const mediaGroups = ['Student Activities', 'Classrooms', 'School Compound', "Qur'an Recitations", 'Prayer & Worship', 'Teachers Teaching', 'Student Hostels'];
-  const gallery = media.filter((item) => mediaGroups.includes(item.category));
+  const gallery = media;
 
   if (loading) {
     return (
@@ -261,11 +264,34 @@ export default function Home() {
 
       <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:py-20"><div className="flex items-end justify-between gap-4"><div><div className="eyebrow-light">Campus life</div><h2 className="section-title">A safe place to learn, worship and grow.</h2></div><Link href="/campus-life" className="hidden text-sm font-black text-emerald-800 sm:block">Explore campus life →</Link></div><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{campuses.slice(0, 4).map((x: any, i: number) => <article key={i} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm"><div className="relative h-52 bg-emerald-950">{x.image ? <img src={x.image} alt={x.image_alt || x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="absolute inset-0 hero-art"/>}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 pt-12 text-white"><h3 className="font-black">{x.title}</h3></div></div><div className="p-5"><p className="text-sm leading-6 text-slate-600">{x.text}</p></div></article>)}</div></section>
 
-      {gallery.length > 0 && <section className="bg-[#f6f7f3] py-16 lg:py-20"><div className="mx-auto max-w-[1320px] px-5 sm:px-7"><div className="max-w-2xl"><div className="eyebrow-light">Life at {shortName}</div><h2 className="section-title">Come inside the AMQM experience.</h2><p className="section-copy">See the people, places and moments that make our school a place where Qur’an, character and community come together.</p></div><div className="mt-8 grid auto-rows-[210px] gap-4 sm:grid-cols-2 lg:grid-cols-4">{gallery.slice(0, 7).map((item: any, i: number) => <article key={item.id} className={`group relative overflow-hidden rounded-[1.5rem] bg-emerald-950 shadow-sm ${i===0?'lg:col-span-2 lg:row-span-2':''} ${i===3?'sm:col-span-2 lg:col-span-1':''}`}>{item.media_type === 'video' ? <video src={item.public_url} controls preload="metadata" className="h-full w-full object-cover"/> : <img src={item.public_url} alt={item.alt_text || item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent p-5 pt-14 text-white"><div className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">{item.category}</div><h3 className="mt-1 font-black">{item.title}</h3></div></article>)}</div><div className="mt-7 flex flex-wrap gap-2">{mediaGroups.map(group => <span key={group} className="rounded-full border border-emerald-900/10 bg-white px-4 py-2 text-xs font-bold text-emerald-900">{group}</span>)}</div></div></section>}
+      {gallery.length > 0 && <section className="bg-[#f6f7f3] py-16 lg:py-20"><div className="mx-auto max-w-[1320px] px-5 sm:px-7"><div className="max-w-2xl"><div className="eyebrow-light">Life at {shortName}</div><h2 className="section-title">Come inside the AMQM experience.</h2><p className="section-copy">See the people, places and moments that make our school a place where Qur’an, character and community come together.</p></div><div className="mt-8 grid auto-rows-[210px] gap-4 sm:grid-cols-2 lg:grid-cols-4">{gallery.slice(0, 7).map((item: any, i: number) => <article key={item.id} className={`group relative overflow-hidden rounded-[1.5rem] bg-emerald-950 shadow-sm ${i===0?'lg:col-span-2 lg:row-span-2':''} ${i===3?'sm:col-span-2 lg:col-span-1':''}`}>{item.media_type === 'video' ? <video src={item.public_url} controls preload="metadata" className="h-full w-full object-cover"/> : <img src={item.public_url} alt={item.alt_text || item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent p-5 pt-14 text-white"><div className="text-[10px] font-black uppercase tracking-[.16em] text-amber-200">{item.category}</div><h3 className="mt-1 font-black">{item.title}</h3></div></article>)}</div></div></section>}
 
       {news.length > 0 && <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7"><div className="flex items-end justify-between"><div><div className="eyebrow-light">News & events</div><h2 className="section-title">{m.news?.title || 'Latest from AMQM'}</h2></div><Link href="/news" className="text-sm font-black text-emerald-800">View all →</Link></div><div className="mt-8 grid gap-5 md:grid-cols-3">{news.slice(0, 3).map((x: any, i: number) => <article key={i} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm"><div className="h-48 overflow-hidden bg-emerald-950">{x.image ? <img src={x.image} alt={x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="flex h-full items-center justify-center text-4xl text-amber-300">✦</div>}</div><div className="p-6"><div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{x.date}</div><h3 className="mt-2 font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.text}</p></div></article>)}</div></section>}
 
-      {team.length > 0 && <section className="bg-[#f6f7f3] py-16"><div className="mx-auto max-w-[1320px] px-5 sm:px-7"><div className="eyebrow-light">Leadership & staff</div><h2 className="section-title">People who guide our students.</h2><div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{team.slice(0, 4).map((t: any) => <article key={t.id} className="overflow-hidden rounded-[1.5rem] border bg-white shadow-sm"><div className="h-56 bg-emerald-950">{t.photo_url ? <img src={t.photo_url} alt={t.full_name} className="h-full w-full object-cover"/> : <div className="flex h-full items-center justify-center font-serif text-6xl text-amber-300">{t.full_name?.charAt(0)}</div>}</div><div className="p-5"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{t.category}</div><h3 className="mt-1 font-black text-emerald-950">{t.full_name}</h3><div className="text-sm font-semibold text-emerald-800">{t.role_title}</div><p className="mt-2 text-sm leading-6 text-slate-600">{t.brief_bio}</p></div></article>)}</div></div></section>}
+      {(team.length > 0 || teachers.length > 0) && <section className="bg-[#f6f7f3] py-16 lg:py-20"><div className="mx-auto max-w-[1320px] px-5 sm:px-7">
+        <div className="eyebrow-light">Leadership & staff</div>
+        <h2 className="section-title">People who guide our students.</h2>
+
+        {team.length > 0 && <>
+          {teachers.length > 0 && <div className="mt-10 text-xs font-black uppercase tracking-[.2em] text-slate-400">Leadership</div>}
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {team.map((t: any) => <article key={t.id} className="overflow-hidden rounded-[1.5rem] border bg-white shadow-sm">
+              <div className="h-64 overflow-hidden bg-emerald-950">{t.photo_url ? <img src={t.photo_url} alt={t.full_name} className="h-full w-full object-cover object-top"/> : <div className="flex h-full items-center justify-center font-serif text-6xl text-amber-300">{t.full_name?.charAt(0)}</div>}</div>
+              <div className="p-5"><h3 className="font-black text-emerald-950">{t.full_name}</h3><div className="text-sm font-semibold text-emerald-800">{t.role_title}</div>{t.brief_bio && <p className="mt-2 text-sm leading-6 text-slate-600 line-clamp-3">{t.brief_bio}</p>}</div>
+            </article>)}
+          </div>
+        </>}
+
+        {teachers.length > 0 && <>
+          <div className={`${team.length > 0 ? 'mt-14' : 'mt-8'} text-xs font-black uppercase tracking-[.2em] text-slate-400`}>Teaching Staff</div>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {teachers.map((t: any) => <article key={t.id} className="overflow-hidden rounded-[1.5rem] border bg-white shadow-sm">
+              <div className="h-52 overflow-hidden bg-emerald-950">{t.avatar_url ? <img src={t.avatar_url} alt={t.full_name} className="h-full w-full object-cover object-top"/> : <div className="flex h-full items-center justify-center font-serif text-5xl text-amber-300">{t.full_name?.charAt(0)}</div>}</div>
+              <div className="p-4"><h3 className="font-black text-sm leading-tight text-emerald-950">{t.full_name}</h3><div className="mt-0.5 text-xs font-semibold text-emerald-700">{t.job_title || "Qur'an Teacher"}</div>{t.bio && <p className="mt-2 text-xs leading-5 text-slate-500 line-clamp-2">{t.bio}</p>}</div>
+            </article>)}
+          </div>
+        </>}
+      </div></section>}
 
       {alumni.length > 0 && <section className="mx-auto max-w-[1320px] px-5 py-14 sm:px-7"><div className="rounded-[2rem] border border-emerald-900/10 bg-white p-7 shadow-sm lg:p-9"><div className="eyebrow-light">Our alumni</div><h2 className="section-title">A growing community beyond the classroom.</h2><div className="mt-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{alumni.slice(0, 3).map((a: any) => <div key={a.id} className="rounded-2xl bg-[#f6f7f3] p-5"><div className="font-black text-emerald-950">{a.full_name}</div><div className="mt-1 text-xs font-bold uppercase tracking-wide text-emerald-700">{a.graduation_year || a.program || 'AMQM Alumni'}</div><p className="mt-3 text-sm leading-6 text-slate-600">{a.bio || a.current_role || ''}</p></div>)}</div></div></section>}
 
