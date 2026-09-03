@@ -35,6 +35,7 @@ export default function StaffPage(){
 
  /* ── account role edit ── */
  const [editA,setEditA]=useState<StaffProfile|null>(null);
+ const [showGrantAdmin,setShowGrantAdmin]=useState(false);
 
  const refresh=async()=>{
    const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
@@ -204,28 +205,67 @@ export default function StaffPage(){
    {/* ── ACCOUNTS & ACCESS ── */}
    {tab==='accounts'&&(()=>{
      const ROLE_LABELS:Record<string,string>={super_admin:'Super Admin',admin:'Administrator',principal:'Principal',finance:'Finance',admissions:'Admissions',security:'Security',teacher:'Teacher',parent:'Parent'};
-     const CHANGEABLE_ROLES=['admin','principal','finance','admissions','security'];
      const accounts=staff.filter(s=>s.role!=='teacher'&&s.role!=='parent');
+     const admins=accounts.filter(a=>a.role==='admin'||a.role==='super_admin');
+     const nonAdmins=accounts.filter(a=>a.role!=='admin'&&a.role!=='super_admin');
      return<>
-       <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 text-xs text-amber-800 leading-5">Use this tab to change a staff member's access level. Granting Administrator access gives full system access — only do this for trusted staff.</div>
-       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-         {accounts.map(a=><article key={a.id} className="card overflow-hidden">
-           <div className="p-5 flex items-start gap-4">
-             <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-               {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-slate-300">{a.full_name.charAt(0)}</div>}
-             </div>
-             <div className="min-w-0 flex-1">
-               <div className="font-black truncate">{a.full_name}</div>
-               <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
-               <span className={`pill mt-1.5 text-[10px] ${a.role==='admin'||a.role==='super_admin'?'bg-indigo-100 text-indigo-700':'bg-slate-100 text-slate-600'}`}>{ROLE_LABELS[a.role]||a.role}</span>
-             </div>
-           </div>
-           <div className="flex items-center gap-2 border-t px-5 py-3">
-             <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>setEditA({...a})}>Change role / password</button>
-           </div>
-         </article>)}
-         {!accounts.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No staff accounts found.</div>}
+       {/* Grant Admin banner */}
+       <div className="rounded-[1.5rem] bg-gradient-to-r from-indigo-900 to-indigo-700 p-6 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+         <div>
+           <div className="text-xs font-black uppercase tracking-[.2em] text-indigo-200">Administrator Access</div>
+           <h3 className="mt-1 text-xl font-black">Grant admin privileges to a staff member</h3>
+           <p className="mt-1 text-sm text-indigo-100/75">Select a management or leadership staff member to give them full administrator access to the system.</p>
+         </div>
+         <button onClick={()=>setShowGrantAdmin(true)} className="btn shrink-0 bg-white text-indigo-900 font-black px-6 py-3">
+           + Grant Admin Access
+         </button>
        </div>
+
+       {/* Current admins */}
+       {admins.length>0&&<>
+         <div className="text-xs font-black uppercase tracking-[.2em] text-slate-400">Current Administrators</div>
+         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+           {admins.map(a=><article key={a.id} className="card overflow-hidden border-indigo-200">
+             <div className="p-5 flex items-start gap-4">
+               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-indigo-50">
+                 {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-indigo-300">{a.full_name.charAt(0)}</div>}
+               </div>
+               <div className="min-w-0 flex-1">
+                 <div className="font-black truncate">{a.full_name}</div>
+                 <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
+                 <span className="pill mt-1.5 text-[10px] bg-indigo-100 text-indigo-700">{ROLE_LABELS[a.role]||a.role}</span>
+               </div>
+             </div>
+             <div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
+               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>setEditA({...a})}>Edit / Reset password</button>
+             </div>
+           </article>)}
+         </div>
+       </>}
+
+       {/* Other staff accounts */}
+       {nonAdmins.length>0&&<>
+         <div className="text-xs font-black uppercase tracking-[.2em] text-slate-400">Other Staff Accounts</div>
+         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+           {nonAdmins.map(a=><article key={a.id} className="card overflow-hidden">
+             <div className="p-5 flex items-start gap-4">
+               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                 {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-slate-300">{a.full_name.charAt(0)}</div>}
+               </div>
+               <div className="min-w-0 flex-1">
+                 <div className="font-black truncate">{a.full_name}</div>
+                 <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
+                 <span className="pill mt-1.5 text-[10px] bg-slate-100 text-slate-600">{ROLE_LABELS[a.role]||a.role}</span>
+               </div>
+             </div>
+             <div className="flex items-center gap-2 border-t px-5 py-3">
+               <button className="btn bg-indigo-50 text-indigo-700 text-sm py-1.5 font-black" onClick={async()=>{if(!confirm(`Grant Administrator access to ${a.full_name}? This gives full system access.`))return;setBusy(true);try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>Grant Admin ↑</button>
+               <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>setEditA({...a})}>Change role</button>
+             </div>
+           </article>)}
+         </div>
+       </>}
+       {!accounts.length&&<div className="card p-8 text-center text-sm text-slate-500">No staff accounts found.</div>}
      </>;
    })()}
 
@@ -325,6 +365,35 @@ export default function StaffPage(){
      <button className="btn btn-primary" disabled={busy||!editL.full_name} onClick={saveLeader}>{busy?'Saving…':'Save'}</button>
    </div>
   </div></div>}
+
+  {/* ── GRANT ADMIN MODAL ── */}
+  {showGrantAdmin&&(()=>{
+   const ROLE_LABELS:Record<string,string>={principal:'Principal',finance:'Finance',admissions:'Admissions',security:'Security'};
+   const eligible=staff.filter(s=>s.role!=='admin'&&s.role!=='super_admin'&&s.role!=='teacher'&&s.role!=='parent');
+   return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
+    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Grant Administrator Access</h2><p className="text-sm text-slate-500">Select a staff member to promote to Administrator</p></div><button onClick={()=>setShowGrantAdmin(false)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+    <div className="divide-y max-h-[60vh] overflow-y-auto">
+     {eligible.length===0&&<div className="p-8 text-center text-sm text-slate-400">All staff members are already Administrators, or no non-teacher accounts exist.</div>}
+     {eligible.map(a=><div key={a.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
+      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+       {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-lg font-black text-slate-300">{a.full_name.charAt(0)}</div>}
+      </div>
+      <div className="flex-1 min-w-0">
+       <div className="font-black truncate">{a.full_name}</div>
+       <div className="text-xs text-slate-500">{ROLE_LABELS[a.role]||a.role}{a.staff_id?` · ${a.staff_id}`:''}</div>
+      </div>
+      <button disabled={busy} className="btn bg-indigo-600 text-white text-sm py-2 px-4 shrink-0" onClick={async()=>{
+       if(!confirm(`Grant Administrator access to ${a.full_name}?\n\nThis gives full system access to all admin features.`))return;
+       setBusy(true);
+       try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setShowGrantAdmin(false);setMessage(`${a.full_name} is now an Administrator.`);}
+       catch(e:any){setMessage(e?.message??'Failed.')}
+       finally{setBusy(false)}
+      }}>Grant Admin →</button>
+     </div>)}
+    </div>
+    <div className="border-t p-4 flex justify-end"><button className="btn bg-slate-100" onClick={()=>setShowGrantAdmin(false)}>Close</button></div>
+   </div></div>;
+  })()}
 
   {/* ── EDIT ACCOUNT MODAL ── */}
   {editA&&(()=>{
