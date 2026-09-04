@@ -107,12 +107,11 @@ export default function Login(){
       const{data:profile}=await supabase.from('profiles').select('role').eq('id',data.user.id).maybeSingle();
       window.location.href=dashboardFor(profile?.role);
     }else{
-      const{data,error:err}=await supabase.functions.invoke('username-login',{body:{username:credential.trim().toLowerCase(),password}});
-      if(err||data?.error){setError(data?.error||err?.message||'Invalid username or password');setBusy(false);return}
-      const sess=data?.session;
-      if(!sess){setError('No session returned');setBusy(false);return}
-      await supabase.auth.setSession({access_token:sess.access_token,refresh_token:sess.refresh_token});
-      const{data:profile}=await supabase.from('profiles').select('role').eq('id',sess.user.id).maybeSingle();
+      const{data:emailData,error:rpcErr}=await supabase.rpc('get_email_by_username',{p_username:credential.trim().toLowerCase()});
+      if(rpcErr||!emailData){setError('Invalid username or password');setBusy(false);return}
+      const{data,error:err}=await supabase.auth.signInWithPassword({email:emailData,password});
+      if(err){setError('Invalid username or password');setBusy(false);return}
+      const{data:profile}=await supabase.from('profiles').select('role').eq('id',data.user.id).maybeSingle();
       window.location.href=dashboardFor(profile?.role);
     }
   }
@@ -120,11 +119,10 @@ export default function Login(){
   async function submitTeacher(e:FormEvent){
     e.preventDefault();setBusy(true);setError('');
     const supabase=createClient();
-    const{data,error:err}=await supabase.functions.invoke('username-login',{body:{username:username.trim().toLowerCase(),password:tPassword}});
-    if(err||data?.error){setError(data?.error||err?.message||'Login failed');setBusy(false);return}
-    const sess=data?.session;
-    if(!sess){setError('No session returned');setBusy(false);return}
-    await supabase.auth.setSession({access_token:sess.access_token,refresh_token:sess.refresh_token});
+    const{data:emailData,error:rpcErr}=await supabase.rpc('get_email_by_username',{p_username:username.trim().toLowerCase()});
+    if(rpcErr||!emailData){setError('Invalid username or password');setBusy(false);return}
+    const{data,error:err}=await supabase.auth.signInWithPassword({email:emailData,password:tPassword});
+    if(err){setError('Invalid username or password');setBusy(false);return}
     window.location.href='/teacher';
   }
 
