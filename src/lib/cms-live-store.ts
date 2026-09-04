@@ -91,7 +91,6 @@ export async function loadPublicTeachers() {
   const { data, error } = await db().from('profiles')
     .select('id,full_name,job_title,department,avatar_url,bio')
     .eq('role', 'teacher')
-    .eq('show_on_website', true)
     .eq('employment_status', 'active')
     .order('full_name');
   return error || !data ? [] : data;
