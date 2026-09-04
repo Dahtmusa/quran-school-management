@@ -14,7 +14,7 @@ A responsive Quran memorization school platform for a two-year programme (Year 1
 - Staff/security workflows are role-restricted and auditable.
 - Public homepage, leadership, management, staff, alumni and media content is CMS-controlled.
  
-## Quran metadata  
+## Quran metadata 
 
 The application uses `quran-meta` Hafs metadata for exact 604-page Madinah Mushaf page/Juz/Hizb calculations in the UI. The library documents 6,236 ayahs, 604 pages, 30 Juz and 60 Hizbs and provides per-ayah page/Juz/Hizb metadata.
 
