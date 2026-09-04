@@ -342,7 +342,7 @@ export default function Home() {
                       {/* Photo area */}
                       <div style={{position:'relative',height:340,overflow:'hidden',background:'#051e1b'}}>
                         {t.photo_url
-                          ? <img src={t.photo_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center',transition:'transform .7s ease'}} className="group-hover:scale-105"/>
+                          ? <img src={t.photo_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center 20%',transition:'transform .7s ease'}} className="group-hover:scale-105"/>
                           : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:90,color:'rgba(201,168,76,.25)',fontWeight:900,letterSpacing:'-2px'}}>{t.full_name?.charAt(0)}</div>}
                         {/* Gradient overlay */}
                         <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(5,24,20,.95) 0%,rgba(5,24,20,.55) 40%,transparent 70%)'}}/>
@@ -397,7 +397,7 @@ export default function Home() {
                           onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 2.5px #fff, 0 0 0 5px #0f766e, 0 10px 28px rgba(6,45,40,.3)';(e.currentTarget as HTMLElement).style.transform='scale(1.05)'}}
                           onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 2.5px #fff, 0 0 0 5px #C9A84C, 0 6px 20px rgba(6,45,40,.2)';(e.currentTarget as HTMLElement).style.transform='none'}}>
                           {t.avatar_url
-                            ? <img src={t.avatar_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top center'}}/>
+                            ? <img src={t.avatar_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center 20%'}}/>
                             : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:38,color:'#C9A84C',fontWeight:900}}>{t.full_name?.charAt(0)}</div>}
                         </div>
                       </div>
