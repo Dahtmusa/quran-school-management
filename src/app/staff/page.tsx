@@ -5,12 +5,12 @@ import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPa
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null};
-type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number};
+type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null};
+type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
 const STATUS_OPTS=['active','inactive','suspended','left'];
-const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0};
+const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0,qualifications:'',experience:'',subjects:''};
 
 export default function StaffPage(){
  const [tab,setTab]=useState<'teaching'|'leadership'|'accounts'>('teaching');
@@ -51,7 +51,7 @@ export default function StaffPage(){
    try{
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
-     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null});
+     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null});
      if(newPassword.trim().length>=8){await resetStaffPassword(editT.id,newPassword.trim());}
      await refresh();setEditT(null);setPhotoFile(null);setNewPassword('');setMessage('Staff profile updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
@@ -297,6 +297,9 @@ export default function StaffPage(){
          <label className="text-xs font-bold sm:col-span-2">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span><input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
+       <label className="text-xs font-bold">Qualifications<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. B.Ed Islamic Studies, Ijazah in Qur'an" value={editT.qualifications||''} onChange={e=>setEditT({...editT,qualifications:e.target.value||null})}/></label>
+       <label className="text-xs font-bold">Experience<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. 8 years teaching Hifz" value={editT.experience||''} onChange={e=>setEditT({...editT,experience:e.target.value||null})}/></label>
+       <label className="text-xs font-bold">Subjects / Responsibilities<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. Quran Memorization, Tajweed" value={editT.subjects||''} onChange={e=>setEditT({...editT,subjects:e.target.value||null})}/></label>
        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border p-3 hover:bg-slate-50">
          <div className={`h-5 w-9 rounded-full transition-colors ${editT.show_on_website?'bg-emerald-500':'bg-slate-200'}`}><div className={`mt-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${editT.show_on_website?'translate-x-4':'translate-x-0.5'}`}/></div>
          <input type="checkbox" hidden checked={editT.show_on_website} onChange={e=>setEditT({...editT,show_on_website:e.target.checked})}/>
@@ -349,6 +352,9 @@ export default function StaffPage(){
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Bio</div>
        <label className="text-xs font-bold">Brief bio <span className="font-normal text-slate-400">(shown on homepage card)</span><textarea className="input mt-1 w-full resize-none" rows={3} value={editL.brief_bio||''} onChange={e=>setEditL({...editL,brief_bio:e.target.value})}/></label>
        <label className="text-xs font-bold">Full profile <span className="font-normal text-slate-400">(shown on "Read more" page)</span><textarea className="input mt-1 w-full resize-none" rows={5} placeholder="Detailed biography, qualifications, achievements…" value={editL.full_profile||''} onChange={e=>setEditL({...editL,full_profile:e.target.value})}/></label>
+       <label className="text-xs font-bold">Qualifications<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. M.A Islamic Education, Ijazah" value={editL.qualifications||''} onChange={e=>setEditL({...editL,qualifications:e.target.value||null})}/></label>
+       <label className="text-xs font-bold">Experience<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. 15 years in Islamic education leadership" value={editL.experience||''} onChange={e=>setEditL({...editL,experience:e.target.value||null})}/></label>
+       <label className="text-xs font-bold">Subjects / Responsibilities<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. School administration, curriculum oversight" value={editL.subjects||''} onChange={e=>setEditL({...editL,subjects:e.target.value||null})}/></label>
      </div>
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Photo</div>

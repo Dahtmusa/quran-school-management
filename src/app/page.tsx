@@ -12,6 +12,7 @@ import {
   type CMSSection,
 } from '@/lib/cms-live-store';
 import { TeachingStaffSection } from '@/components/TeachingStaffSection';
+import { LeadershipSection } from '@/components/LeadershipSection';
 
 function mapSections(items: CMSSection[]) {
   return Object.fromEntries(items.map((x) => [x.section_key, x])) as Record<string, CMSSection>;
@@ -312,61 +313,9 @@ export default function Home() {
       {(team.length > 0 || teachers.length > 0) && (
         <section>
 
-          {/* ══ LEADERSHIP — full-bleed dark editorial ══ */}
+          {/* ══ LEADERSHIP — interactive carousel ══ */}
           {team.length > 0 && (
-            <div style={{background:'#062d2a',position:'relative',overflow:'hidden'}}>
-              {/* Subtle radial glow behind cards */}
-              <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse 80% 60% at 50% 40%,rgba(201,168,76,.07) 0%,transparent 70%)',pointerEvents:'none'}}/>
-              {/* Fine dot texture */}
-              <div style={{position:'absolute',inset:0,backgroundImage:'radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)',backgroundSize:'28px 28px',pointerEvents:'none'}}/>
-
-              <div className="mx-auto max-w-[1320px] px-5 sm:px-7" style={{position:'relative',paddingTop:72,paddingBottom:80}}>
-                {/* Section label + heading */}
-                <div style={{textAlign:'center',marginBottom:52}}>
-                  <div style={{display:'inline-flex',alignItems:'center',gap:10,marginBottom:14}}>
-                    <div style={{width:32,height:1,background:'#C9A84C',opacity:.6}}/>
-                    <span style={{fontSize:10.5,fontWeight:900,letterSpacing:'.26em',textTransform:'uppercase',color:'#C9A84C'}}>Leadership &amp; Management</span>
-                    <div style={{width:32,height:1,background:'#C9A84C',opacity:.6}}/>
-                  </div>
-                  <h2 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:'clamp(2rem,3.5vw,2.9rem)',fontWeight:900,color:'#fff',lineHeight:1.08,margin:0,textWrap:'balance'}}>The people who lead {shortName}.</h2>
-                  <p style={{marginTop:12,fontSize:14.5,lineHeight:1.75,color:'rgba(255,255,255,.45)',maxWidth:480,marginLeft:'auto',marginRight:'auto'}}>Experienced educators and visionary leaders dedicated to excellence in Qur'anic memorization.</p>
-                </div>
-
-                {/* Leadership cards — auto-fit fills width regardless of count */}
-                <div style={{display:'grid',gap:20,gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,320px),1fr))'}}>
-                  {team.map((t: any) => (
-                    <article key={t.id} className="group" style={{borderRadius:18,overflow:'hidden',background:'#0a3830',border:'1px solid rgba(201,168,76,.15)',boxShadow:'0 8px 32px rgba(0,0,0,.4)',transition:'transform .3s ease,box-shadow .3s ease'}}
-                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-8px)';(e.currentTarget as HTMLElement).style.boxShadow='0 24px 56px rgba(0,0,0,.55)'}}
-                      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.boxShadow='0 8px 32px rgba(0,0,0,.4)'}}>
-                      {/* Gold top rule */}
-                      <div style={{height:3,background:'linear-gradient(90deg,transparent,#C9A84C 30%,#f6d46d 50%,#C9A84C 70%,transparent)'}}/>
-                      {/* Photo area */}
-                      <div style={{position:'relative',height:340,overflow:'hidden',background:'#051e1b'}}>
-                        {t.photo_url
-                          ? <img src={t.photo_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center 20%',transition:'transform .7s ease'}} className="group-hover:scale-105"/>
-                          : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:90,color:'rgba(201,168,76,.25)',fontWeight:900,letterSpacing:'-2px'}}>{t.full_name?.charAt(0)}</div>}
-                        {/* Gradient overlay */}
-                        <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(5,24,20,.95) 0%,rgba(5,24,20,.55) 40%,transparent 70%)'}}/>
-                        {/* Name block */}
-                        <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'0 22px 22px'}}>
-                          <h3 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:18,fontWeight:900,color:'#fff',margin:0,lineHeight:1.2,letterSpacing:'.01em'}}>{t.full_name}</h3>
-                          <div style={{marginTop:6,display:'inline-flex',alignItems:'center',gap:7}}>
-                            <div style={{width:18,height:2,background:'#C9A84C',borderRadius:1,flexShrink:0}}/>
-                            <span style={{fontSize:11.5,fontWeight:800,color:'#C9A84C',letterSpacing:'.1em',textTransform:'uppercase'}}>{t.role_title}</span>
-                          </div>
-                        </div>
-                      </div>
-                      {/* Bio */}
-                      {t.brief_bio && (
-                        <div style={{padding:'16px 22px 20px',borderTop:'1px solid rgba(201,168,76,.1)'}}>
-                          <p style={{margin:0,fontSize:13,lineHeight:1.7,color:'rgba(255,255,255,.45)',overflow:'hidden',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical'}}>{t.brief_bio}</p>
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <LeadershipSection leaders={team} shortName={shortName} />
           )}
 
           {/* ══ TEACHING STAFF — interactive carousel ══ */}

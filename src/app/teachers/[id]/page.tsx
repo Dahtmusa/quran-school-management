@@ -25,7 +25,7 @@ export default async function TeacherProfilePage({ params }: { params: Promise<{
   const supabase = await createClient();
   const { data: teacher } = await supabase
     .from('profiles')
-    .select('id,full_name,job_title,department,avatar_url,bio')
+    .select('id,full_name,job_title,department,avatar_url,bio,qualifications,experience,subjects')
     .eq('id', id)
     .eq('role', 'teacher')
     .single();
@@ -89,11 +89,32 @@ export default async function TeacherProfilePage({ params }: { params: Promise<{
             <div style={{ height: 1.5, background: `linear-gradient(90deg,transparent,${GOLD} 30%,${GOLD} 70%,transparent)`, marginBottom: 32 }} />
 
             {/* Details grid */}
-            <div style={{ display: 'grid', gap: 28 }}>
+            <div style={{ display: 'grid', gap: 24 }}>
               {teacher.department && teacher.department !== teacher.job_title && (
                 <div>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.22em', textTransform: 'uppercase', color: TEAL, marginBottom: 7 }}>Department</div>
                   <div style={{ fontSize: 16, color: '#3d5c4e', fontWeight: 600 }}>{teacher.department}</div>
+                </div>
+              )}
+
+              {(teacher as any).qualifications && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.22em', textTransform: 'uppercase', color: TEAL, marginBottom: 7 }}>Qualifications</div>
+                  <div style={{ fontSize: 15, color: '#3d5c4e' }}>{(teacher as any).qualifications}</div>
+                </div>
+              )}
+
+              {(teacher as any).experience && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.22em', textTransform: 'uppercase', color: TEAL, marginBottom: 7 }}>Experience</div>
+                  <div style={{ fontSize: 15, color: '#3d5c4e' }}>{(teacher as any).experience}</div>
+                </div>
+              )}
+
+              {(teacher as any).subjects && (
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.22em', textTransform: 'uppercase', color: TEAL, marginBottom: 7 }}>Subjects</div>
+                  <div style={{ fontSize: 15, color: '#3d5c4e' }}>{(teacher as any).subjects}</div>
                 </div>
               )}
 
@@ -104,11 +125,8 @@ export default async function TeacherProfilePage({ params }: { params: Promise<{
                 </div>
               )}
 
-              {/* Placeholder message if minimal data */}
-              {!teacher.bio && !teacher.department && (
-                <p style={{ fontSize: 15, color: '#7a9288', fontStyle: 'italic', margin: 0 }}>
-                  Full profile information coming soon.
-                </p>
+              {!teacher.bio && !(teacher as any).qualifications && !(teacher as any).experience && (
+                <p style={{ fontSize: 15, color: '#7a9288', fontStyle: 'italic', margin: 0 }}>Full profile information coming soon.</p>
               )}
             </div>
 

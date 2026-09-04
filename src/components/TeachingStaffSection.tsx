@@ -10,6 +10,9 @@ export type Teacher = {
   department?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
+  qualifications?: string | null;
+  experience?: string | null;
+  subjects?: string | null;
 };
 
 export type ValuesItem = string | { label: string };
@@ -205,6 +208,30 @@ function ProfilePanel({
             </div>
           )}
 
+          {/* Qualifications */}
+          {teacher.qualifications && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 3 }}>Qualifications</div>
+              <div style={{ fontSize: 12.5, color: '#3d5c4e' }}>{teacher.qualifications}</div>
+            </div>
+          )}
+
+          {/* Experience */}
+          {teacher.experience && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 3 }}>Experience</div>
+              <div style={{ fontSize: 12.5, color: '#3d5c4e' }}>{teacher.experience}</div>
+            </div>
+          )}
+
+          {/* Subjects */}
+          {teacher.subjects && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 3 }}>Subjects</div>
+              <div style={{ fontSize: 12.5, color: '#3d5c4e' }}>{teacher.subjects}</div>
+            </div>
+          )}
+
           {/* Bio */}
           {teacher.bio && (
             <div style={{ marginBottom: 16 }}>
@@ -212,7 +239,7 @@ function ProfilePanel({
               <p style={{
                 fontSize: 12.5, lineHeight: 1.72, color: '#4a6258', margin: 0,
                 overflow: 'hidden', display: '-webkit-box',
-                WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
               }}>{teacher.bio}</p>
             </div>
           )}
@@ -281,6 +308,21 @@ function TabletPanel({ teacher, onClose }: { teacher: Teacher | null; onClose: (
         {teacher.department && teacher.department !== teacher.job_title && (
           <div style={{ marginTop: 9, fontSize: 12.5, color: '#4a6258' }}>
             <span style={{ fontWeight: 700, color: TEAL }}>Dept: </span>{teacher.department}
+          </div>
+        )}
+        {teacher.qualifications && (
+          <div style={{ marginTop: 8, fontSize: 12.5, color: '#4a6258' }}>
+            <span style={{ fontWeight: 700, color: TEAL }}>Qualifications: </span>{teacher.qualifications}
+          </div>
+        )}
+        {teacher.experience && (
+          <div style={{ marginTop: 6, fontSize: 12.5, color: '#4a6258' }}>
+            <span style={{ fontWeight: 700, color: TEAL }}>Experience: </span>{teacher.experience}
+          </div>
+        )}
+        {teacher.subjects && (
+          <div style={{ marginTop: 6, fontSize: 12.5, color: '#4a6258' }}>
+            <span style={{ fontWeight: 700, color: TEAL }}>Subjects: </span>{teacher.subjects}
           </div>
         )}
         {teacher.bio && (
@@ -364,6 +406,27 @@ function MobileSheet({ teacher, onClose }: { teacher: Teacher; onClose: () => vo
           <div style={{ marginBottom: 14 }}>
             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 5 }}>Department</div>
             <div style={{ fontSize: 14.5, color: '#3d5c4e' }}>{teacher.department}</div>
+          </div>
+        )}
+
+        {teacher.qualifications && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 5 }}>Qualifications</div>
+            <div style={{ fontSize: 14, color: '#3d5c4e' }}>{teacher.qualifications}</div>
+          </div>
+        )}
+
+        {teacher.experience && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 5 }}>Experience</div>
+            <div style={{ fontSize: 14, color: '#3d5c4e' }}>{teacher.experience}</div>
+          </div>
+        )}
+
+        {teacher.subjects && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: TEAL, marginBottom: 5 }}>Subjects</div>
+            <div style={{ fontSize: 14, color: '#3d5c4e' }}>{teacher.subjects}</div>
           </div>
         )}
 

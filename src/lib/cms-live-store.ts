@@ -46,7 +46,7 @@ export async function saveCMSSetting(key: string, value: any) {
 }
 
 export async function loadPublicTeam() {
-  const { data, error } = await db().from('public_team_profiles').select('*').eq('published', true).eq('display_on_homepage', true).order('sort_order');
+  const { data, error } = await db().from('public_team_profiles').select('id,full_name,role_title,category,photo_url,brief_bio,full_profile,display_on_homepage,published,sort_order,qualifications,experience,subjects').eq('published', true).eq('display_on_homepage', true).order('sort_order');
   return error || !data ? [] : data;
 }
 
@@ -89,7 +89,7 @@ export async function deleteAlumniProfile(id: string) {
 
 export async function loadPublicTeachers() {
   const { data, error } = await db().from('profiles')
-    .select('id,full_name,job_title,department,avatar_url,bio')
+    .select('id,full_name,job_title,department,avatar_url,bio,qualifications,experience,subjects')
     .eq('role', 'teacher')
     .eq('employment_status', 'active')
     .order('full_name');

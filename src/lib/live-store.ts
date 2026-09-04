@@ -237,7 +237,7 @@ export async function updateStudentMemorization(studentId: string, input: {
 }
 
 export async function loadStaffProfiles() {
-  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website,username').order('full_name');
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website,username,qualifications,experience,subjects').order('full_name');
   if (error || !data) return [];
   return data;
 }
@@ -251,7 +251,7 @@ export async function createStaffAccount(input: {fullName:string;email:string;pa
   return data;
 }
 
-export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null;role?:string}) {
+export async function updateStaffProfile(id:string,input:{full_name?:string;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null;role?:string;qualifications?:string|null;experience?:string|null;subjects?:string|null}) {
   const { error } = await supabase().from('profiles').update(input).eq('id',id);
   if (error) throw error;
 }
