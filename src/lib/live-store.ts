@@ -407,8 +407,10 @@ export type HistoricalEvalEntry = {
   startSurah: number; startAyah: number;
   eval1Surah: number; eval1Ayah: number;
   eval2Surah: number; eval2Ayah: number;
+  currentSurah: number; currentAyah: number;
   eval1: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
   eval2: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
+  eval3: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
 };
 
 export async function bulkImportHistoricalEvals(
@@ -420,50 +422,36 @@ export async function bulkImportHistoricalEvals(
   if (!user) throw new Error('Not authenticated');
 
   const valid = entries.filter(e =>
-    e.startSurah && e.startAyah && e.eval1Surah && e.eval1Ayah && e.eval2Surah && e.eval2Ayah
+    e.startSurah && e.startAyah &&
+    e.eval1Surah && e.eval1Ayah &&
+    e.eval2Surah && e.eval2Ayah &&
+    e.currentSurah && e.currentAyah
   );
   if (!valid.length) throw new Error('No valid entries to import');
 
   const now = new Date().toISOString();
 
-  await Promise.all(valid.map(e =>
-    db.from('students').update({
-      start_surah: e.startSurah, start_ayah: e.startAyah,
-      current_surah: e.eval2Surah, current_ayah: e.eval2Ayah,
-    }).eq('id', e.studentId)
-  ));
-
-  const eval1Rows = valid.map(e => ({
+  const makeRow = (e: HistoricalEvalEntry, num: 1|2|3, from: {surah:number;ayah:number}, to: {surah:number;ayah:number}, metrics: HistoricalEvalEntry['eval1']) => ({
     student_id: e.studentId, teacher_id: user.id, term_id: termId,
-    evaluation_number: 1, status: 'approved',
-    from_surah: e.startSurah, from_ayah: e.startAyah,
-    to_surah: e.eval1Surah, to_ayah: e.eval1Ayah,
-    memorized_ayahs: e.eval1.ayahs, memorized_pages: e.eval1.pages, memorized_hizbs: e.eval1.hizbs,
-    score: e.eval1.score, accuracy_score: e.eval1.rubric, fluency_score: e.eval1.rubric,
-    tajweed_score: e.eval1.rubric, retention_score: e.eval1.rubric,
-    grade: e.eval1.grade, teacher_comment: 'Imported from historical records.',
+    evaluation_number: num, status: 'approved',
+    from_surah: from.surah, from_ayah: from.ayah,
+    to_surah: to.surah, to_ayah: to.ayah,
+    memorized_ayahs: metrics.ayahs, memorized_pages: metrics.pages, memorized_hizbs: metrics.hizbs,
+    score: metrics.score, accuracy_score: metrics.rubric, fluency_score: metrics.rubric,
+    tajweed_score: metrics.rubric, retention_score: metrics.rubric,
+    grade: metrics.grade, teacher_comment: 'Imported from historical records.',
     submitted_at: now, approved_at: now,
-  }));
+  });
 
-  const eval2Rows = valid.map(e => ({
-    student_id: e.studentId, teacher_id: user.id, term_id: termId,
-    evaluation_number: 2, status: 'approved',
-    from_surah: e.eval1Surah, from_ayah: e.eval1Ayah,
-    to_surah: e.eval2Surah, to_ayah: e.eval2Ayah,
-    memorized_ayahs: e.eval2.ayahs, memorized_pages: e.eval2.pages, memorized_hizbs: e.eval2.hizbs,
-    score: e.eval2.score, accuracy_score: e.eval2.rubric, fluency_score: e.eval2.rubric,
-    tajweed_score: e.eval2.rubric, retention_score: e.eval2.rubric,
-    grade: e.eval2.grade, teacher_comment: 'Imported from historical records.',
-    submitted_at: now, approved_at: now,
-  }));
+  const rows = valid.flatMap(e => [
+    makeRow(e, 1, { surah: e.startSurah, ayah: e.startAyah }, { surah: e.eval1Surah, ayah: e.eval1Ayah }, e.eval1),
+    makeRow(e, 2, { surah: e.eval1Surah, ayah: e.eval1Ayah }, { surah: e.eval2Surah, ayah: e.eval2Ayah }, e.eval2),
+    makeRow(e, 3, { surah: e.eval2Surah, ayah: e.eval2Ayah }, { surah: e.currentSurah, ayah: e.currentAyah }, e.eval3),
+  ]);
 
-  const { error: e1 } = await db.from('evaluations')
-    .upsert(eval1Rows, { onConflict: 'student_id,term_id,evaluation_number' });
-  if (e1) throw e1;
-
-  const { error: e2 } = await db.from('evaluations')
-    .upsert(eval2Rows, { onConflict: 'student_id,term_id,evaluation_number' });
-  if (e2) throw e2;
+  const { error: upsertErr } = await db.from('evaluations')
+    .upsert(rows, { onConflict: 'student_id,term_id,evaluation_number' });
+  if (upsertErr) throw upsertErr;
 
   return { imported: valid.length };
 }
