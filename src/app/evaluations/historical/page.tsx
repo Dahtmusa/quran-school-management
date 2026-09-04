@@ -11,9 +11,10 @@ import { SURAHS, progressBetween, positionOrdinal } from '@/lib/quran';
 import type { Student } from '@/lib/data';
 
 // Admin only enters Eval 1 end and Eval 2 end.
-// Start   = student.start  (profile, read-only)
-// Current = student.current (profile, shown as reference — will be updated to Eval 2 end after import)
-// Eval 3 happens live: teachers submit it from Eval 2's end position.
+// Start        = student.start   (profile — where they began, shown for reference)
+// Eval 1 begin = student.current (profile — where they are now, Eval 1 starts here)
+// Eval 2 begin = Eval 1 end      (auto-chained)
+// After import: student.current is updated to Eval 2 end; Eval 3 happens live from there.
 type EntryState = {
   eval1Surah: number; eval1Ayah: number;
   eval2Surah: number; eval2Ayah: number;
@@ -43,7 +44,7 @@ function computeEvalMetrics(
   from: { surah: number; ayah: number },
   to: { surah: number; ayah: number },
   direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
-  targetAyahs: number
+  targetPages: number
 ): ComputedMetrics {
   if (!from.surah || !from.ayah || !to.surah || !to.ayah) {
     return { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
@@ -55,7 +56,7 @@ function computeEvalMetrics(
     return { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
   }
   const prog = progressBetween(from, to, direction);
-  const score = Math.min(100, Math.round((prog.ayahs / Math.max(1, targetAyahs)) * 100));
+  const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
   const rubric = scoreToRubric(score);
   return { ayahs: prog.ayahs, pages: prog.pages, hizbs: prog.hizbs, score, rubric, grade: scoreToGrade(score), valid: true };
 }
@@ -124,7 +125,7 @@ export default function HistoricalEvalPage() {
 
   const [selectedClassId, setSelectedClassId] = useState('');
   const [selectedTermId, setSelectedTermId] = useState('');
-  const [targetAyahs, setTargetAyahs] = useState(150);
+  const [targetPages, setTargetPages] = useState(30);
 
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
   const [importing, setImporting] = useState(false);
@@ -186,16 +187,17 @@ export default function HistoricalEvalPage() {
 
   function getComputed(student: Student, e: EntryState): { e1: ComputedMetrics; e2: ComputedMetrics } {
     const dir = student.direction;
+    // Eval 1 starts at student's current position (not start — current is where they are before evals)
     const e1 = computeEvalMetrics(
-      { surah: student.start.surah, ayah: student.start.ayah },
+      { surah: student.current.surah, ayah: student.current.ayah },
       { surah: e.eval1Surah, ayah: e.eval1Ayah },
-      dir, targetAyahs
+      dir, targetPages
     );
-    // Eval 2 starts from where Eval 1 ended — no manual input needed for the start.
+    // Eval 2 starts from where Eval 1 ended — auto-chained
     const e2 = computeEvalMetrics(
       { surah: e.eval1Surah, ayah: e.eval1Ayah },
       { surah: e.eval2Surah, ayah: e.eval2Ayah },
-      dir, targetAyahs
+      dir, targetPages
     );
     return { e1, e2 };
   }
@@ -212,7 +214,7 @@ export default function HistoricalEvalPage() {
       if (!e1.valid || !e2.valid) continue;
       batch.push({
         studentId: student.id,
-        startSurah: student.start.surah, startAyah: student.start.ayah,
+        startSurah: student.current.surah, startAyah: student.current.ayah,
         eval1Surah: e.eval1Surah, eval1Ayah: e.eval1Ayah,
         eval2Surah: e.eval2Surah, eval2Ayah: e.eval2Ayah,
         eval1: e1, eval2: e2,
@@ -248,7 +250,7 @@ export default function HistoricalEvalPage() {
       return e1.valid && e2.valid;
     }).length;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classStudents, entries, targetAyahs]);
+  }, [classStudents, entries, targetPages]);
 
   if (authorized === null || loading) {
     return (
@@ -324,16 +326,16 @@ export default function HistoricalEvalPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Ayahs expected per eval (for scoring)</label>
+              <label className="block text-xs font-medium text-neutral-600 mb-1">Pages expected per eval (for scoring)</label>
               <input
                 type="number"
-                min={50}
-                max={500}
-                value={targetAyahs}
-                onChange={e => setTargetAyahs(Math.max(50, Number(e.target.value)))}
+                min={1}
+                max={200}
+                value={targetPages}
+                onChange={e => setTargetPages(Math.max(1, Number(e.target.value)))}
                 className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
-              <p className="text-xs text-neutral-400 mt-0.5">Memorizing this many ayahs = 100%</p>
+              <p className="text-xs text-neutral-400 mt-0.5">Memorizing {targetPages} pages = 100% — default is 30 pages</p>
             </div>
 
             {selectedClassId && (
@@ -362,12 +364,14 @@ export default function HistoricalEvalPage() {
           <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 text-xs text-amber-800 flex flex-wrap gap-2 items-center">
             <strong>Flow:</strong>
             <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">Start (profile)</span>
-            <span className="text-neutral-400">→ Eval 1 →</span>
+            <span className="text-neutral-400">…</span>
+            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-mono">Current (Eval 1 begins here)</span>
+            <span className="text-neutral-400">→</span>
             <span className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded font-mono">Eval 1 End ✏️</span>
-            <span className="text-neutral-400">→ Eval 2 →</span>
+            <span className="text-neutral-400">→ Eval 2 begins →</span>
             <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded font-mono">Eval 2 End ✏️</span>
-            <span className="text-neutral-400">→ becomes current →</span>
-            <span className="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-mono">Eval 3 (live)</span>
+            <span className="text-neutral-400">→ new current →</span>
+            <span className="bg-teal-100 text-teal-700 px-2 py-0.5 rounded font-mono">Eval 3 (live)</span>
           </div>
         )}
 
@@ -383,9 +387,10 @@ export default function HistoricalEvalPage() {
                 <tr className="bg-neutral-50 border-b border-neutral-100">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 whitespace-nowrap">Student</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 bg-slate-50 whitespace-nowrap">Start</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-violet-500 bg-violet-50 whitespace-nowrap">Eval 1 Begins</th>
                   <th className="text-center px-2 py-3 text-xs font-semibold text-violet-600 bg-violet-50 whitespace-nowrap" colSpan={2}>Eval 1 End ✏️</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-amber-500 bg-amber-50 whitespace-nowrap">Eval 2 Begins</th>
                   <th className="text-center px-2 py-3 text-xs font-semibold text-amber-600 bg-amber-50 whitespace-nowrap" colSpan={2}>Eval 2 End ✏️</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 bg-slate-50 whitespace-nowrap">Current (ref)</th>
                   <th className="text-center px-2 py-3 text-xs font-semibold text-violet-500 whitespace-nowrap">Eval 1</th>
                   <th className="text-center px-2 py-3 text-xs font-semibold text-amber-500 whitespace-nowrap">Eval 2</th>
                 </tr>
@@ -406,9 +411,14 @@ export default function HistoricalEvalPage() {
                         <div className="text-neutral-400 text-[10px]">{student.admissionNo} · {student.direction === 'Baqarah-to-Nas' ? '→' : '←'}</div>
                       </td>
 
-                      {/* Start Position — read-only from profile */}
+                      {/* Start — student.start, reference only */}
                       <td className="px-3 py-2 text-center bg-slate-50/40">
                         <PosChip surahId={student.start.surah} ayah={student.start.ayah} surahMap={surahMap} muted />
+                      </td>
+
+                      {/* Eval 1 begins — student.current (auto, read-only) */}
+                      <td className="px-3 py-2 text-center bg-violet-50/40">
+                        <PosChip surahId={student.current.surah} ayah={student.current.ayah} surahMap={surahMap} />
                       </td>
 
                       {/* Eval 1 End — admin input */}
@@ -419,17 +429,17 @@ export default function HistoricalEvalPage() {
                         <AyahInput value={e.eval1Ayah} max={eval1Surah?.ayahs ?? 286} onChange={v => update(student.id, { eval1Ayah: v })} />
                       </td>
 
-                      {/* Eval 2 End — admin input; Eval 2 start = Eval 1 end automatically */}
+                      {/* Eval 2 begins — Eval 1 end (auto-chained, read-only) */}
+                      <td className="px-3 py-2 text-center bg-amber-50/40">
+                        <PosChip surahId={e.eval1Surah} ayah={e.eval1Ayah} surahMap={surahMap} />
+                      </td>
+
+                      {/* Eval 2 End — admin input */}
                       <td className="px-1 py-2 bg-amber-50/30">
                         <SurahSelect value={e.eval2Surah} onChange={v => update(student.id, { eval2Surah: v, eval2Ayah: 1 })} />
                       </td>
                       <td className="px-1 py-2 bg-amber-50/30">
                         <AyahInput value={e.eval2Ayah} max={eval2Surah?.ayahs ?? 286} onChange={v => update(student.id, { eval2Ayah: v })} />
-                      </td>
-
-                      {/* Current position — read-only reference (will be overwritten by Eval 2 end on import) */}
-                      <td className="px-3 py-2 text-center bg-slate-50/40">
-                        <PosChip surahId={student.current.surah} ayah={student.current.ayah} surahMap={surahMap} muted />
                       </td>
 
                       {/* Coverage columns */}
@@ -463,16 +473,17 @@ export default function HistoricalEvalPage() {
             <div className="text-4xl mb-3">📖</div>
             <h2 className="text-base font-semibold text-neutral-800 mb-1">Select a term and class to begin</h2>
             <p className="text-sm text-neutral-500 max-w-lg mx-auto mb-6">
-              Each student's start is read from their profile. You enter where Eval 1 ended and where Eval 2 ended.
-              The system chains these automatically — Eval 2's end becomes the student's new current position,
-              and teachers submit Eval 3 live from there.
+              Each student's current position (from their profile) is the start of Eval 1.
+              Enter where Eval 1 ended — that becomes the automatic start of Eval 2. Enter where Eval 2 ended.
+              The system chains everything and updates each student's current position to Eval 2's end.
+              Teachers then submit Eval 3 live from there. School expects <strong>30 pages per eval</strong> as the standard.
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-left max-w-2xl mx-auto text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-left max-w-2xl mx-auto text-xs">
               {[
-                { color: 'slate', label: 'Start', desc: 'From the student\'s profile — where they began the term. Read-only.' },
-                { color: 'violet', label: 'Eval 1 End ✏️', desc: 'You enter: the surah and ayah where Eval 1 finished.' },
-                { color: 'amber', label: 'Eval 2 End ✏️', desc: 'You enter: the surah and ayah where Eval 2 finished. Becomes their new current position.' },
-                { color: 'emerald', label: 'Eval 3 (live)', desc: 'Not imported — teachers submit this live, starting from where Eval 2 ended.' },
+                { color: 'slate', label: 'Start (ref)', desc: 'Where they began — shown for reference only. Eval 1 does not start here.' },
+                { color: 'violet', label: 'Eval 1: Current → End ✏️', desc: 'Eval 1 starts at the student\'s current position (from profile). You enter the end.' },
+                { color: 'amber', label: 'Eval 2: Eval 1 End → End ✏️', desc: 'Eval 2 starts automatically from where Eval 1 ended. You enter the end — this becomes their new current.' },
+                { color: 'teal', label: 'Eval 3 (live)', desc: 'Not imported — teachers submit Eval 3 live, starting from the new current position.' },
               ].map(item => (
                 <div key={item.label} className={`rounded-lg p-3 bg-${item.color}-50 border border-${item.color}-100`}>
                   <div className={`font-semibold text-${item.color}-700 mb-1`}>{item.label}</div>
