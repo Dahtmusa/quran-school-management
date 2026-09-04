@@ -163,15 +163,6 @@ export default function HistoricalEvalPage() {
   }, []);
 
   const selectedTerm = useMemo(() => terms.find((t: any) => t.id === selectedTermId), [terms, selectedTermId]);
-  const filteredClasses = useMemo(
-    () => selectedTerm ? classes.filter(c => c.academicYearId === selectedTerm.academic_year_id) : classes,
-    [classes, selectedTerm]
-  );
-
-  useEffect(() => {
-    if (!selectedClassId) return;
-    if (!filteredClasses.some(c => c.id === selectedClassId)) setSelectedClassId('');
-  }, [filteredClasses]);
 
   const classStudents = useMemo(
     () => allStudents.filter(s => s.classId === selectedClassId).sort((a, b) => a.name.localeCompare(b.name)),
@@ -325,7 +316,7 @@ export default function HistoricalEvalPage() {
                 className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               >
                 <option value="">Select class…</option>
-                {filteredClasses.map(c => {
+                {classes.map(c => {
                   const count = allStudents.filter(s => s.classId === c.id).length;
                   return <option key={c.id} value={c.id}>{c.name} ({count} students)</option>;
                 })}
