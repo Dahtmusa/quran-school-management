@@ -5,7 +5,7 @@ import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPa
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null};
+type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
@@ -293,7 +293,8 @@ export default function StaffPage(){
          <label className="text-xs font-bold">Employment status<select className="input mt-1 w-full" value={editT.employment_status} onChange={e=>setEditT({...editT,employment_status:e.target.value})}>{STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
-         <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(for Teacher tab on sign-in page)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(set at account creation — used for login)</span><input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editT.email||'—'}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(alternative login — teacher can use email OR username)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
          <label className="text-xs font-bold sm:col-span-2">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span><input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
@@ -344,7 +345,7 @@ export default function StaffPage(){
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold sm:col-span-2">Full name<input required className="input mt-1 w-full" placeholder="e.g. Dr. Aliyu Musa" value={editL.full_name||''} onChange={e=>setEditL({...editL,full_name:e.target.value})}/></label>
          <label className="text-xs font-bold">Role / title<select className="input mt-1 w-full" value={editL.role_title||'Director'} onChange={e=>setEditL({...editL,role_title:e.target.value})}>{ROLE_TITLES.map(r=><option key={r}>{r}</option>)}</select></label>
-         <label className="text-xs font-bold">Category<select className="input mt-1 w-full" value={editL.category||'leadership'} onChange={e=>setEditL({...editL,category:e.target.value})}><option value="leadership">Leadership</option><option value="management">Management</option><option value="staff">General Staff</option></select></label>
+         <label className="text-xs font-bold">Category<select className="input mt-1 w-full" value={editL.category||'leadership'} onChange={e=>setEditL({...editL,category:e.target.value})}><option value="leadership">Leadership</option><option value="staff">General Staff</option></select></label>
          <label className="text-xs font-bold">Sort order<input type="number" min="0" className="input mt-1 w-full" value={editL.sort_order??0} onChange={e=>setEditL({...editL,sort_order:Number(e.target.value)})}/></label>
        </div>
      </div>
@@ -437,7 +438,10 @@ export default function StaffPage(){
       </select>
       {editA.role==='admin'&&<p className="mt-1 text-xs text-amber-600">Administrator has full system access — only grant to trusted staff.</p>}
      </label>
-     <label className="text-xs font-bold block">Login username <span className="font-normal text-slate-400">(used to sign in)</span>
+     <label className="text-xs font-bold block">Email address <span className="font-normal text-slate-400">(login with email or username)</span>
+      <input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editA.email||'—'}/>
+     </label>
+     <label className="text-xs font-bold block">Login username <span className="font-normal text-slate-400">(alternative to email)</span>
       <input className="input mt-1 w-full" placeholder="e.g. admin.mubarak" value={editA.username||''} onChange={e=>setEditA({...editA,username:e.target.value||null})}/>
      </label>
      <label className="text-xs font-bold block">New password <span className="font-normal text-slate-400">(leave blank to keep current)</span>

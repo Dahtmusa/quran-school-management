@@ -27,12 +27,12 @@ function Icon({ name }: { name?: string }) {
 
 const defaultNav = [
   { label: 'Home', href: '/' },
-  { label: 'About Us', href: '/about' },
-  { label: 'Programs', href: '/programs' },
+  { label: 'About Us', href: '/#about' },
+  { label: 'Programs', href: '/#programmes' },
   { label: 'Admissions', href: '/admissions' },
-  { label: 'Campus Life', href: '/campus-life' },
-  { label: 'News & Events', href: '/news' },
-  { label: 'Contact Us', href: '/contact' },
+  { label: 'Campus Life', href: '/#campus' },
+  { label: 'News & Events', href: '/#news' },
+  { label: 'Contact Us', href: '/#contact' },
 ];
 
 function externalUrl(value?: string) {
@@ -263,7 +263,7 @@ export default function Home() {
       )}
 
       {/* ── 5. ABOUT + ADMISSIONS ── */}
-      <section className="mx-auto max-w-[1320px] px-5 pb-16 sm:px-7 lg:pb-20">
+      <section id="about" className="mx-auto max-w-[1320px] px-5 pb-16 sm:px-7 lg:pb-20">
         <div className="grid gap-4 lg:grid-cols-[1.05fr_1.2fr_.62fr]">
           <div className="card p-7 lg:p-8">
             <div className="eyebrow-light">About {shortName}</div>
@@ -294,7 +294,7 @@ export default function Home() {
 
       {/* ── 6. PROGRAMME ── */}
       {programme.items?.length > 0 && (
-        <section className="bg-[#f4f6f1] py-16 lg:py-20">
+        <section id="programmes" className="bg-[#f4f6f1] py-16 lg:py-20">
           <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div><div className="eyebrow-light">Academic pathway</div><h2 className="section-title">{programme.title || "Qur'an Memorization Programme"}</h2><p className="section-copy max-w-2xl">{programme.text || 'A structured pathway with daily memorization, revision and regular evaluation.'}</p></div>
@@ -327,7 +327,7 @@ export default function Home() {
 
       {/* ── 9. CAMPUS LIFE ── */}
       {campuses.length > 0 && (
-        <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:py-20">
+        <section id="campus" className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:py-20">
           <div className="flex items-end justify-between gap-4">
             <div><div className="eyebrow-light">Campus life</div><h2 className="section-title">A safe place to learn, worship and grow.</h2></div>
             <Link href="/campus-life" className="hidden text-sm font-black text-emerald-800 sm:block">Explore campus life →</Link>
@@ -419,7 +419,7 @@ export default function Home() {
 
       {/* ── 11. NEWS & EVENTS ── */}
       {news.length > 0 && (
-        <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7">
+        <section id="news" className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7">
           <div className="flex items-end justify-between">
             <div><div className="eyebrow-light">News & events</div><h2 className="section-title">{m.news?.title || 'Latest from AMQM'}</h2></div>
             <Link href="/news" className="text-sm font-black text-emerald-800">View all →</Link>
@@ -472,7 +472,7 @@ export default function Home() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-[#03251f] text-white">
+      <footer id="contact" className="bg-[#03251f] text-white">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[1.2fr_.8fr_.8fr]">
           <div>
             <div className="font-serif text-2xl font-black">{schoolName}</div>
