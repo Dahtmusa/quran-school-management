@@ -369,12 +369,12 @@ export default function StaffPage(){
 
   {/* ── GRANT / REVOKE ADMIN MODAL ── */}
   {showGrantAdmin&&(()=>{
-   // Only leadership department staff can be granted or have admin revoked
-   const leadership=staff.filter(s=>s.department==='leadership'&&s.role!=='super_admin');
+   // All management accounts (non-teacher, non-parent) can have admin granted/revoked
+   const leadership=staff.filter(s=>s.role!=='teacher'&&s.role!=='parent'&&s.role!=='super_admin');
    return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
     <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Administrator Access</h2><p className="text-sm text-slate-500">Grant or revoke admin access for leadership staff only.</p></div><button onClick={()=>setShowGrantAdmin(false)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
     <div className="divide-y max-h-[60vh] overflow-y-auto">
-     {leadership.length===0&&<div className="p-8 text-center text-sm text-slate-400">No leadership staff accounts found. Add staff with the "leadership" department to manage admin access here.</div>}
+     {leadership.length===0&&<div className="p-8 text-center text-sm text-slate-400">No management staff accounts found. Create staff accounts from the Accounts & Access tab first.</div>}
      {leadership.map(a=>{
       const isAdmin=a.role==='admin';
       return<div key={a.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
