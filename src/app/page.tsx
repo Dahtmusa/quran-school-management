@@ -11,6 +11,7 @@ import {
   loadPublicTeachers,
   type CMSSection,
 } from '@/lib/cms-live-store';
+import { TeachingStaffSection } from '@/components/TeachingStaffSection';
 
 function mapSections(items: CMSSection[]) {
   return Object.fromEntries(items.map((x) => [x.section_key, x])) as Record<string, CMSSection>;
@@ -368,61 +369,10 @@ export default function Home() {
             </div>
           )}
 
-          {/* ══ TEACHING STAFF — warm cream section ══ */}
+          {/* ══ TEACHING STAFF — interactive carousel ══ */}
           {teachers.length > 0 && (
-            <div style={{background:'#F4F1EA',position:'relative',overflow:'hidden'}}>
-              {/* Subtle top border accent */}
-              <div style={{height:4,background:'linear-gradient(90deg,#062d2a,#0f766e 50%,#062d2a)'}}/>
-
-              <div className="mx-auto max-w-[1320px] px-5 sm:px-7" style={{paddingTop:72,paddingBottom:88,position:'relative'}}>
-                {/* Heading */}
-                <div style={{textAlign:'center',marginBottom:52}}>
-                  <div style={{display:'inline-flex',alignItems:'center',gap:10,marginBottom:14}}>
-                    <div style={{width:32,height:1,background:'#0f766e',opacity:.5}}/>
-                    <span style={{fontSize:10.5,fontWeight:900,letterSpacing:'.26em',textTransform:'uppercase',color:'#0f766e'}}>Teaching Staff</span>
-                    <div style={{width:32,height:1,background:'#0f766e',opacity:.5}}/>
-                  </div>
-                  <h2 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:'clamp(1.8rem,3vw,2.5rem)',fontWeight:900,color:'#062d2a',lineHeight:1.1,margin:0,textWrap:'balance'}}>Shaping the next generation of hufāẓ.</h2>
-                  <p style={{marginTop:12,fontSize:14.5,lineHeight:1.75,color:'#6b7c76',maxWidth:460,marginLeft:'auto',marginRight:'auto'}}>Our qualified teachers bring dedication, knowledge and care to every lesson.</p>
-                </div>
-
-                {/* Teacher grid */}
-                <div style={{display:'grid',gap:'32px 20px',gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))'}}>
-                  {teachers.map((t: any) => (
-                    <article key={t.id} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
-                      {/* Circular portrait with gold ring */}
-                      <div style={{position:'relative',flexShrink:0}}>
-                        <div style={{width:108,height:108,borderRadius:'50%',overflow:'hidden',background:'#062d2a',boxShadow:'0 0 0 2.5px #fff, 0 0 0 5px #C9A84C, 0 6px 20px rgba(6,45,40,.2)',transition:'box-shadow .25s,transform .25s'}}
-                          className="group"
-                          onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 2.5px #fff, 0 0 0 5px #0f766e, 0 10px 28px rgba(6,45,40,.3)';(e.currentTarget as HTMLElement).style.transform='scale(1.05)'}}
-                          onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 2.5px #fff, 0 0 0 5px #C9A84C, 0 6px 20px rgba(6,45,40,.2)';(e.currentTarget as HTMLElement).style.transform='none'}}>
-                          {t.avatar_url
-                            ? <img src={t.avatar_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'center 20%'}}/>
-                            : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:38,color:'#C9A84C',fontWeight:900}}>{t.full_name?.charAt(0)}</div>}
-                        </div>
-                      </div>
-                      {/* Name + role */}
-                      <div style={{marginTop:13,textAlign:'center'}}>
-                        <h3 style={{fontSize:12.5,fontWeight:900,color:'#062d2a',lineHeight:1.3,margin:0,textTransform:'uppercase',letterSpacing:'.03em'}}>{t.full_name}</h3>
-                        <div style={{marginTop:6,fontSize:10.5,fontWeight:700,color:'#fff',background:'#0c5e50',borderRadius:99,padding:'3px 11px',letterSpacing:'.05em',textTransform:'uppercase',display:'inline-block'}}>{t.job_title || "Qur'an Teacher"}</div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <TeachingStaffSection teachers={teachers} values={values} />
           )}
-        </section>
-      )}
-
-      {/* ── 8. VALUES STRIP ── */}
-      {values.length > 0 && (
-        <section className="border-y border-emerald-900/10 bg-[#f4f6f1] py-6">
-          <div className="mx-auto flex max-w-[1320px] flex-wrap items-center justify-center gap-3 px-5 sm:px-7">
-            {values.map((x: any, i: number) => (
-              <span key={i} className="rounded-xl bg-white px-5 py-3 text-sm font-bold text-emerald-950 shadow-sm">✦ {typeof x === 'string' ? x : x.label}</span>
-            ))}
-          </div>
         </section>
       )}
 
