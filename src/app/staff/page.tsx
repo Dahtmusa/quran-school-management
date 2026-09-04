@@ -32,6 +32,10 @@ export default function StaffPage(){
  /* ── leadership edit ── */
  const [editL,setEditL]=useState<Partial<TeamProfile>|null>(null);
  const [lPhotoFile,setLPhotoFile]=useState<File|null>(null);
+ const [lAccEmail,setLAccEmail]=useState('');
+ const [lAccPassword,setLAccPassword]=useState('');
+ const [lAccRole,setLAccRole]=useState('admin');
+ const [lAccUsername,setLAccUsername]=useState('');
 
  /* ── account role edit ── */
  const [editA,setEditA]=useState<StaffProfile|null>(null);
@@ -67,6 +71,18 @@ export default function StaffPage(){
      setShowCreate(false);setCf({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:'',username:''});
      await refresh();setMessage(`Teacher created. Staff ID: ${r?.staff_id||'auto-assigned'}.`);
    }catch(e:any){setMessage(e?.message??'Unable to create teacher.')}finally{setBusy(false)}
+ }
+
+ async function createLeaderAccount(){
+   if(!editL?.full_name||!lAccEmail||lAccPassword.length<8)return;
+   setBusy(true);
+   try{
+     const r=await createStaffAccount({fullName:editL.full_name,email:lAccEmail,password:lAccPassword,role:lAccRole,phone:'',jobTitle:editL.role_title||'',department:'Leadership',joinedOn:''});
+     if(lAccUsername.trim()&&r?.user_id){await updateStaffProfile(r.user_id,{username:lAccUsername.trim().toLowerCase()});}
+     await refresh();
+     setLAccEmail('');setLAccPassword('');setLAccUsername('');setLAccRole('admin');
+     setMessage(`Account created for ${editL.full_name}. They can now log in with ${lAccRole} access. Staff ID: ${r?.staff_id||'auto-assigned'}.`);
+   }catch(e:any){setMessage(e?.message??'Unable to create account.')}finally{setBusy(false)}
  }
 
  async function saveLeader(){
@@ -363,6 +379,33 @@ export default function StaffPage(){
        {editL.photo_url&&<img src={editL.photo_url} className="h-20 w-20 rounded-2xl object-cover"/>}
        <label className="btn block w-full bg-slate-100 text-center cursor-pointer">Upload photo<input hidden type="file" accept="image/*" onChange={e=>setLPhotoFile(e.target.files?.[0]||null)}/></label>
        {lPhotoFile&&<div className="text-xs text-slate-500">Selected: {lPhotoFile.name}</div>}
+     </div>
+     <div className="p-5 space-y-3">
+       <div className="text-xs font-black uppercase tracking-wide text-indigo-700">Account & System Access</div>
+       {(()=>{
+         const existing=staff.find(s=>s.full_name.trim().toLowerCase()===(editL?.full_name||'').trim().toLowerCase());
+         if(existing){return(
+           <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 space-y-2">
+             <div className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-indigo-500"/><span className="text-sm font-bold text-indigo-900">System account exists</span></div>
+             <p className="text-xs text-indigo-700">Role: <strong>{existing.role}</strong>{existing.username?` · @${existing.username}`:''}{existing.staff_id?` · ${existing.staff_id}`:''}</p>
+             <p className="text-xs text-slate-500">To change role, password, or username — go to the <strong>Accounts &amp; Access</strong> tab and find this person there.</p>
+           </div>
+         );}
+         return(<div className="space-y-3">
+           <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">No system account yet. Create login credentials below to let this person sign in and access the system.</div>
+           <div className="grid gap-3 sm:grid-cols-2">
+             <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(used for login)</span><input type="email" className="input mt-1 w-full" placeholder="e.g. supervisor@amqm.edu.ng" value={lAccEmail} onChange={e=>setLAccEmail(e.target.value)}/></label>
+             <label className="text-xs font-bold">Temporary password<input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={lAccPassword} onChange={e=>setLAccPassword(e.target.value)}/></label>
+             <label className="text-xs font-bold">System role<select className="input mt-1 w-full" value={lAccRole} onChange={e=>setLAccRole(e.target.value)}><option value="admin">Administrator</option><option value="principal">Principal</option><option value="finance">Finance</option><option value="admissions">Admissions</option><option value="security">Security</option></select></label>
+             <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(optional)</span><input className="input mt-1 w-full" placeholder="e.g. mubarak.supervisor" value={lAccUsername} onChange={e=>setLAccUsername(e.target.value)}/></label>
+           </div>
+           {lAccEmail&&lAccPassword.length>=8&&(
+             <button disabled={busy} onClick={createLeaderAccount} className="btn w-full bg-indigo-600 text-white font-black">
+               {busy?'Creating…':`Create account & grant ${lAccRole==='admin'?'Administrator':lAccRole.charAt(0).toUpperCase()+lAccRole.slice(1)} access →`}
+             </button>
+           )}
+         </div>);
+       })()}
      </div>
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Visibility</div>
