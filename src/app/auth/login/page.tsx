@@ -102,9 +102,16 @@ export default function Login(){
     e.preventDefault();setBusy(true);setError('');
     const supabase=createClient();
     if(credential.includes('@')){
-      const{data,error:err}=await supabase.auth.signInWithPassword({email:credential.trim(),password});
-      if(err){setError(err.message);setBusy(false);return}
-      const{data:profile}=await supabase.from('profiles').select('role').eq('id',data.user.id).maybeSingle();
+      // Try direct auth email first; if that fails, try preferred_email lookup
+      let authResult=await supabase.auth.signInWithPassword({email:credential.trim(),password});
+      if(authResult.error){
+        const{data:realEmail}=await supabase.rpc('get_auth_email_by_preferred_email',{p_preferred_email:credential.trim()});
+        if(realEmail){
+          authResult=await supabase.auth.signInWithPassword({email:realEmail,password});
+        }
+      }
+      if(authResult.error){setError('Invalid email or password');setBusy(false);return}
+      const{data:profile}=await supabase.from('profiles').select('role').eq('id',authResult.data.user.id).maybeSingle();
       window.location.href=dashboardFor(profile?.role);
     }else{
       const{data:emailData,error:rpcErr}=await supabase.rpc('get_email_by_username',{p_username:credential.trim().toLowerCase()});

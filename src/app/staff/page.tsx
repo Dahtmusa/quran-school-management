@@ -5,7 +5,7 @@ import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPa
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null};
+type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
@@ -51,7 +51,7 @@ export default function StaffPage(){
    try{
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
-     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null});
+     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null,preferred_email:editT.preferred_email?.trim().toLowerCase()||null});
      if(newPassword.trim().length>=8){await resetStaffPassword(editT.id,newPassword.trim());}
      await refresh();setEditT(null);setPhotoFile(null);setNewPassword('');setMessage('Staff profile updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
@@ -95,7 +95,7 @@ export default function StaffPage(){
  async function saveAccountRole(){
    if(!editA)return; setBusy(true);
    try{
-     await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role,username:editA.username?.trim().toLowerCase()||null});
+     await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role,username:editA.username?.trim().toLowerCase()||null,preferred_email:editA.preferred_email?.trim().toLowerCase()||null});
      if(newPassword.trim().length>=8){await resetStaffPassword(editA.id,newPassword.trim());}
      await refresh();setEditA(null);setNewPassword('');setMessage('Account updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
@@ -294,7 +294,8 @@ export default function StaffPage(){
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
          <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(set at account creation — used for login)</span><input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editT.email||'—'}/></label>
-         <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(alternative login — teacher can use email OR username)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Preferred email <span className="font-normal text-slate-400">(optional — staff can also login with this address)</span><input type="email" className="input mt-1 w-full" placeholder="e.g. teacher@gmail.com" value={editT.preferred_email||''} onChange={e=>setEditT({...editT,preferred_email:e.target.value||null})}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(alternative login — teacher can use email, preferred email, OR username)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
          <label className="text-xs font-bold sm:col-span-2">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span><input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
@@ -438,10 +439,13 @@ export default function StaffPage(){
       </select>
       {editA.role==='admin'&&<p className="mt-1 text-xs text-amber-600">Administrator has full system access — only grant to trusted staff.</p>}
      </label>
-     <label className="text-xs font-bold block">Email address <span className="font-normal text-slate-400">(login with email or username)</span>
+     <label className="text-xs font-bold block">Email address <span className="font-normal text-slate-400">(set at account creation)</span>
       <input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editA.email||'—'}/>
      </label>
-     <label className="text-xs font-bold block">Login username <span className="font-normal text-slate-400">(alternative to email)</span>
+     <label className="text-xs font-bold block">Preferred email <span className="font-normal text-slate-400">(optional — can also login with this address)</span>
+      <input type="email" className="input mt-1 w-full" placeholder="e.g. staff@gmail.com" value={editA.preferred_email||''} onChange={e=>setEditA({...editA,preferred_email:e.target.value||null})}/>
+     </label>
+     <label className="text-xs font-bold block">Login username <span className="font-normal text-slate-400">(alternative to email or preferred email)</span>
       <input className="input mt-1 w-full" placeholder="e.g. admin.mubarak" value={editA.username||''} onChange={e=>setEditA({...editA,username:e.target.value||null})}/>
      </label>
      <label className="text-xs font-bold block">New password <span className="font-normal text-slate-400">(leave blank to keep current)</span>
