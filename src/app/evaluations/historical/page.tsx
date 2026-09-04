@@ -23,6 +23,7 @@ type EntryState = {
 type ComputedMetrics = {
   ayahs: number; pages: number; hizbs: number;
   score: number; rubric: number; grade: string; valid: boolean;
+  error?: string;
 };
 
 function scoreToRubric(score: number): number {
@@ -46,14 +47,15 @@ function computeEvalMetrics(
   direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
   targetPages: number
 ): ComputedMetrics {
-  if (!from.surah || !from.ayah || !to.surah || !to.ayah) {
-    return { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
-  }
+  const blank = { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
+  if (!from.surah || !from.ayah || !to.surah || !to.ayah) return blank;
   const fromOrd = positionOrdinal(from);
   const toOrd = positionOrdinal(to);
-  const forward = direction === 'Baqarah-to-Nas' ? toOrd >= fromOrd : fromOrd >= toOrd;
-  if (!forward || fromOrd === toOrd) {
-    return { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
+  if (fromOrd === toOrd) return { ...blank, error: 'End position is the same as the start — select a different position.' };
+  const forward = direction === 'Baqarah-to-Nas' ? toOrd > fromOrd : fromOrd > toOrd;
+  if (!forward) {
+    const expected = direction === 'Baqarah-to-Nas' ? 'a later surah (Al-Baqarah → An-Nas)' : 'an earlier surah (An-Nas → Al-Baqarah)';
+    return { ...blank, error: `Position goes in the wrong direction — select ${expected}.` };
   }
   const prog = progressBetween(from, to, direction);
   const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
@@ -100,7 +102,17 @@ function PosChip({ surahId, ayah, surahMap, muted }: { surahId: number; ayah: nu
 }
 
 function CoverageCell({ m, color }: { m: ComputedMetrics; color: 'violet' | 'amber' }) {
-  if (!m.valid) return <span className="text-[10px] text-neutral-300">—</span>;
+  if (!m.valid) {
+    if (m.error) {
+      return (
+        <div className="flex items-start gap-1 text-[10px] text-red-600 font-medium max-w-[160px]">
+          <span className="mt-px shrink-0">⚠</span>
+          <span>{m.error}</span>
+        </div>
+      );
+    }
+    return <span className="text-[10px] text-neutral-300">—</span>;
+  }
   const bar = color === 'violet' ? 'bg-violet-400' : 'bg-amber-400';
   const text = color === 'violet' ? 'text-violet-700' : 'text-amber-700';
   return (
