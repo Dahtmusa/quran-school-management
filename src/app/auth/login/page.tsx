@@ -15,13 +15,40 @@ function dashboardFor(role?:string){
  return '/admin';
 }
 
+function EyeIcon({open}:{open:boolean}){
+ return open
+  ?<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+  :<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>;
+}
+
+function PasswordInput({value,onChange,placeholder,autoComplete}:{value:string;onChange:(v:string)=>void;placeholder?:string;autoComplete?:string}){
+ const [show,setShow]=useState(false);
+ return(
+  <div className="relative mt-1">
+   <input
+    className="input w-full pr-10"
+    type={show?'text':'password'}
+    autoComplete={autoComplete||'current-password'}
+    placeholder={placeholder||''}
+    value={value}
+    onChange={e=>onChange(e.target.value)}
+    required
+   />
+   <button type="button" tabIndex={-1} onClick={()=>setShow(s=>!s)}
+    className="absolute inset-y-0 right-0 flex items-center px-3 text-slate-400 hover:text-slate-700">
+    <EyeIcon open={show}/>
+   </button>
+  </div>
+ );
+}
+
 export default function Login(){
  const [tab,setTab]=useState<Tab>('staff');
  const [busy,setBusy]=useState(false);
  const [error,setError]=useState('');
 
  // Staff / Admin fields
- const [email,setEmail]=useState('');
+ const [credential,setCredential]=useState('');
  const [password,setPassword]=useState('');
 
  // Teacher fields
@@ -35,10 +62,25 @@ export default function Login(){
  async function submitStaff(e:FormEvent){
   e.preventDefault();setBusy(true);setError('');
   const supabase=createClient();
-  const{data,error:err}=await supabase.auth.signInWithPassword({email,password});
-  if(err){setError(err.message);setBusy(false);return}
-  const{data:profile}=await supabase.from('profiles').select('role').eq('id',data.user.id).maybeSingle();
-  window.location.href=dashboardFor(profile?.role);
+  const isEmail=credential.includes('@');
+  if(isEmail){
+   // Standard email login
+   const{data,error:err}=await supabase.auth.signInWithPassword({email:credential.trim(),password});
+   if(err){setError(err.message);setBusy(false);return}
+   const{data:profile}=await supabase.from('profiles').select('role').eq('id',data.user.id).maybeSingle();
+   window.location.href=dashboardFor(profile?.role);
+  }else{
+   // Username login — goes through edge function
+   const{data,error:err}=await supabase.functions.invoke('username-login',{
+    body:{username:credential.trim().toLowerCase(),password},
+   });
+   if(err||data?.error){setError(data?.error||err?.message||'Invalid username or password');setBusy(false);return}
+   const sess=data?.session;
+   if(!sess){setError('No session returned');setBusy(false);return}
+   await supabase.auth.setSession({access_token:sess.access_token,refresh_token:sess.refresh_token});
+   const{data:profile}=await supabase.from('profiles').select('role').eq('id',sess.user.id).maybeSingle();
+   window.location.href=dashboardFor(profile?.role);
+  }
  }
 
  async function submitTeacher(e:FormEvent){
@@ -86,8 +128,12 @@ export default function Login(){
     {tab==='staff'&&(
      <form onSubmit={submitStaff} className="mt-5 space-y-4">
       <p className="text-sm text-slate-500">For admin, principal, finance, admissions and security accounts.</p>
-      <label className="block text-sm font-semibold">Email<input className="input mt-1 w-full" type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></label>
-      <label className="block text-sm font-semibold">Password<input className="input mt-1 w-full" type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>
+      <label className="block text-sm font-semibold">Email or username
+       <input className="input mt-1 w-full" type="text" autoComplete="username" value={credential} onChange={e=>setCredential(e.target.value)} required/>
+      </label>
+      <label className="block text-sm font-semibold">Password
+       <PasswordInput value={password} onChange={setPassword} autoComplete="current-password"/>
+      </label>
       {error&&<div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
       <button disabled={busy} className="btn btn-primary w-full disabled:opacity-50">{busy?'Signing in...':'Sign in'}</button>
      </form>
@@ -97,8 +143,12 @@ export default function Login(){
     {tab==='teacher'&&(
      <form onSubmit={submitTeacher} className="mt-5 space-y-4">
       <p className="text-sm text-slate-500">Use the username and password set by the school administrator.</p>
-      <label className="block text-sm font-semibold">Username<input className="input mt-1 w-full" type="text" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required/></label>
-      <label className="block text-sm font-semibold">Password<input className="input mt-1 w-full" type="password" autoComplete="current-password" value={tPassword} onChange={e=>setTPassword(e.target.value)} required/></label>
+      <label className="block text-sm font-semibold">Username
+       <input className="input mt-1 w-full" type="text" autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} required/>
+      </label>
+      <label className="block text-sm font-semibold">Password
+       <PasswordInput value={tPassword} onChange={setTPassword} autoComplete="current-password"/>
+      </label>
       {error&&<div className="rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
       <button disabled={busy} className="btn btn-primary w-full disabled:opacity-50">{busy?'Signing in...':'Sign in as teacher'}</button>
      </form>

@@ -20,7 +20,7 @@ Deno.serve(async(req)=>{
       .from('profiles')
       .select('id,role')
       .eq('username',String(username).trim().toLowerCase())
-      .in('role',['teacher'])
+      .in('role',['teacher','admin','super_admin','principal','finance','admissions','security'])
       .maybeSingle();
 
     if(pe||!profile)throw new Error('Invalid username or password');
