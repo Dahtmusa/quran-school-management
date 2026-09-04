@@ -444,8 +444,8 @@ export function LeadershipSection({
 
   const arrowBtn = (enabled: boolean): React.CSSProperties => ({
     width: 38, height: 38, borderRadius: '50%',
-    background: enabled ? GOLD : 'rgba(255,255,255,.08)',
-    color: enabled ? DARK : 'rgba(255,255,255,.25)',
+    background: enabled ? GOLD : 'rgba(6,45,42,.08)',
+    color: enabled ? DARK : 'rgba(6,45,42,.25)',
     border: 'none', cursor: enabled ? 'pointer' : 'default',
     flexShrink: 0, fontSize: 15, fontWeight: 900,
     display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -495,24 +495,22 @@ export function LeadershipSection({
         }
       `}</style>
 
-      <div ref={sectionRef} id="leadership" style={{ background: DARK, position: 'relative', overflow: 'hidden' }}>
+      <div ref={sectionRef} id="leadership" style={{ background: '#F4F1EA', position: 'relative', overflow: 'hidden' }}>
         {/* Subtle radial glow */}
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 80% 60% at 50% 40%,rgba(201,168,76,.07) 0%,transparent 70%)', pointerEvents: 'none' }} />
-        {/* Dot texture */}
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'radial-gradient(rgba(255,255,255,.04) 1px,transparent 1px)', backgroundSize: '28px 28px', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse 70% 50% at 50% 0%,rgba(201,168,76,.10) 0%,transparent 70%)', pointerEvents: 'none' }} />
 
         <div className="mx-auto max-w-[1320px] px-5 sm:px-7" style={{ position: 'relative', paddingTop: 72, paddingBottom: 80 }}>
           {/* Section header */}
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <div style={{ ...fadeUp(0), display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <div style={{ width: 32, height: 1, background: GOLD, opacity: .6 }} />
-              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '.26em', textTransform: 'uppercase', color: GOLD }}>Leadership &amp; Management</span>
-              <div style={{ width: 32, height: 1, background: GOLD, opacity: .6 }} />
+              <div style={{ width: 32, height: 1, background: GOLD, opacity: .8 }} />
+              <span style={{ fontSize: 10.5, fontWeight: 900, letterSpacing: '.26em', textTransform: 'uppercase', color: '#8a6b1e' }}>Leadership &amp; Management</span>
+              <div style={{ width: 32, height: 1, background: GOLD, opacity: .8 }} />
             </div>
-            <h2 style={{ ...fadeUp(80), fontFamily: "Georgia,'Times New Roman',serif", fontSize: 'clamp(2rem,3.5vw,2.9rem)', fontWeight: 900, color: '#fff', lineHeight: 1.08, margin: 0 }}>
+            <h2 style={{ ...fadeUp(80), fontFamily: "Georgia,'Times New Roman',serif", fontSize: 'clamp(2rem,3.5vw,2.9rem)', fontWeight: 900, color: DARK, lineHeight: 1.08, margin: 0 }}>
               The people who lead {shortName}.
             </h2>
-            <p style={{ ...fadeUp(160), marginTop: 12, fontSize: 14.5, lineHeight: 1.75, color: 'rgba(255,255,255,.45)', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
+            <p style={{ ...fadeUp(160), marginTop: 12, fontSize: 14.5, lineHeight: 1.75, color: 'rgba(6,45,42,.5)', maxWidth: 480, marginLeft: 'auto', marginRight: 'auto' }}>
               Experienced educators and visionary leaders dedicated to excellence in Qur'anic memorization.
             </p>
           </div>
