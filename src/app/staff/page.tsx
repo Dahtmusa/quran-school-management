@@ -39,7 +39,7 @@ export default function StaffPage(){
 
  const refresh=async()=>{
    const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
-   setStaff(s as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
+   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
  };
  useEffect(()=>{refresh()},[]);
 

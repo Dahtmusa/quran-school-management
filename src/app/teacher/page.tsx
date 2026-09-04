@@ -280,39 +280,108 @@ export default function TeacherDashboard() {
     {/* My students */}
     <section className="card overflow-hidden">
       <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="text-lg font-black">My students</h2><p className="text-xs text-slate-500">Only students assigned to your account are shown. Academic profiles are read-only.</p></div>
-        <input value={studentSearch} onChange={e=>setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-52"/>
+        <div>
+          <h2 className="text-lg font-black">My students</h2>
+          <p className="text-xs text-slate-500">{students.length} student{students.length !== 1 ? 's' : ''} assigned to your account</p>
+        </div>
+        <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-52" />
       </div>
-      <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
-        {filteredStudents.map(s => { const sBtoN=s.direction==='Baqarah-to-Nas'; const sStart=s.start?.surah||2; const sCurr=s.current?.surah||sStart; const sTot=sBtoN?Math.max(1,114-sStart):Math.max(1,sStart-2); const sDone=sBtoN?Math.max(0,sCurr-sStart):Math.max(0,sStart-sCurr); const sPct=Math.min(100,(sDone/sTot)*100); return <article key={s.id} className="overflow-hidden rounded-2xl border bg-white hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 border-b bg-slate-50 p-4">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-              {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-full w-full object-cover" /> : <div className="grid h-full place-items-center text-xl font-black text-slate-300">{s.name?.charAt(0)}</div>}
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-black">{s.name}</h3>
-              <div className="mt-0.5 flex flex-wrap gap-1"><SectionBadge section={s.section} /><MemorizationBadge direction={s.direction} /></div>
-              <div className="mt-0.5 text-xs text-slate-400">{s.admissionNo}</div>
-            </div>
+      <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+        {filteredStudents.map(s => {
+          const sBtoN = s.direction === 'Baqarah-to-Nas';
+          const startSurahId = s.start?.surah || (sBtoN ? 2 : 114);
+          const currSurahId  = s.current?.surah || startSurahId;
+          const startName = SURAHS.find(x => x.id === startSurahId)?.name ?? `Surah ${startSurahId}`;
+          const currName  = SURAHS.find(x => x.id === currSurahId)?.name  ?? `Surah ${currSurahId}`;
+          const sTot = sBtoN ? Math.max(1, 114 - startSurahId) : Math.max(1, startSurahId - 2);
+          const sDone = sBtoN ? Math.max(0, currSurahId - startSurahId) : Math.max(0, startSurahId - currSurahId);
+          const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
+
+          return (
+            <article key={s.id} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200">
+
+              {/* Student identity */}
+              <div className="flex items-center gap-3 p-4">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+                  {s.photoUrl
+                    ? <img src={s.photoUrl} alt={s.name} className="h-full w-full object-cover" />
+                    : <div className="grid h-full place-items-center text-xl font-black text-slate-300">{s.name?.charAt(0)}</div>
+                  }
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="truncate font-black text-slate-900">{s.name}</h3>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${s.section === 'Boarding' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{s.section}</span>
+                    <span className="text-[10px] font-semibold text-slate-400">{s.year}</span>
+                    <span className="text-[10px] text-slate-300">·</span>
+                    <span className="text-[10px] text-slate-400">{s.admissionNo}</span>
+                  </div>
+                  <div className="mt-0.5 text-[10px] font-semibold text-emerald-700">{sBtoN ? 'Baqarah → Nas' : 'Nas → Baqarah'}</div>
+                </div>
+              </div>
+
+              {/* Journey progress */}
+              <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quran Journey</span>
+                  <span className="text-[10px] font-bold text-emerald-700">{sPct}% complete</span>
+                </div>
+                <div className="mb-1.5 h-2.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-500"
+                    style={{ width: `${sPct}%` }}
+                  />
+                </div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Started</div>
+                    <div className="mt-0.5 truncate text-xs font-black text-slate-600">{startName}</div>
+                    <div className="text-[10px] text-slate-400">Ayah {s.start?.ayah || 1}</div>
+                  </div>
+                  <div className="min-w-0 text-right">
+                    <div className="text-[9px] font-bold uppercase tracking-wide text-emerald-600">Now at</div>
+                    <div className="mt-0.5 truncate text-xs font-black text-emerald-700">{currName}</div>
+                    <div className="text-[10px] text-emerald-600">Ayah {s.current?.ayah || 1}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto border-t border-slate-100 p-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    className="flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors"
+                    onClick={() => setSelected(s)}
+                  >
+                    Profile
+                  </button>
+                  <div className="flex gap-1">
+                    {([['P', 'present', 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200', 'Present'],
+                       ['L', 'late',    'bg-amber-100 text-amber-700 hover:bg-amber-200',   'Late'],
+                       ['A', 'absent',  'bg-rose-100 text-rose-700 hover:bg-rose-200',     'Absent'],
+                       ['E', 'excused', 'bg-slate-100 text-slate-600 hover:bg-slate-200',  'Excused'],
+                    ] as [string, string, string, string][]).map(([lbl, val, cls, title]) => (
+                      <button
+                        key={val}
+                        disabled={busy}
+                        title={title}
+                        onClick={() => mark(s.id, val)}
+                        className={`rounded-lg px-2.5 py-2 text-[10px] font-black transition-colors disabled:opacity-50 ${cls}`}
+                      >
+                        {lbl}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+        {!filteredStudents.length && (
+          <div className="col-span-full py-12 text-center text-sm text-slate-400">
+            {studentSearch ? 'No students match your search.' : 'No students are assigned to your account.'}
           </div>
-          <div className="p-4 space-y-3">
-            <div>
-              <div className="mb-1 flex justify-between text-xs text-slate-400"><span>Journey progress</span><span>S.{sCurr} · {Math.round(sPct)}%</span></div>
-              <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all" style={{ width: `${sPct}%` }} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="rounded-xl bg-slate-50 p-2.5"><span className="text-slate-400 block">Starting</span><b>{s.start?.surah}:{s.start?.ayah}</b></div>
-              <div className="rounded-xl bg-emerald-50 p-2.5"><span className="text-emerald-600 block">Current</span><b>{s.current?.surah}:{s.current?.ayah}</b></div>
-            </div>
-            <div className="flex gap-2">
-              <button className="btn flex-1 bg-slate-100 text-sm" onClick={() => setSelected(s)}>Profile</button>
-              <select disabled={busy} onChange={e => { if (e.target.value) { mark(s.id, e.target.value); (e.target as HTMLSelectElement).value = ''; } }} defaultValue="" className="input flex-1 text-sm">
-                <option value="">Attendance</option><option value="present">Present</option><option value="late">Late</option><option value="absent">Absent</option><option value="excused">Excused</option>
-              </select>
-            </div>
-          </div>
-        </article>;})}
-        {!filteredStudents.length && <div className="col-span-full py-12 text-center text-sm text-slate-400">{studentSearch ? 'No students match your search.' : 'No students are assigned to your account.'}</div>}
+        )}
       </div>
     </section>
 
