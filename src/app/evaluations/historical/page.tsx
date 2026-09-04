@@ -104,21 +104,35 @@ export default function HistoricalEvalPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
-    getCurrentProfile().then(p => {
-      const ok = ['super_admin', 'admin', 'principal'].includes(p?.role ?? '');
-      setAuthorized(ok);
-      if (!ok) return;
-      Promise.all([loadStudents(), loadClasses(), loadOperationalTerms()]).then(([s, c, t]) => {
-        setAllStudents(s);
-        setClasses(c);
-        const sorted = [...t].sort((a: any, b: any) => (a.starts_on || '').localeCompare(b.starts_on || ''));
-        setTerms(sorted);
-        // Default to first term (chronologically first = Term 1 of current year)
-        const current = sorted.find((x: any) => x.academic_years?.is_current && x.term_number === 1);
-        if (current) setSelectedTermId(current.id);
+    getCurrentProfile()
+      .then(p => {
+        const ok = ['super_admin', 'admin', 'principal'].includes(p?.role ?? '');
+        setAuthorized(ok);
+        if (!ok) { setLoading(false); return; }
+        Promise.all([
+          loadStudents().catch(e => { console.error('[AMQM] loadStudents failed:', e); return [] as any[]; }),
+          loadClasses().catch(e => { console.error('[AMQM] loadClasses failed:', e); return [] as any[]; }),
+          loadOperationalTerms().catch(e => { console.error('[AMQM] loadOperationalTerms failed:', e); return [] as any[]; }),
+        ])
+          .then(([s, c, t]) => {
+            setAllStudents(s);
+            setClasses(c);
+            const sorted = [...t].sort((a: any, b: any) => (a.starts_on || '').localeCompare(b.starts_on || ''));
+            setTerms(sorted);
+            const current = sorted.find((x: any) => x.academic_years?.is_current && x.term_number === 1);
+            if (current) setSelectedTermId(current.id);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error('[AMQM] Historical eval data load failed:', err);
+            setLoading(false);
+          });
+      })
+      .catch(err => {
+        console.error('[AMQM] getCurrentProfile failed:', err);
+        setAuthorized(false);
         setLoading(false);
       });
-    });
   }, []);
 
   const classStudents = useMemo(
