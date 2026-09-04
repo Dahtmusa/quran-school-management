@@ -307,62 +307,92 @@ export default function Home() {
         </section>
       )}
 
-      {/* ── 7. STAFF & TEACHERS (moved up — social proof before campus/gallery) ── */}
+      {/* ── 7. STAFF & TEACHERS ── */}
       {(team.length > 0 || teachers.length > 0) && (
-        <section className="py-16 lg:py-20">
-          <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
-            <div className="text-center mb-10">
-              <div className="eyebrow-light">The people behind {shortName}</div>
-              <h2 className="section-title mx-auto">Meet our leadership & teaching staff.</h2>
-              <p className="section-copy mx-auto max-w-xl">Our qualified educators and dedicated leaders work together to create an environment where every student thrives with the Qur'an.</p>
-            </div>
+        <section>
+          {/* ── Leadership panel — dark editorial ── */}
+          {team.length > 0 && (
+            <div style={{background:'linear-gradient(160deg,#062d2a 0%,#0c4a3d 55%,#07352d 100%)',padding:'80px 0 90px',position:'relative',overflow:'hidden'}}>
+              {/* Decorative gold star watermark */}
+              <svg aria-hidden="true" style={{position:'absolute',right:'-60px',top:'50%',transform:'translateY(-50%)',width:520,height:520,opacity:.04,pointerEvents:'none'}} viewBox="0 0 260 260">
+                <polygon points={Array.from({length:8},(_,i)=>{const a0=i*Math.PI*2/8-Math.PI/2,a1=(i+.5)*Math.PI*2/8-Math.PI/2,r=110,r2=50,c=130;return`${c+r*Math.cos(a0)},${c+r*Math.sin(a0)} ${c+r2*Math.cos(a1)},${c+r2*Math.sin(a1)}`}).join(' ')} fill="#C9A84C"/>
+              </svg>
 
-            {team.length > 0 && (
-              <>
-                {teachers.length > 0 && <div className="mb-5 text-xs font-black uppercase tracking-[.22em] text-slate-400">Leadership & Management</div>}
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
+                {/* Heading */}
+                <div className="mb-12 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div style={{fontSize:11,fontWeight:900,letterSpacing:'.22em',textTransform:'uppercase',color:'#C9A84C',marginBottom:10}}>Leadership &amp; Management</div>
+                    <h2 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:'clamp(2rem,3.5vw,2.8rem)',fontWeight:900,color:'#fff',lineHeight:1.1,textWrap:'balance',margin:0}}>The people who lead {shortName}.</h2>
+                  </div>
+                  <p style={{maxWidth:340,fontSize:14,lineHeight:1.7,color:'rgba(255,255,255,.5)',margin:0}}>Experienced educators and visionary leaders dedicated to excellence in Qur'anic memorization.</p>
+                </div>
+
+                {/* Leadership cards */}
+                <div style={{display:'grid',gap:24,gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))'}}>
                   {team.map((t: any) => (
-                    <article key={t.id} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-1 duration-300">
-                      <div className="relative h-72 overflow-hidden bg-emerald-950">
+                    <article key={t.id} className="group" style={{borderRadius:20,overflow:'hidden',position:'relative',background:'#0a3830',boxShadow:'0 8px 40px rgba(0,0,0,.35)',transition:'transform .3s,box-shadow .3s',cursor:'default'}}
+                      onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='translateY(-6px)';(e.currentTarget as HTMLElement).style.boxShadow='0 20px 60px rgba(0,0,0,.5)'}}
+                      onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.boxShadow='0 8px 40px rgba(0,0,0,.35)'}}>
+                      {/* Gold top accent line */}
+                      <div style={{height:3,background:'linear-gradient(90deg,#C9A84C,#f6d46d,#C9A84C)',opacity:.85}}/>
+                      {/* Photo */}
+                      <div style={{position:'relative',height:300,overflow:'hidden',background:'#062d2a'}}>
                         {t.photo_url
-                          ? <img src={t.photo_url} alt={t.full_name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"/>
-                          : <div className="flex h-full items-center justify-center font-serif text-7xl text-amber-300">{t.full_name?.charAt(0)}</div>}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                        <div className="absolute bottom-4 left-4 right-4 text-white">
-                          <h3 className="font-black leading-tight">{t.full_name}</h3>
-                          <div className="text-sm font-semibold text-amber-300">{t.role_title}</div>
+                          ? <img src={t.photo_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top',transition:'transform .6s'}} className="group-hover:scale-105"/>
+                          : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:80,color:'#C9A84C',opacity:.4}}>{t.full_name?.charAt(0)}</div>}
+                        <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(6,20,18,.92) 0%,rgba(6,20,18,.3) 45%,transparent 75%)'}}/>
+                        <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'20px 20px 18px'}}>
+                          <h3 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:17,fontWeight:900,color:'#fff',margin:0,lineHeight:1.2,textTransform:'uppercase',letterSpacing:'.02em'}}>{t.full_name}</h3>
+                          <div style={{marginTop:5,fontSize:12,fontWeight:700,color:'#C9A84C',letterSpacing:'.06em',textTransform:'uppercase'}}>{t.role_title}</div>
                         </div>
                       </div>
-                      {t.brief_bio && <div className="p-4"><p className="text-xs leading-5 text-slate-500 line-clamp-3">{t.brief_bio}</p></div>}
+                      {/* Bio */}
+                      {t.brief_bio && (
+                        <div style={{padding:'14px 20px 18px',borderTop:'1px solid rgba(201,168,76,.12)'}}>
+                          <p style={{margin:0,fontSize:12.5,lineHeight:1.65,color:'rgba(255,255,255,.5)',display:'-webkit-box',WebkitLineClamp:3,WebkitBoxOrient:'vertical',overflow:'hidden'}}>{t.brief_bio}</p>
+                        </div>
+                      )}
                     </article>
                   ))}
                 </div>
-              </>
-            )}
+              </div>
+            </div>
+          )}
 
-            {teachers.length > 0 && (
-              <div className={team.length > 0 ? 'mt-14' : ''}>
-                {team.length > 0 && <div className="mb-5 text-xs font-black uppercase tracking-[.22em] text-slate-400">Teaching Staff</div>}
-                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {/* ── Teaching staff — warm light section ── */}
+          {teachers.length > 0 && (
+            <div style={{background:'#F5F2EC',padding:'80px 0 90px'}}>
+              <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
+                {/* Heading */}
+                <div className="mb-12 text-center">
+                  <div style={{fontSize:11,fontWeight:900,letterSpacing:'.22em',textTransform:'uppercase',color:'#0f766e',marginBottom:10}}>Teaching Staff</div>
+                  <h2 style={{fontFamily:"Georgia,'Times New Roman',serif",fontSize:'clamp(1.7rem,3vw,2.4rem)',fontWeight:900,color:'#062d2a',lineHeight:1.1,textWrap:'balance',margin:'0 auto',maxWidth:560}}>Qualified educators shaping the next generation of hufaz.</h2>
+                </div>
+
+                {/* Teacher cards — circular portrait style */}
+                <div style={{display:'grid',gap:28,gridTemplateColumns:'repeat(auto-fill,minmax(155px,1fr))'}}>
                   {teachers.map((t: any) => (
-                    <article key={t.id} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm transition hover:shadow-lg hover:-translate-y-1 duration-300">
-                      <div className="relative h-56 overflow-hidden bg-emerald-950">
+                    <article key={t.id} className="group" style={{textAlign:'center',cursor:'default'}}>
+                      {/* Circle portrait */}
+                      <div style={{position:'relative',width:112,height:112,margin:'0 auto',borderRadius:'50%',overflow:'hidden',background:'#062d2a',boxShadow:'0 0 0 3px #fff, 0 0 0 5px #C9A84C, 0 8px 24px rgba(6,45,40,.18)',transition:'box-shadow .3s,transform .3s'}}
+                        onMouseEnter={e=>{(e.currentTarget as HTMLElement).style.transform='scale(1.06)';(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 3px #fff, 0 0 0 5px #0f766e, 0 12px 32px rgba(6,45,40,.28)'}}
+                        onMouseLeave={e=>{(e.currentTarget as HTMLElement).style.transform='none';(e.currentTarget as HTMLElement).style.boxShadow='0 0 0 3px #fff, 0 0 0 5px #C9A84C, 0 8px 24px rgba(6,45,40,.18)'}}>
                         {t.avatar_url
-                          ? <img src={t.avatar_url} alt={t.full_name} className="h-full w-full object-cover object-top transition duration-500 group-hover:scale-105"/>
-                          : <div className="flex h-full items-center justify-center font-serif text-5xl text-amber-300">{t.full_name?.charAt(0)}</div>}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                          ? <img src={t.avatar_url} alt={t.full_name} style={{width:'100%',height:'100%',objectFit:'cover',objectPosition:'top'}}/>
+                          : <div style={{height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:"Georgia,serif",fontSize:40,color:'#C9A84C',fontWeight:900}}>{t.full_name?.charAt(0)}</div>}
                       </div>
-                      <div className="p-4">
-                        <h3 className="font-black text-sm leading-tight text-emerald-950">{t.full_name}</h3>
-                        <div className="mt-0.5 text-xs font-semibold text-emerald-700">{t.job_title || "Qur'an Teacher"}</div>
-                        {t.bio && <p className="mt-2 text-xs leading-5 text-slate-500 line-clamp-2">{t.bio}</p>}
+                      {/* Name + role */}
+                      <div style={{marginTop:14}}>
+                        <h3 style={{fontSize:13,fontWeight:900,color:'#062d2a',lineHeight:1.25,margin:0,textTransform:'uppercase',letterSpacing:'.02em'}}>{t.full_name}</h3>
+                        <div style={{marginTop:5,display:'inline-block',fontSize:10.5,fontWeight:700,color:'#0f766e',background:'rgba(15,118,110,.1)',borderRadius:99,padding:'3px 10px',letterSpacing:'.04em',textTransform:'uppercase'}}>{t.job_title || "Qur'an Teacher"}</div>
                       </div>
                     </article>
                   ))}
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       )}
 
