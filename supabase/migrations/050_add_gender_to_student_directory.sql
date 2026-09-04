@@ -37,9 +37,9 @@ BEGIN
   LEFT JOIN public.class_teachers ct ON ct.class_id = c.id AND ct.is_primary = true
   LEFT JOIN public.profiles p ON p.id = ct.teacher_id
   LEFT JOIN LATERAL (
-    SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE status = 'present') / NULLIF(COUNT(*), 0), 1) AS pct
-    FROM public.attendance_records
-    WHERE student_id = s.id
+    SELECT ROUND(100.0 * COUNT(*) FILTER (WHERE ar.status = 'present') / NULLIF(COUNT(*), 0), 1) AS pct
+    FROM public.attendance_records ar
+    WHERE ar.student_id = s.id
   ) att ON true
   LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(amount_due - amount_paid), 0) AS due
