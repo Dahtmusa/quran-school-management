@@ -135,6 +135,18 @@ export default function HistoricalEvalPage() {
       });
   }, []);
 
+  const selectedTerm = useMemo(() => terms.find((t: any) => t.id === selectedTermId), [terms, selectedTermId]);
+  const filteredClasses = useMemo(
+    () => selectedTerm ? classes.filter(c => c.academicYearId === selectedTerm.academic_year_id) : classes,
+    [classes, selectedTerm]
+  );
+
+  // Reset class selection when term changes and the selected class is not in the new year
+  useEffect(() => {
+    if (!selectedClassId) return;
+    if (!filteredClasses.some(c => c.id === selectedClassId)) setSelectedClassId('');
+  }, [filteredClasses]);
+
   const classStudents = useMemo(
     () => allStudents.filter(s => s.classId === selectedClassId).sort((a, b) => a.name.localeCompare(b.name)),
     [allStudents, selectedClassId]
@@ -287,7 +299,7 @@ export default function HistoricalEvalPage() {
                 className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               >
                 <option value="">Select class…</option>
-                {classes.map(c => {
+                {filteredClasses.map(c => {
                   const count = allStudents.filter(s => s.classId === c.id).length;
                   return <option key={c.id} value={c.id}>{c.name} ({count} students)</option>;
                 })}
@@ -295,7 +307,7 @@ export default function HistoricalEvalPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-600 mb-1">Target Ayahs / Eval (for scoring)</label>
+              <label className="block text-xs font-medium text-neutral-600 mb-1">Expected ayahs per evaluation</label>
               <input
                 type="number"
                 min={50}
@@ -304,7 +316,7 @@ export default function HistoricalEvalPage() {
                 onChange={e => setTargetAyahs(Math.max(50, Number(e.target.value)))}
                 className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
               />
-              <p className="text-xs text-neutral-400 mt-0.5">Score = min(100, ayahs ÷ target × 100)</p>
+              <p className="text-xs text-neutral-400 mt-0.5">How many ayahs should a student memorize to score 100%</p>
             </div>
 
             {selectedClassId && (
