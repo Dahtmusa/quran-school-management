@@ -366,30 +366,43 @@ export default function StaffPage(){
    </div>
   </div></div>}
 
-  {/* ── GRANT ADMIN MODAL ── */}
+  {/* ── GRANT / REVOKE ADMIN MODAL ── */}
   {showGrantAdmin&&(()=>{
-   const ROLE_LABELS:Record<string,string>={principal:'Principal',finance:'Finance',admissions:'Admissions',security:'Security'};
-   const eligible=staff.filter(s=>s.role!=='admin'&&s.role!=='super_admin'&&s.role!=='teacher'&&s.role!=='parent');
+   // Only leadership department staff can be granted or have admin revoked
+   const leadership=staff.filter(s=>s.department==='leadership'&&s.role!=='super_admin');
    return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
-    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Grant Administrator Access</h2><p className="text-sm text-slate-500">Select a staff member to promote to Administrator</p></div><button onClick={()=>setShowGrantAdmin(false)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Administrator Access</h2><p className="text-sm text-slate-500">Grant or revoke admin access for leadership staff only.</p></div><button onClick={()=>setShowGrantAdmin(false)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
     <div className="divide-y max-h-[60vh] overflow-y-auto">
-     {eligible.length===0&&<div className="p-8 text-center text-sm text-slate-400">All staff members are already Administrators, or no non-teacher accounts exist.</div>}
-     {eligible.map(a=><div key={a.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
-      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-       {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-lg font-black text-slate-300">{a.full_name.charAt(0)}</div>}
-      </div>
-      <div className="flex-1 min-w-0">
-       <div className="font-black truncate">{a.full_name}</div>
-       <div className="text-xs text-slate-500">{ROLE_LABELS[a.role]||a.role}{a.staff_id?` · ${a.staff_id}`:''}</div>
-      </div>
-      <button disabled={busy} className="btn bg-indigo-600 text-white text-sm py-2 px-4 shrink-0" onClick={async()=>{
-       if(!confirm(`Grant Administrator access to ${a.full_name}?\n\nThis gives full system access to all admin features.`))return;
-       setBusy(true);
-       try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setShowGrantAdmin(false);setMessage(`${a.full_name} is now an Administrator.`);}
-       catch(e:any){setMessage(e?.message??'Failed.')}
-       finally{setBusy(false)}
-      }}>Grant Admin →</button>
-     </div>)}
+     {leadership.length===0&&<div className="p-8 text-center text-sm text-slate-400">No leadership staff accounts found. Add staff with the "leadership" department to manage admin access here.</div>}
+     {leadership.map(a=>{
+      const isAdmin=a.role==='admin';
+      return<div key={a.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
+       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+        {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-lg font-black text-slate-300">{a.full_name.charAt(0)}</div>}
+       </div>
+       <div className="flex-1 min-w-0">
+        <div className="font-black truncate">{a.full_name}</div>
+        <div className="text-xs text-slate-500">{a.job_title||a.role}{a.staff_id?` · ${a.staff_id}`:''}</div>
+        <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isAdmin?'bg-indigo-100 text-indigo-700':'bg-slate-100 text-slate-500'}`}>{isAdmin?'Administrator':'No admin access'}</span>
+       </div>
+       {isAdmin
+        ?<button disabled={busy} className="btn bg-rose-50 text-rose-700 text-sm py-2 px-4 shrink-0 border border-rose-200" onClick={async()=>{
+          if(!confirm(`Remove Administrator access from ${a.full_name}?`))return;
+          setBusy(true);
+          try{await updateStaffProfile(a.id,{role:'principal'});await refresh();setMessage(`Admin access removed from ${a.full_name}.`);}
+          catch(e:any){setMessage(e?.message??'Failed.')}
+          finally{setBusy(false)}
+         }}>Revoke Admin</button>
+        :<button disabled={busy} className="btn bg-indigo-600 text-white text-sm py-2 px-4 shrink-0" onClick={async()=>{
+          if(!confirm(`Grant Administrator access to ${a.full_name}?\n\nThis gives full system access to all admin features.`))return;
+          setBusy(true);
+          try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}
+          catch(e:any){setMessage(e?.message??'Failed.')}
+          finally{setBusy(false)}
+         }}>Grant Admin →</button>
+       }
+      </div>;
+     })}
     </div>
     <div className="border-t p-4 flex justify-end"><button className="btn bg-slate-100" onClick={()=>setShowGrantAdmin(false)}>Close</button></div>
    </div></div>;
