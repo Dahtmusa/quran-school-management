@@ -237,7 +237,7 @@ export async function updateStudentMemorization(studentId: string, input: {
 }
 
 export async function loadStaffProfiles() {
-  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website,username,qualifications,experience,subjects,email').order('full_name');
+  const { data, error } = await supabase().from('profiles').select('id,full_name,role,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website,username,qualifications,experience,subjects').order('full_name');
   if (error) { console.error('[AMQM] loadStaffProfiles error:', error); return []; }
   if (!data) return [];
   return data;
