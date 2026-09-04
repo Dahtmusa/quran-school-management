@@ -95,7 +95,7 @@ export default function StaffPage(){
  async function saveAccountRole(){
    if(!editA)return; setBusy(true);
    try{
-     await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role});
+     await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role,username:editA.username?.trim().toLowerCase()||null});
      if(newPassword.trim().length>=8){await resetStaffPassword(editA.id,newPassword.trim());}
      await refresh();setEditA(null);setNewPassword('');setMessage('Account updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
@@ -234,10 +234,11 @@ export default function StaffPage(){
                  <div className="font-black truncate">{a.full_name}</div>
                  <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
                  <span className="pill mt-1.5 text-[10px] bg-indigo-100 text-indigo-700">{ROLE_LABELS[a.role]||a.role}</span>
+                 {a.username&&<div className="text-[11px] text-indigo-600 font-semibold mt-0.5">@{a.username}</div>}
                </div>
              </div>
              <div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
-               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>setEditA({...a})}>Edit / Reset password</button>
+               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>setEditA({...a})}>Edit / Set credentials</button>
              </div>
            </article>)}
          </div>
@@ -420,6 +421,9 @@ export default function StaffPage(){
        {CHANGEABLE_ROLES.map(r=><option key={r} value={r}>{r==='admin'?'Administrator':r.charAt(0).toUpperCase()+r.slice(1)}</option>)}
       </select>
       {editA.role==='admin'&&<p className="mt-1 text-xs text-amber-600">Administrator has full system access — only grant to trusted staff.</p>}
+     </label>
+     <label className="text-xs font-bold block">Login username <span className="font-normal text-slate-400">(used to sign in)</span>
+      <input className="input mt-1 w-full" placeholder="e.g. admin.mubarak" value={editA.username||''} onChange={e=>setEditA({...editA,username:e.target.value||null})}/>
      </label>
      <label className="text-xs font-bold block">New password <span className="font-normal text-slate-400">(leave blank to keep current)</span>
       <input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/>
