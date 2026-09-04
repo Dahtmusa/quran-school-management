@@ -199,7 +199,16 @@ export default function StaffPage(){
        </article>)}
        {!team.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No leadership profiles yet. Click "Add leader" to create the first one.</div>}
      </div>
-     <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-800 leading-5">Leadership and management profiles shown here will appear on the school website homepage when "On homepage" is enabled. Teachers with website visibility are controlled separately in the Teaching Staff tab.</div>
+     <div className="rounded-[1.5rem] bg-gradient-to-r from-indigo-900 to-indigo-700 p-5 text-white flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+       <div>
+         <div className="text-xs font-black uppercase tracking-[.2em] text-indigo-200">Administrator Access</div>
+         <p className="mt-0.5 text-sm text-indigo-100/80">Grant or revoke admin system access for management staff.</p>
+       </div>
+       <button onClick={()=>setShowGrantAdmin(true)} className="btn shrink-0 bg-white text-indigo-900 font-black px-5 py-2.5 text-sm">
+         + Manage Admin Access
+       </button>
+     </div>
+     <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-800 leading-5">Website profiles shown above appear on the homepage when "On homepage" is enabled. System account access is managed via the button above.</div>
    </>}
 
    {/* ── ACCOUNTS & ACCESS ── */}
