@@ -1,14 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Background -->
-  <rect width="32" height="32" rx="7" fill="#062d2a"/>
-  <!-- 8-pointed star in gold -->
-  <polygon points="
-    16,4  17.5,13  24,8  18.5,14.5
-    28,16  18.5,17.5  24,24  17.5,19
-    16,28  14.5,19  8,24  13.5,17.5
-    4,16   13.5,14.5  8,8   14.5,13
-  " fill="#C9A84C"/>
-  <!-- Centre circle -->
-  <circle cx="16" cy="16" r="3" fill="#062d2a"/>
-  <circle cx="16" cy="16" r="1.8" fill="#C9A84C"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- White base circle -->
+  <circle cx="32" cy="32" r="32" fill="#fff"/>
+  <!-- Outer green ring -->
+  <circle cx="32" cy="32" r="32" fill="none" stroke="#0a4a2e" stroke-width="4.5"/>
+  <!-- Inner gold ring -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#C9A84C" stroke-width="2.5"/>
+  <!-- White fill inside rings -->
+  <circle cx="32" cy="32" r="26.5" fill="#fff"/>
+
+  <!-- Crescent moon -->
+  <path d="M32 10 A10 10 0 1 1 32 26 A6 6 0 1 0 32 10 Z" fill="#C9A84C" transform="translate(0,-1)"/>
+  <!-- Star -->
+  <polygon points="32,11 32.9,13.7 35.7,13.7 33.5,15.4 34.4,18.1 32,16.5 29.6,18.1 30.5,15.4 28.3,13.7 31.1,13.7" fill="#C9A84C"/>
+
+  <!-- A&M text -->
+  <text x="32" y="46" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-size="15" font-weight="900" fill="#0a4a2e" letter-spacing="-0.5">A&amp;M</text>
 </svg>
