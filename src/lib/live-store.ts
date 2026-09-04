@@ -415,56 +415,11 @@ export async function bulkImportHistoricalEvals(
   entries: HistoricalEvalEntry[],
   termId: string
 ): Promise<{ imported: number }> {
-  const db = supabase();
-  const user = await getCurrentUser();
-  if (!user) throw new Error('Not authenticated');
-
-  const valid = entries.filter(e =>
-    e.startSurah && e.startAyah &&
-    e.eval1Surah && e.eval1Ayah &&
-    e.eval2Surah && e.eval2Ayah
-  );
-  if (!valid.length) throw new Error('No valid entries to import');
-
-  const now = new Date().toISOString();
-
-  // Update each student's current position to Eval 2's end,
-  // so Eval 3 can be submitted live by teachers from the correct position.
-  await Promise.all(valid.map(e =>
-    db.from('students').update({
-      current_surah: e.eval2Surah,
-      current_ayah: e.eval2Ayah,
-    }).eq('id', e.studentId)
-  ));
-
-  const rows = valid.flatMap(e => [
-    {
-      student_id: e.studentId, teacher_id: user.id, term_id: termId,
-      evaluation_number: 1, status: 'approved',
-      from_surah: e.startSurah, from_ayah: e.startAyah,
-      to_surah: e.eval1Surah, to_ayah: e.eval1Ayah,
-      memorized_ayahs: e.eval1.ayahs, memorized_pages: e.eval1.pages, memorized_hizbs: e.eval1.hizbs,
-      score: e.eval1.score, accuracy_score: e.eval1.rubric, fluency_score: e.eval1.rubric,
-      tajweed_score: e.eval1.rubric, retention_score: e.eval1.rubric,
-      grade: e.eval1.grade, teacher_comment: 'Imported from historical records.',
-      submitted_at: now, approved_at: now,
-    },
-    {
-      student_id: e.studentId, teacher_id: user.id, term_id: termId,
-      evaluation_number: 2, status: 'approved',
-      from_surah: e.eval1Surah, from_ayah: e.eval1Ayah,
-      to_surah: e.eval2Surah, to_ayah: e.eval2Ayah,
-      memorized_ayahs: e.eval2.ayahs, memorized_pages: e.eval2.pages, memorized_hizbs: e.eval2.hizbs,
-      score: e.eval2.score, accuracy_score: e.eval2.rubric, fluency_score: e.eval2.rubric,
-      tajweed_score: e.eval2.rubric, retention_score: e.eval2.rubric,
-      grade: e.eval2.grade, teacher_comment: 'Imported from historical records.',
-      submitted_at: now, approved_at: now,
-    },
-  ]);
-
-  const { error: upsertErr } = await db.from('evaluations')
-    .upsert(rows, { onConflict: 'student_id,term_id,evaluation_number' });
-  if (upsertErr) throw upsertErr;
-
-  return { imported: valid.length };
+  if (!entries.length) throw new Error('No valid entries to import');
+  const { data, error } = await supabase().rpc('bulk_import_historical_evals', {
+    p_term_id: termId,
+    p_entries: entries as any,
+  });
+  if (error) throw error;
+  return { imported: (data as any)?.imported ?? 0 };
 }

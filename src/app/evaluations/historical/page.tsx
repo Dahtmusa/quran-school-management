@@ -11,11 +11,13 @@ import { SURAHS, progressBetween, positionOrdinal } from '@/lib/quran';
 import type { Student } from '@/lib/data';
 
 // Admin only enters Eval 1 end and Eval 2 end.
-// Start        = student.start   (profile — where they began, shown for reference)
-// Eval 1 begin = student.current (profile — where they are now, Eval 1 starts here)
-// Eval 2 begin = Eval 1 end      (auto-chained)
+// Start        = student.start              (profile — where they began, shown for reference)
+// Eval 1 begin = eval1StartSurah/Ayah       (locked from student.current at init, persisted in localStorage)
+// Eval 2 begin = Eval 1 end                 (auto-chained)
 // After import: student.current is updated to Eval 2 end; Eval 3 happens live from there.
+// Entries persist in localStorage keyed by class+term so admin can review/correct after import.
 type EntryState = {
+  eval1StartSurah: number; eval1StartAyah: number; // locked from student.current at init
   eval1Surah: number; eval1Ayah: number;
   eval2Surah: number; eval2Ayah: number;
 };
@@ -182,16 +184,33 @@ export default function HistoricalEvalPage() {
     [allStudents, selectedClassId]
   );
 
+  // Persist entries to localStorage whenever they change
   useEffect(() => {
-    if (!selectedClassId) return;
+    if (!selectedClassId || !selectedTermId || !Object.keys(entries).length) return;
+    try { localStorage.setItem(`amqm-hist-${selectedClassId}-${selectedTermId}`, JSON.stringify(entries)); } catch {}
+  }, [entries, selectedClassId, selectedTermId]);
+
+  useEffect(() => {
+    if (!selectedClassId || !selectedTermId) return;
+    // Load any previously saved entries for this class+term
+    let stored: Record<string, EntryState> = {};
+    try {
+      const raw = localStorage.getItem(`amqm-hist-${selectedClassId}-${selectedTermId}`);
+      if (raw) stored = JSON.parse(raw);
+    } catch {}
     const init: Record<string, EntryState> = {};
     for (const s of classStudents) {
-      init[s.id] = entries[s.id] ?? { eval1Surah: 0, eval1Ayah: 0, eval2Surah: 0, eval2Ayah: 0 };
+      // Use stored entry if present (preserves eval1Start even after import changes student.current)
+      // Otherwise initialize fresh with student.current locked as eval1 start
+      init[s.id] = stored[s.id] ?? {
+        eval1StartSurah: s.current.surah, eval1StartAyah: s.current.ayah,
+        eval1Surah: 0, eval1Ayah: 0, eval2Surah: 0, eval2Ayah: 0,
+      };
     }
     setEntries(init);
     setMessage(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedClassId, classStudents.length]);
+  }, [selectedClassId, selectedTermId, classStudents.length]);
 
   function update(studentId: string, patch: Partial<EntryState>) {
     setEntries(prev => ({ ...prev, [studentId]: { ...prev[studentId], ...patch } }));
@@ -199,13 +218,13 @@ export default function HistoricalEvalPage() {
 
   function getComputed(student: Student, e: EntryState): { e1: ComputedMetrics; e2: ComputedMetrics } {
     const dir = student.direction;
-    // Eval 1 starts at student's current position (not start — current is where they are before evals)
-    const e1 = computeEvalMetrics(
-      { surah: student.current.surah, ayah: student.current.ayah },
-      { surah: e.eval1Surah, ayah: e.eval1Ayah },
-      dir, targetPages
-    );
-    // Eval 2 starts from where Eval 1 ended — auto-chained
+    // Use the locked eval1Start (from when entry was first created), not live student.current
+    // This ensures the start stays correct even after import updates student.current in the DB
+    const e1Start = {
+      surah: e.eval1StartSurah || student.current.surah,
+      ayah:  e.eval1StartAyah  || student.current.ayah,
+    };
+    const e1 = computeEvalMetrics(e1Start, { surah: e.eval1Surah, ayah: e.eval1Ayah }, dir, targetPages);
     const e2 = computeEvalMetrics(
       { surah: e.eval1Surah, ayah: e.eval1Ayah },
       { surah: e.eval2Surah, ayah: e.eval2Ayah },
@@ -226,7 +245,8 @@ export default function HistoricalEvalPage() {
       if (!e1.valid || !e2.valid) continue;
       batch.push({
         studentId: student.id,
-        startSurah: student.current.surah, startAyah: student.current.ayah,
+        startSurah: e.eval1StartSurah || student.current.surah,
+        startAyah:  e.eval1StartAyah  || student.current.ayah,
         eval1Surah: e.eval1Surah, eval1Ayah: e.eval1Ayah,
         eval2Surah: e.eval2Surah, eval2Ayah: e.eval2Ayah,
         eval1: e1, eval2: e2,
@@ -245,7 +265,8 @@ export default function HistoricalEvalPage() {
       setMessage({
         type: 'success',
         text: `Imported Eval 1 & 2 for ${result.imported} student${result.imported !== 1 ? 's' : ''}. `
-          + `Each student's current position is now set to their Eval 2 end — teachers can submit Eval 3 live from there.`,
+          + `Each student's current position is now set to their Eval 2 end. `
+          + `Your entries are saved — you can correct any values and re-import; it will update existing records.`,
       });
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message ?? 'Import failed. Check console for details.' });
@@ -428,9 +449,9 @@ export default function HistoricalEvalPage() {
                         <PosChip surahId={student.start.surah} ayah={student.start.ayah} surahMap={surahMap} muted />
                       </td>
 
-                      {/* Eval 1 begins — student.current (auto, read-only) */}
+                      {/* Eval 1 begins — locked from student.current at init, unaffected by import */}
                       <td className="px-3 py-2 text-center bg-violet-50/40">
-                        <PosChip surahId={student.current.surah} ayah={student.current.ayah} surahMap={surahMap} />
+                        <PosChip surahId={e.eval1StartSurah || student.current.surah} ayah={e.eval1StartAyah || student.current.ayah} surahMap={surahMap} />
                       </td>
 
                       {/* Eval 1 End — admin input */}
