@@ -4,6 +4,7 @@ import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
 import { loadStudents, loadEvaluations, getCurrentProfile } from '@/lib/live-store';
+import { loadFinanceSummary } from '@/lib/admin-management-store';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -13,10 +14,14 @@ export default function ParentPortal() {
   const [me, setMe] = useState<any>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [expandedEval, setExpandedEval] = useState<string | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [fees, setFees] = useState<any[]>([]);
 
   useEffect(() => {
-    Promise.all([loadStudents(), loadEvaluations(), getCurrentProfile()]).then(([s, e, profile]) => {
+    Promise.all([loadStudents(), loadEvaluations(), getCurrentProfile(), loadFinanceSummary()]).then(([s, e, profile, finance]) => {
       setStudents(s); setEvals(e); setMe(profile);
+      setPayments(finance?.payments || []);
+      setFees(finance?.fees || []);
       if (s.length > 0) setSelectedChild(s[0].id);
     });
   }, []);
@@ -32,6 +37,26 @@ export default function ParentPortal() {
     }
     return map;
   }, [childEvals]);
+
+  function printReceipt(payment: any, student: Student | undefined) {
+    if (!student) return;
+    const w = window.open('', '_blank', 'width=520,height=700');
+    if (!w) return;
+    const date = new Date(payment.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' });
+    const refNo = (payment.id || '').slice(-8).toUpperCase();
+    w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:32px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:20px;border-bottom:3px solid #062d2a;margin-bottom:20px}.school{font-size:15px;font-weight:800;color:#062d2a}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;background:#062d2a;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:10px}.amount-box{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:16px;margin:20px 0}.amount-label{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.amount-value{font-size:28px;font-weight:900;color:#062d2a;margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:16px}td{padding:7px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:45%}td:last-child{font-weight:600}.section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:16px 0 6px}.footer{margin-top:20px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:14px}</style>
+    </head><body>
+    <div class="top"><div class="school">AMQM</div><div class="sub">Aliyu and Maimuna Center for Qur'anic Memorization</div><div class="badge">PAYMENT RECEIPT</div></div>
+    <div class="amount-box"><div class="amount-label">Amount Paid</div><div class="amount-value">₦${Number(payment.amount || 0).toLocaleString()}</div></div>
+    <div class="section-title">Receipt details</div>
+    <table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${payment.method || 'Cash'}</td></tr>${payment.reference ? `<tr><td>Reference</td><td>${payment.reference}</td></tr>` : ''}</table>
+    <div class="section-title">Student</div>
+    <table><tr><td>Name</td><td>${student.name}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo || '—'}</td></tr><tr><td>Class</td><td>${student.className || '—'}</td></tr></table>
+    <div class="footer"><div>Official AMQM payment receipt</div><div style="margin-top:4px">Printed on ${new Date().toLocaleDateString('en-NG')}</div></div>
+    <script>window.onload=()=>window.print();<\/script></body></html>`);
+    w.document.close();
+  }
 
   if (!child) return <AdminShell title="Parent Portal"><div className="card p-12 text-center text-slate-400">Loading your child's profile…</div></AdminShell>;
 
@@ -142,10 +167,42 @@ export default function ParentPortal() {
       <a href="/reports" className="btn btn-primary shrink-0 text-sm">View report →</a>
     </div>
 
-    {/* Contact note */}
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-500 leading-6">
-      <b className="text-slate-700">For fees, attendance records, and other queries</b> — please contact the school administration directly. Sensitive records are managed by the school office.
-    </div>
+    {/* Fees & Payments */}
+    {(() => {
+      const childPayments = payments.filter(p => p.student_id === child?.id);
+      const childFees = fees.filter(f => f.student_id === child?.id);
+      const totalDue = childFees.reduce((s, f) => s + Number(f.amount_due || 0), 0);
+      const totalPaid = childFees.reduce((s, f) => s + Number(f.amount_paid || 0), 0);
+      const balance = Math.max(0, totalDue - totalPaid);
+      return (
+        <section className="card overflow-hidden">
+          <div className="border-b p-5">
+            <h2 className="text-lg font-black">Fees & Payments</h2>
+            {totalDue > 0 && (
+              <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                <div><span className="text-slate-400 text-xs">Due:</span> <span className="font-bold">₦{totalDue.toLocaleString()}</span></div>
+                <div><span className="text-slate-400 text-xs">Paid:</span> <span className="font-bold text-emerald-700">₦{totalPaid.toLocaleString()}</span></div>
+                {balance > 0 && <div><span className="text-slate-400 text-xs">Balance:</span> <span className="font-bold text-rose-600">₦{balance.toLocaleString()}</span></div>}
+              </div>
+            )}
+          </div>
+          <div className="divide-y">
+            {childPayments.length === 0 && (
+              <div className="p-8 text-center text-sm text-slate-400">No payment records on file yet.</div>
+            )}
+            {childPayments.map((p: any) => (
+              <div key={p.id} className="flex items-center justify-between gap-4 p-4">
+                <div>
+                  <div className="font-semibold">₦{Number(p.amount).toLocaleString()}</div>
+                  <div className="mt-0.5 text-xs text-slate-400">{new Date(p.paid_on).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })} · {p.method || 'Cash'}{p.reference ? ` · ${p.reference}` : ''}</div>
+                </div>
+                <button onClick={() => printReceipt(p, child)} className="btn bg-emerald-50 text-emerald-800 text-xs py-1.5 px-3 shrink-0">Print receipt</button>
+              </div>
+            ))}
+          </div>
+        </section>
+      );
+    })()}
   </div></AdminShell>;
 }
 

@@ -4,6 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { loadFeeStructures } from '@/lib/admin-management-store';
 import { useEffect, useMemo, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
@@ -20,11 +21,12 @@ export default function Reports(){
  const [selected,setSelected]=useState<any|null>(null);
  const [role,setRole]=useState('');
  const [classFilter,setClassFilter]=useState('');
+ const [feeStructures,setFeeStructures]=useState<any[]>([]);
 
  const refresh=async()=>{
    const p=await getCurrentProfile();
-   const [s,e,t,c,st,cur]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm()]);
-   setRole(p?.role||'');setStudents(s);setEvals(e);setTerms(t);setCompleted(c);setSettings(st);
+   const [s,e,t,c,st,cur,fs]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm(),loadFeeStructures()]);
+   setRole(p?.role||'');setStudents(s);setEvals(e);setTerms(t);setCompleted(c);setSettings(st);setFeeStructures(fs||[]);
    if(!termId)setTermId(cur?.term_id||t[0]?.id||'');
  };
  useEffect(()=>{refresh()},[]);
@@ -81,14 +83,14 @@ export default function Reports(){
       </tr>)}</tbody>
     </table></div>
   </section>
-  {selected&&<ReportPreview student={selected} term={term} terms={terms} settings={settings} close={()=>setSelected(null)}/>}
+  {selected&&<ReportPreview student={selected} term={term} terms={terms} settings={settings} feeStructures={feeStructures} close={()=>setSelected(null)}/>}
  </div></AdminShell>
 }
 
 function Kpi({label,value}:{label:string,value:number}){return <div className="card p-5"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
 function Status({status,score}:{status:string;score?:number}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}{score!=null?` · ${score}%`:''}</span>}
 
-function ReportPreview({student,term,terms,settings,close}:{student:any;term:any;terms:any[];settings:any;close:()=>void}){
+function ReportPreview({student,term,terms,settings,feeStructures,close}:{student:any;term:any;terms:any[];settings:any;feeStructures:any[];close:()=>void}){
   const approved=student.es.filter((e:any)=>e.status==='Approved');
   const avgScore=approved.length>0?Math.round(approved.reduce((s:number,e:any)=>s+e.score,0)/approved.length):null;
   const finalStatus=avgScore===null?null:avgScore>=90?'Excellent':avgScore>=75?'Very Good':avgScore>=60?'Satisfactory':'Needs Improvement';
@@ -112,17 +114,28 @@ function ReportPreview({student,term,terms,settings,close}:{student:any;term:any
   const [dayFee,setDayFee]=useState('');
   const [boardingFee,setBoardingFee]=useState('');
 
-  // Load persisted fees on mount; set next-term date from DB or localStorage override
+  // Load fees: auto-fill from DB fee structures for the next term; let localStorage override
   useEffect(()=>{
+    const nextTermId=nextTerm?.id;
+    const nextYearId=nextTerm?.academic_year_id;
+    function pickFee(section:'day'|'boarding'){
+      return feeStructures.find(f=>f.term_id===nextTermId&&f.section===section)
+        ||feeStructures.find(f=>!f.term_id&&f.academic_year_id===nextYearId&&f.section===section)
+        ||null;
+    }
+    const dbDay=pickFee('day');
+    const dbBoarding=pickFee('boarding');
     try{
       const saved=JSON.parse(localStorage.getItem(feeKey)||'{}');
-      if(saved.dayFee!==undefined)setDayFee(saved.dayFee);
-      if(saved.boardingFee!==undefined)setBoardingFee(saved.boardingFee);
+      setDayFee(saved.dayFee??String(dbDay?.amount??''));
+      setBoardingFee(saved.boardingFee??String(dbBoarding?.amount??''));
       setNextTermDate(saved.nextTermDate??autoNextDate);
     }catch{
+      setDayFee(String(dbDay?.amount??''));
+      setBoardingFee(String(dbBoarding?.amount??''));
       setNextTermDate(autoNextDate);
     }
-  },[feeKey,autoNextDate]);
+  },[feeKey,autoNextDate,feeStructures,nextTerm]);
 
   // Persist fee fields and date override whenever they change
   useEffect(()=>{
@@ -152,7 +165,7 @@ function ReportPreview({student,term,terms,settings,close}:{student:any;term:any
 
       {/* Next term fields — saved per term in localStorage */}
       <div className="border-b bg-amber-50 px-6 py-3">
-        <div className="text-xs font-black uppercase tracking-wide text-amber-800 mb-2">Fill before printing — saved for this term</div>
+        <div className="text-xs font-black uppercase tracking-wide text-amber-800 mb-2">Next term info — auto-loaded from fee settings · override if needed</div>
         <div className="flex flex-wrap gap-3">
           <label className="text-xs font-bold text-amber-900">Next term starts<input className="input mt-1 w-44" type="date" value={nextTermDate} onChange={e=>setNextTermDate(e.target.value)}/></label>
           <label className="text-xs font-bold text-amber-900">Day fee (₦)<input className="input mt-1 w-32" type="number" value={dayFee} onChange={e=>setDayFee(e.target.value)} placeholder="0"/></label>
