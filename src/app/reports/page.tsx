@@ -76,23 +76,48 @@ export default function Reports(){
       </tr>)}</tbody>
     </table></div>
   </section>
-  {selected&&<ReportPreview student={selected} term={term} settings={settings} close={()=>setSelected(null)}/>}
+  {selected&&<ReportPreview student={selected} term={term} terms={terms} settings={settings} close={()=>setSelected(null)}/>}
  </div></AdminShell>
 }
 
 function Kpi({label,value}:{label:string,value:number}){return <div className="card p-5"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
 function Status({status,score}:{status:string;score?:number}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}{score!=null?` · ${score}%`:''}</span>}
 
-function ReportPreview({student,term,settings,close}:{student:any;term:any;settings:any;close:()=>void}){
+function ReportPreview({student,term,terms,settings,close}:{student:any;term:any;terms:any[];settings:any;close:()=>void}){
   const approved=student.es.filter((e:any)=>e.status==='Approved');
   const avgScore=approved.length>0?Math.round(approved.reduce((s:number,e:any)=>s+e.score,0)/approved.length):null;
   const finalStatus=avgScore===null?null:avgScore>=90?'Excellent':avgScore>=75?'Very Good':avgScore>=60?'Satisfactory':'Needs Improvement';
   const termLabel=`${term?.academic_years?.name||''} · ${term?.name||''}`;
 
+  // Auto-detect next term: earliest term whose starts_on is after current term's ends_on
+  const nextTerm=term?.ends_on
+    ? [...terms].sort((a,b)=>a.starts_on.localeCompare(b.starts_on)).find(t=>t.starts_on>term.ends_on)
+    : null;
+  const autoNextDate=nextTerm?.starts_on||'';
+
+  const feeKey=`amqm-report-fees-${term?.id||''}`;
+
   const [qrUrl,setQrUrl]=useState('');
   const [nextTermDate,setNextTermDate]=useState('');
   const [dayFee,setDayFee]=useState('');
   const [boardingFee,setBoardingFee]=useState('');
+
+  // Load persisted fees on mount; set next-term date from DB or localStorage override
+  useEffect(()=>{
+    try{
+      const saved=JSON.parse(localStorage.getItem(feeKey)||'{}');
+      if(saved.dayFee!==undefined)setDayFee(saved.dayFee);
+      if(saved.boardingFee!==undefined)setBoardingFee(saved.boardingFee);
+      setNextTermDate(saved.nextTermDate??autoNextDate);
+    }catch{
+      setNextTermDate(autoNextDate);
+    }
+  },[feeKey,autoNextDate]);
+
+  // Persist fee fields and date override whenever they change
+  useEffect(()=>{
+    try{localStorage.setItem(feeKey,JSON.stringify({dayFee,boardingFee,nextTermDate}));}catch{}
+  },[feeKey,dayFee,boardingFee,nextTermDate]);
 
   useEffect(()=>{
     const statusText=approved.length===3&&finalStatus?`Final status: ${finalStatus}`:'Evaluations incomplete';
@@ -115,9 +140,9 @@ function ReportPreview({student,term,settings,close}:{student:any;term:any;setti
         </div>
       </div>
 
-      {/* Next term fields — admin fills before printing */}
+      {/* Next term fields — saved per term in localStorage */}
       <div className="border-b bg-amber-50 px-6 py-3">
-        <div className="text-xs font-black uppercase tracking-wide text-amber-800 mb-2">Fill before printing — not saved</div>
+        <div className="text-xs font-black uppercase tracking-wide text-amber-800 mb-2">Fill before printing — saved for this term</div>
         <div className="flex flex-wrap gap-3">
           <label className="text-xs font-bold text-amber-900">Next term starts<input className="input mt-1 w-44" type="date" value={nextTermDate} onChange={e=>setNextTermDate(e.target.value)}/></label>
           <label className="text-xs font-bold text-amber-900">Day fee (₦)<input className="input mt-1 w-32" type="number" value={dayFee} onChange={e=>setDayFee(e.target.value)} placeholder="0"/></label>

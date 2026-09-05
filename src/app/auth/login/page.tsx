@@ -1,7 +1,8 @@
 'use client';
 import Link from 'next/link';
-import {useState} from 'react';
+import {useEffect,useState} from 'react';
 import type {FormEvent} from 'react';
+import {loadCMSSettings} from '@/lib/cms-live-store';
 import {createClient} from '@/lib/supabase/client';
 
 type Tab='staff'|'teacher'|'parent';
@@ -90,6 +91,14 @@ export default function Login(){
   const[tab,setTab]=useState<Tab>('staff');
   const[busy,setBusy]=useState(false);
   const[error,setError]=useState('');
+  const[schoolAddress,setSchoolAddress]=useState('Adamawa State, Nigeria');
+
+  useEffect(()=>{
+    loadCMSSettings().then(s=>{
+      const addr=s?.contact?.address;
+      if(addr) setSchoolAddress(addr);
+    }).catch(()=>{});
+  },[]);
 
   const[credential,setCredential]=useState('');
   const[password,setPassword]=useState('');
@@ -255,7 +264,7 @@ export default function Login(){
           <div style={{position:'relative'}}>
             <div className="brand-badge">آم</div>
             <div className="brand-name">Aliyu and Maimuna Center for Qur'anic Memorization</div>
-            <div className="brand-sub">Kano, Nigeria · Est. 2019</div>
+            <div className="brand-sub">{schoolAddress} · Est. 2019</div>
             <div className="brand-divider"/>
             <div className="brand-quote">"The best among you are those who learn the Qur'ān and teach it."</div>
           </div>

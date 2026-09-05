@@ -12,13 +12,14 @@ import { label, SURAHS } from '@/lib/quran';
 
 type ExtProfile = {
   blood_group: string|null; genotype: string|null; home_address: string|null; nationality: string|null;
+  state_of_origin: string|null; local_government: string|null;
   parent_name: string|null; parent_phone: string|null; parent_email: string|null;
   guardian_name: string|null; guardian_phone: string|null; guardian_email: string|null; guardian_relationship: string|null;
   emergency_contact_name: string|null; emergency_contact_phone: string|null;
   date_of_birth: string|null; gender: string|null;
 };
 
-const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,nationality:'Nigerian',parent_name:null,parent_phone:null,parent_email:null,guardian_name:null,guardian_phone:null,guardian_email:null,guardian_relationship:null,emergency_contact_name:null,emergency_contact_phone:null,date_of_birth:null,gender:null};
+const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,nationality:'Nigerian',state_of_origin:null,local_government:null,parent_name:null,parent_phone:null,parent_email:null,guardian_name:null,guardian_phone:null,guardian_email:null,guardian_relationship:null,emergency_contact_name:null,emergency_contact_phone:null,date_of_birth:null,gender:null};
 
 export default function Students(){
  const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
@@ -145,6 +146,8 @@ export default function Students(){
        <InfoBox k="Blood group" v={extProfile.blood_group||'—'}/>
        <InfoBox k="Genotype" v={extProfile.genotype||'—'}/>
        <InfoBox k="Nationality" v={extProfile.nationality||'Nigerian'}/>
+       <InfoBox k="State of origin" v={extProfile.state_of_origin||'—'}/>
+       <InfoBox k="Local Govt. Area" v={extProfile.local_government||'—'}/>
        <InfoBox k="Home address" v={extProfile.home_address||'—'} wide/>
      </div>}
      {activeTab==='contacts'&&<div className="space-y-4">
@@ -216,6 +219,8 @@ export default function Students(){
          <label className="text-xs font-bold">Blood group<select className="input mt-1 w-full" value={editExt.blood_group||''} onChange={e=>setEditExt({...editExt,blood_group:e.target.value||null})}><option value="">Select</option>{['A+','A−','B+','B−','AB+','AB−','O+','O−'].map(g=><option key={g}>{g}</option>)}</select></label>
          <label className="text-xs font-bold">Genotype<select className="input mt-1 w-full" value={editExt.genotype||''} onChange={e=>setEditExt({...editExt,genotype:e.target.value||null})}><option value="">Select</option>{['AA','AS','AC','SS','SC','CC'].map(g=><option key={g}>{g}</option>)}</select></label>
          <label className="text-xs font-bold">Nationality<input className="input mt-1 w-full" value={editExt.nationality||''} onChange={e=>setEditExt({...editExt,nationality:e.target.value||null})}/></label>
+         <label className="text-xs font-bold">State of origin<input className="input mt-1 w-full" placeholder="e.g. Adamawa" value={editExt.state_of_origin||''} onChange={e=>setEditExt({...editExt,state_of_origin:e.target.value||null})}/></label>
+         <label className="text-xs font-bold">Local Govt. Area<input className="input mt-1 w-full" placeholder="e.g. Yola North" value={editExt.local_government||''} onChange={e=>setEditExt({...editExt,local_government:e.target.value||null})}/></label>
        </div>
        <label className="text-xs font-bold">Home address<textarea className="input mt-1 w-full resize-none" rows={2} value={editExt.home_address||''} onChange={e=>setEditExt({...editExt,home_address:e.target.value||null})}/></label>
      </div>

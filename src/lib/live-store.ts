@@ -393,32 +393,41 @@ export async function setCurrentAcademicTerm(termId:string){
 }
 
 export async function loadStudentExtended(studentId:string){
-  const {data,error}=await supabase().from('students').select('blood_group,genotype,home_address,nationality,parent_name,parent_phone,parent_email,guardian_name,guardian_phone,guardian_email,guardian_relationship,emergency_contact_name,emergency_contact_phone,date_of_birth,gender').eq('id',studentId).maybeSingle();
+  const {data,error}=await supabase().from('students').select('blood_group,genotype,home_address,nationality,state_of_origin,local_government,parent_name,parent_phone,parent_email,guardian_name,guardian_phone,guardian_email,guardian_relationship,emergency_contact_name,emergency_contact_phone,date_of_birth,gender').eq('id',studentId).maybeSingle();
   if(error||!data) return null; return data;
 }
 
-export async function updateStudentExtended(studentId:string,input:{blood_group?:string|null;genotype?:string|null;home_address?:string|null;nationality?:string|null;parent_name?:string|null;parent_phone?:string|null;parent_email?:string|null;guardian_name?:string|null;guardian_phone?:string|null;guardian_email?:string|null;guardian_relationship?:string|null;emergency_contact_name?:string|null;emergency_contact_phone?:string|null}){
+export async function updateStudentExtended(studentId:string,input:{blood_group?:string|null;genotype?:string|null;home_address?:string|null;nationality?:string|null;state_of_origin?:string|null;local_government?:string|null;parent_name?:string|null;parent_phone?:string|null;parent_email?:string|null;guardian_name?:string|null;guardian_phone?:string|null;guardian_email?:string|null;guardian_relationship?:string|null;emergency_contact_name?:string|null;emergency_contact_phone?:string|null}){
   const {error}=await supabase().from('students').update(input).eq('id',studentId);
   if(error) throw error;
 }
 
+type EvalMetrics = { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
+
 export type HistoricalEvalEntry = {
   studentId: string;
   startSurah: number; startAyah: number;
-  eval1Surah: number; eval1Ayah: number;
-  eval2Surah: number; eval2Ayah: number;
-  eval1: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
-  eval2: { ayahs: number; pages: number; hizbs: number; score: number; rubric: number; grade: string };
+  // eval1_eval2 mode
+  eval1Surah?: number; eval1Ayah?: number;
+  eval2Surah?: number; eval2Ayah?: number;
+  eval1?: EvalMetrics;
+  eval2?: EvalMetrics;
+  // eval3 mode
+  eval3Surah?: number; eval3Ayah?: number;
+  eval3?: EvalMetrics;
+  direction?: string; // sets student's official memorization direction on import
 };
 
 export async function bulkImportHistoricalEvals(
   entries: HistoricalEvalEntry[],
-  termId: string
+  termId: string,
+  mode: 'eval1_eval2' | 'eval3' = 'eval1_eval2'
 ): Promise<{ imported: number }> {
   if (!entries.length) throw new Error('No valid entries to import');
   const { data, error } = await supabase().rpc('bulk_import_historical_evals', {
     p_term_id: termId,
     p_entries: entries as any,
+    p_mode: mode,
   });
   if (error) throw error;
   return { imported: (data as any)?.imported ?? 0 };
