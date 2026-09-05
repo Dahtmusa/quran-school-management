@@ -5,8 +5,7 @@ import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
-import { studentStats } from '@/lib/data';
-import { label } from '@/lib/quran';
+import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
 export default function Reports(){
@@ -88,6 +87,11 @@ function ReportPreview({student,term,terms,settings,close}:{student:any;term:any
   const avgScore=approved.length>0?Math.round(approved.reduce((s:number,e:any)=>s+e.score,0)/approved.length):null;
   const finalStatus=avgScore===null?null:avgScore>=90?'Excellent':avgScore>=75?'Very Good':avgScore>=60?'Satisfactory':'Needs Improvement';
   const termLabel=`${term?.academic_years?.name||''} · ${term?.name||''}`;
+  const absProgress=absoluteProgress(student.current,student.direction);
+  const remaining=remainingFrom(student.current,student.direction);
+  const mushafPage=pageForPosition(student.current);
+  const currentJuz=juzForPosition(student.current);
+  const currentHizb=hizbForPosition(student.current);
 
   // Auto-detect next term: earliest term whose starts_on is after current term's ends_on
   const nextTerm=term?.ends_on
@@ -181,12 +185,37 @@ function ReportPreview({student,term,terms,settings,close}:{student:any;term:any
           </div>
         </div>
 
-        {/* Quran progress */}
+        {/* Hifz Journey */}
         <div className="mt-6 rounded-2xl bg-emerald-950 p-5 text-white">
-          <div className="text-xs uppercase tracking-wider text-emerald-200">Official Qur'an progress</div>
+          <div className="text-[10px] font-bold uppercase tracking-[.22em] text-amber-300">Hifz Journey</div>
           <div className="mt-2 text-2xl font-black">{label(student.current)}</div>
-          <div className="mt-3"><div className="h-3 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-gradient-to-r from-emerald-300 to-amber-300" style={{width:`${Math.min(100,Math.max(0,studentStats(student).percent))}%`}}/></div></div>
-          <div className="mt-1 text-sm text-emerald-100/75">{student.direction} · {student.year} · Teacher: {student.teacher||'Unassigned'}</div>
+          <div className="mt-1 text-sm text-emerald-200/70">Started at {label(student.start)} · {student.direction}</div>
+          <div className="mt-4">
+            <div className="h-3 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-300 to-amber-300" style={{width:`${absProgress.percent.toFixed(1)}%`}}/>
+            </div>
+            <div className="mt-2 flex justify-between text-xs text-emerald-100/70">
+              <span>{absProgress.percent.toFixed(1)}% of the Qur'an · {absProgress.hizbs} / 60 Hizb</span>
+              <span>{remaining.ayahs.toLocaleString()} ayahs left</span>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {([['AYAHS MEMORIZED',absProgress.ayahs.toLocaleString()],['PAGES MEMORIZED',String(absProgress.pages)],['HIZB MEMORIZED',`${absProgress.hizbs} / 60`],['MUSHAF PAGE',`${mushafPage} / 604`]] as [string,string][]).map(([k,v])=>(
+              <div key={k} className="rounded-xl bg-white/8 p-3">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-emerald-300/70">{k}</div>
+                <div className="mt-1 text-base font-black">{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {([['AYAHS REMAINING',remaining.ayahs.toLocaleString()],['PAGES REMAINING',String(remaining.pages)],['HIZB REMAINING',String(remaining.hizbs)],['CURRENT JUZ / HIZB',`${currentJuz} / ${currentHizb}`]] as [string,string][]).map(([k,v])=>(
+              <div key={k} className="rounded-xl bg-amber-400/10 p-3">
+                <div className="text-[9px] font-bold uppercase tracking-wider text-amber-300/70">{k}</div>
+                <div className="mt-1 text-base font-black text-amber-200">{v}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-xs text-emerald-200/50">{student.year} · Teacher: {student.teacher||'Unassigned'}</div>
         </div>
 
         {/* Evaluations */}
