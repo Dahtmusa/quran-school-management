@@ -1,8 +1,5 @@
--- Migration 061: In eval3 import mode, also update the student's memorization_direction.
---
--- The admin can confirm or correct each student's memorization pattern directly from
--- the Eval 3 import screen. The chosen direction is written to students.memorization_direction
--- so it becomes their official profile direction for Second Term and beyond.
+-- Migration 063: Fix COALESCE type mismatch — memorization_direction is an enum,
+-- not text. Declare v_direction as the enum type so COALESCE works directly.
 
 CREATE OR REPLACE FUNCTION public.bulk_import_historical_evals(
   p_term_id uuid,
@@ -33,21 +30,18 @@ BEGIN
 
     FOR v_entry IN SELECT * FROM jsonb_array_elements(p_entries)
     LOOP
-      -- Convert frontend direction string to DB snake_case value
       v_direction := CASE v_entry->>'direction'
         WHEN 'Baqarah-to-Nas'  THEN 'baqarah_to_nas'::public.memorization_direction
         WHEN 'Nas-to-Baqarah'  THEN 'nas_to_baqarah'::public.memorization_direction
         ELSE NULL
       END;
 
-      -- Update current position and memorization direction on the student profile
       UPDATE public.students
         SET current_surah          = (v_entry->>'eval3Surah')::int,
             current_ayah           = (v_entry->>'eval3Ayah')::int,
             memorization_direction = COALESCE(v_direction, memorization_direction)
         WHERE id = (v_entry->>'studentId')::uuid;
 
-      -- Upsert Eval 3
       INSERT INTO public.evaluations (
         student_id, teacher_id, term_id, evaluation_number, status,
         from_surah, from_ayah, to_surah, to_ayah,
