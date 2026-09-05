@@ -379,7 +379,7 @@ export default function HistoricalEvalPage() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-neutral-500 whitespace-nowrap">Student</th>
                   {importMode === 'eval3' ? (<>
                     <th className="text-center px-2 py-3 text-xs font-semibold text-indigo-600 bg-indigo-50 whitespace-nowrap">Direction ✏️</th>
-                    <th className="text-center px-3 py-3 text-xs font-semibold text-emerald-600 bg-emerald-50 whitespace-nowrap">Eval 3 Begins</th>
+                    <th className="text-center px-2 py-3 text-xs font-semibold text-emerald-600 bg-emerald-50 whitespace-nowrap" colSpan={2}>Eval 3 Begins ✏️</th>
                     <th className="text-center px-2 py-3 text-xs font-semibold text-teal-600 bg-teal-50 whitespace-nowrap" colSpan={2}>Eval 3 End ✏️</th>
                     <th className="text-center px-2 py-3 text-xs font-semibold text-teal-500 whitespace-nowrap">Eval 3</th>
                   </>) : (<>
@@ -416,9 +416,12 @@ export default function HistoricalEvalPage() {
                             <option value="Nas-to-Baqarah">↑ Nas → Baqarah</option>
                           </select>
                         </td>
-                        {/* Eval 3 begins — student.current at init (locked) */}
-                        <td className="px-3 py-2 text-center bg-emerald-50/40">
-                          <PosChip surahId={e.eval1StartSurah || student.current.surah} ayah={e.eval1StartAyah || student.current.ayah} surahMap={surahMap} />
+                        {/* Eval 3 begins — editable */}
+                        <td className="px-1 py-2 bg-emerald-50/40">
+                          <SurahSelect value={e.eval1StartSurah || student.current.surah} onChange={v => update(student.id, { eval1StartSurah: v, eval1StartAyah: 1 })} />
+                        </td>
+                        <td className="px-1 py-2 bg-emerald-50/40">
+                          <AyahInput value={e.eval1StartAyah || student.current.ayah} max={surahMap[e.eval1StartSurah || student.current.surah]?.ayahs ?? 286} onChange={v => update(student.id, { eval1StartAyah: v })} />
                         </td>
                         {/* Eval 3 End — admin input */}
                         <td className="px-1 py-2 bg-teal-50/30">
