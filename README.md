@@ -12,7 +12,7 @@ A responsive Quran memorization school platform for a two-year programme (Year 1
 - Year 2 Term 3 graduation requires all three Term 3 evaluations to be approved; the database then transitions the student to Alumni and creates a certificate record.
 - Parents only see their own children's protected academic/attendance/fee information.
 - Staff/security workflows are role-restricted and auditable.
-- Public homepage, leadership, management, staff, alumni and media content is CMS-controlled.
+- Public homepage, leadership, management, staff, alumni and media content is CMS-controlled. 
  
 ## Quran metadata
 
