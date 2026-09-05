@@ -19,6 +19,7 @@ export default function Reports(){
  const [message,setMessage]=useState('');
  const [selected,setSelected]=useState<any|null>(null);
  const [role,setRole]=useState('');
+ const [classFilter,setClassFilter]=useState('');
 
  const refresh=async()=>{
    const p=await getCurrentProfile();
@@ -34,7 +35,9 @@ export default function Reports(){
    const es=evals.filter(e=>e.studentId===s.id&&e.term===termName);
    return {...s,es,approved:es.filter(e=>e.status==='Approved').length,ready:es.filter(e=>e.status==='Approved').length===3};
  });
- const ready=rows.filter(s=>s.ready);
+ const classNames=[...new Set(rows.map(r=>r.className||'Unassigned'))].sort();
+ const filtered=classFilter?rows.filter(r=>(r.className||'Unassigned')===classFilter):rows;
+ const ready=filtered.filter(s=>s.ready);
  const isComplete=completed.some(c=>c.term_id===termId);
 
  async function markComplete(){
@@ -54,15 +57,18 @@ export default function Reports(){
   </section>
   {message&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
   <section className="card p-5"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-    <label className="block flex-1 text-xs font-black uppercase tracking-wide text-slate-500">Operational term<select className="input mt-1" value={termId} onChange={e=>setTermId(e.target.value)}><option value="">Select term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.academic_years?.name||'Academic year'} · {t.name} · {t.starts_on} → {t.ends_on}</option>)}</select></label>
+    <div className="flex flex-1 flex-col gap-3 sm:flex-row">
+      <label className="block flex-1 text-xs font-black uppercase tracking-wide text-slate-500">Operational term<select className="input mt-1" value={termId} onChange={e=>setTermId(e.target.value)}><option value="">Select term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.academic_years?.name||'Academic year'} · {t.name} · {t.starts_on} → {t.ends_on}</option>)}</select></label>
+      <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Class<select className="input mt-1" value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="">All classes</option>{classNames.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
+    </div>
     <div className="flex gap-2"><span className={`pill ${isComplete?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-800'}`}>{isComplete?'Term completed':'Term in progress'}</span>{role!=='parent'&&<button className="btn btn-primary" disabled={!termId||busy||isComplete} onClick={markComplete}>{isComplete?'Completed':'Mark term complete'}</button>}</div>
   </div></section>
-  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={rows.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,rows.length-ready.length)}/><Kpi label="Approved evaluations" value={rows.reduce((n,s)=>n+s.approved,0)}/></div>
+  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={filtered.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,filtered.length-ready.length)}/><Kpi label="Approved evaluations" value={filtered.reduce((n,s)=>n+s.approved,0)}/></div>
   <section className="card overflow-hidden">
-    <div className="border-b p-5"><h2 className="text-xl font-black">Term progress at a glance</h2><p className="text-sm text-slate-500">Pending or returned evaluations never become official report-card data.</p></div>
+    <div className="border-b p-5"><h2 className="text-xl font-black">Term progress at a glance{classFilter&&<span className="ml-2 text-base font-normal text-slate-400">· {classFilter}</span>}</h2><p className="text-sm text-slate-500">Pending or returned evaluations never become official report-card data.</p></div>
     <div className="overflow-x-auto"><table className="w-full min-w-[920px] text-left text-sm">
       <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500"><tr><th className="p-4">Student</th><th>Class</th><th>Qur'an position</th><th>Eval 1</th><th>Eval 2</th><th>Eval 3</th><th>Report</th><th/></tr></thead>
-      <tbody>{rows.map(s=><tr key={s.id} className="border-t">
+      <tbody>{filtered.map(s=><tr key={s.id} className="border-t">
         <td className="p-4"><div className="flex items-center gap-3">
           <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100">{s.photoUrl?<img src={s.photoUrl} className="h-full w-full object-cover" alt=""/>:<div className="grid h-full place-items-center font-black text-slate-400">{s.name.charAt(0)}</div>}</div>
           <div><b>{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo}</div></div>
