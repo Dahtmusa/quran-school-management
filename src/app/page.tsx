@@ -27,12 +27,12 @@ function Icon({ name }: { name?: string }) {
 
 const defaultNav = [
   { label: 'Home', href: '/' },
-  { label: 'About Us', href: '/#about' },
-  { label: 'Programs', href: '/#programmes' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Programs', href: '/programs' },
   { label: 'Admissions', href: '/admissions' },
-  { label: 'Campus Life', href: '/#campus' },
-  { label: 'News & Events', href: '/#news' },
-  { label: 'Contact Us', href: '/#contact' },
+  { label: 'Campus Life', href: '/campus-life' },
+  { label: 'News & Events', href: '/news' },
+  { label: 'Contact Us', href: '/contact' },
 ];
 
 function externalUrl(value?: string) {
@@ -472,7 +472,7 @@ export default function Home() {
       </section>
 
       {/* ── FOOTER ── */}
-      <footer id="contact" className="bg-[#03251f] text-white">
+      <footer className="bg-[#03251f] text-white">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[1.2fr_.8fr_.8fr]">
           <div>
             <div className="font-serif text-2xl font-black">{schoolName}</div>
