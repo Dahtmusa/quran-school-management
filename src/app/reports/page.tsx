@@ -9,6 +9,138 @@ import { useEffect, useMemo, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
+function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, feeStructures: any[]) {
+  const readyStudents = students.filter(s => s.ready);
+  if (!readyStudents.length) { alert('No students have all 3 evaluations approved yet.'); return; }
+  const termLabel = `${term?.academic_years?.name || ''} · ${term?.name || ''}`;
+  const nextTerm = term?.ends_on
+    ? [...terms].sort((a, b) => a.starts_on.localeCompare(b.starts_on)).find(t => t.starts_on > term.ends_on)
+    : null;
+  const nextTermName = nextTerm ? `${nextTerm.name} ${nextTerm.academic_years?.name || ''}`.trim() : '';
+  const schoolName = settings.school_name?.value || 'AMQM';
+  const shortName = settings.short_name?.value || 'AMQM';
+  const address = settings.contact?.address || '';
+
+  function pickFee(student: any) {
+    const sec = String(student.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
+    const f = feeStructures.find(x => x.term_id === nextTerm?.id && x.section === sec)
+      || feeStructures.find(x => !x.term_id && x.academic_year_id === nextTerm?.academic_year_id && x.section === sec);
+    return f ? Number(f.amount) : 0;
+  }
+
+  function gradeColor(g: string | null) {
+    if (!g) return '#6b7280';
+    if (g === 'A+' || g === 'A') return '#065f46';
+    if (g.startsWith('B')) return '#1e40af';
+    if (g.startsWith('C')) return '#92400e';
+    return '#be123c';
+  }
+
+  const pages = readyStudents.map(s => {
+    const approved = s.es.filter((e: any) => e.status === 'Approved');
+    const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
+    const status = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
+    const absP = absoluteProgress(s.current, s.direction);
+    const rem = remainingFrom(s.current, s.direction);
+    const juz = juzForPosition(s.current);
+    const hizb = hizbForPosition(s.current);
+    const fee = pickFee(s);
+    const evals = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
+
+    return `<div class="page">
+      <div class="header">
+        <div>
+          <div class="short-name">${shortName}</div>
+          <div class="school-name">${schoolName}</div>
+          <div class="school-addr">${address}</div>
+        </div>
+        <div class="rc-badge">TERM REPORT CARD</div>
+      </div>
+      <div class="student-row">
+        <div class="student-main">
+          <div class="student-name">${s.name}</div>
+          <div class="student-meta">${s.admissionNo?.toUpperCase() || '—'} · ${s.className || '—'} · ${s.section || '—'}</div>
+          <div class="student-meta">${termLabel}</div>
+        </div>
+        <div class="status-chip" style="background:${avg && avg >= 90 ? '#d1fae5' : avg && avg >= 75 ? '#dbeafe' : avg && avg >= 60 ? '#fef3c7' : '#ffe4e6'};color:${avg && avg >= 90 ? '#065f46' : avg && avg >= 75 ? '#1e40af' : avg && avg >= 60 ? '#92400e' : '#be123c'}">${status}</div>
+      </div>
+      <div class="section-title">Evaluations</div>
+      <div class="eval-row">
+        ${evals.map((e, i) => e ? `<div class="eval-card">
+          <div class="eval-num">Eval ${i + 1}</div>
+          <div class="eval-score" style="color:${gradeColor(e.grade)}">${e.score}%</div>
+          <div class="eval-grade">${e.grade || '—'}</div>
+          <div class="eval-ayahs">${e.memorizedAyahs || 0} ayahs · ${Number(e.memorizedPages || 0).toFixed(1)}pp</div>
+        </div>` : `<div class="eval-card eval-missing"><div class="eval-num">Eval ${i + 1}</div><div style="color:#9ca3af;font-size:10px;margin-top:4px">Not recorded</div></div>`).join('')}
+        <div class="eval-card eval-avg">
+          <div class="eval-num">Average</div>
+          <div class="eval-score" style="color:#062d2a">${avg !== null ? avg + '%' : '—'}</div>
+          <div class="eval-grade">${status}</div>
+        </div>
+      </div>
+      <div class="section-title">Hifz Journey</div>
+      <div class="hifz-box">
+        <div class="hifz-pos">${label(s.current)}</div>
+        <div class="hifz-sub">From ${label(s.start)} · ${s.direction === 'baqarah_to_nas' ? 'Baqarah → Nas' : 'Nas → Baqarah'}</div>
+        <div class="hifz-stats">
+          <div class="hifz-stat"><span class="hs-val">${absP.ayahs.toLocaleString()}</span><span class="hs-lbl">Ayahs memorized</span></div>
+          <div class="hifz-stat"><span class="hs-val">${Number(absP.pages).toFixed(1)}</span><span class="hs-lbl">Pages</span></div>
+          <div class="hifz-stat"><span class="hs-val">${Number(absP.hizbs).toFixed(2)}</span><span class="hs-lbl">Hizbs</span></div>
+          <div class="hifz-stat"><span class="hs-val">${rem.ayahs.toLocaleString()}</span><span class="hs-lbl">Ayahs remaining</span></div>
+          <div class="hifz-stat"><span class="hs-val">Juz ${juz}</span><span class="hs-lbl">Current Juz</span></div>
+          <div class="hifz-stat"><span class="hs-val">Hizb ${hizb}</span><span class="hs-lbl">Current Hizb</span></div>
+        </div>
+      </div>
+      ${nextTermName || fee ? `<div class="next-term">
+        <div class="nt-label">Next term</div>
+        ${nextTermName ? `<div class="nt-name">${nextTermName}</div>` : ''}
+        ${fee ? `<div class="nt-fee">Fees due: ₦${fee.toLocaleString()} (${String(s.section).toLowerCase() === 'boarding' ? 'boarding' : 'day'})</div>` : ''}
+      </div>` : ''}
+    </div>`;
+  });
+
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Report Cards · ${termLabel}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff}
+    .page{padding:28px 32px;page-break-after:always;min-height:100vh;display:flex;flex-direction:column;gap:16px}
+    .header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #062d2a}
+    .short-name{font-size:10px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
+    .school-name{font-size:16px;font-weight:900;color:#062d2a;margin-top:2px}
+    .school-addr{font-size:10px;color:#6b7280;margin-top:2px}
+    .rc-badge{background:#062d2a;color:#fff;padding:5px 14px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;align-self:flex-start}
+    .student-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+    .student-name{font-size:17px;font-weight:900;color:#062d2a}
+    .student-meta{font-size:11px;color:#6b7280;margin-top:3px}
+    .status-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;align-self:flex-start;white-space:nowrap}
+    .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:#9ca3af}
+    .eval-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .eval-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;text-align:center}
+    .eval-missing{opacity:.5}
+    .eval-avg{background:#ecfdf5;border-color:#a7f3d0}
+    .eval-num{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#9ca3af}
+    .eval-score{font-size:22px;font-weight:900;margin-top:4px}
+    .eval-grade{font-size:10px;font-weight:700;color:#6b7280;margin-top:1px}
+    .eval-ayahs{font-size:9px;color:#9ca3af;margin-top:3px}
+    .hifz-box{background:#062d2a;color:#fff;border-radius:14px;padding:14px}
+    .hifz-pos{font-size:16px;font-weight:900}
+    .hifz-sub{font-size:10px;color:#a7f3d0;margin-top:2px}
+    .hifz-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+    .hifz-stat{background:rgba(255,255,255,.08);border-radius:8px;padding:8px;text-align:center}
+    .hs-val{display:block;font-size:15px;font-weight:900;color:#fff}
+    .hs-lbl{display:block;font-size:9px;color:#a7f3d0;margin-top:2px;text-transform:uppercase;letter-spacing:.08em}
+    .next-term{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px}
+    .nt-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#92400e}
+    .nt-name{font-size:13px;font-weight:700;color:#78350f;margin-top:3px}
+    .nt-fee{font-size:11px;color:#92400e;margin-top:2px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:20px 24px;gap:12px}}
+  </style>
+  </head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 export default function Reports(){
  const [settings,setSettings]=useState<any>({});
  const [students,setStudents]=useState<any[]>([]);
@@ -63,7 +195,11 @@ export default function Reports(){
       <label className="block flex-1 text-xs font-black uppercase tracking-wide text-slate-500">Operational term<select className="input mt-1" value={termId} onChange={e=>setTermId(e.target.value)}><option value="">Select term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.academic_years?.name||'Academic year'} · {t.name} · {t.starts_on} → {t.ends_on}</option>)}</select></label>
       <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Class<select className="input mt-1" value={classFilter} onChange={e=>setClassFilter(e.target.value)}><option value="">All classes</option>{classNames.map(c=><option key={c} value={c}>{c}</option>)}</select></label>
     </div>
-    <div className="flex gap-2"><span className={`pill ${isComplete?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-800'}`}>{isComplete?'Term completed':'Term in progress'}</span>{role!=='parent'&&<button className="btn btn-primary" disabled={!termId||busy||isComplete} onClick={markComplete}>{isComplete?'Completed':'Mark term complete'}</button>}</div>
+    <div className="flex flex-wrap gap-2 items-center">
+      <span className={`pill ${isComplete?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-800'}`}>{isComplete?'Term completed':'Term in progress'}</span>
+      {role!=='parent'&&<button className="btn btn-primary" disabled={!termId||busy||isComplete} onClick={markComplete}>{isComplete?'Completed':'Mark term complete'}</button>}
+      {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings,feeStructures)}>Print all reports ({ready.length})</button>}
+    </div>
   </div></section>
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={filtered.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,filtered.length-ready.length)}/><Kpi label="Approved evaluations" value={filtered.reduce((n,s)=>n+s.approved,0)}/></div>
   <section className="card overflow-hidden">
