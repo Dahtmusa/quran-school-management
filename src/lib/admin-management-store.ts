@@ -69,6 +69,8 @@ export async function updateFeeStructure(id: string, input: { academicYearId: st
 }
 
 export async function deleteFeeStructure(id: string) {
+  // Remove child rows first (FK: student_fees → fee_structures)
+  await db().from('student_fees').delete().eq('fee_structure_id', id);
   const { error } = await db().from('fee_structures').delete().eq('id', id);
   if (error) throw error;
 }

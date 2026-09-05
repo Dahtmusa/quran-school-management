@@ -4,29 +4,17 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm } from '@/lib/live-store';
-import { loadFeeStructures } from '@/lib/admin-management-store';
 import { useEffect, useMemo, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
-function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, feeStructures: any[]) {
+function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any) {
   const readyStudents = students.filter(s => s.ready);
   if (!readyStudents.length) { alert('No students have all 3 evaluations approved yet.'); return; }
   const termLabel = `${term?.academic_years?.name || ''} · ${term?.name || ''}`;
-  const nextTerm = term?.ends_on
-    ? [...terms].sort((a, b) => a.starts_on.localeCompare(b.starts_on)).find(t => t.starts_on > term.ends_on)
-    : null;
-  const nextTermName = nextTerm ? `${nextTerm.name} ${nextTerm.academic_years?.name || ''}`.trim() : '';
   const schoolName = settings.school_name?.value || 'AMQM';
   const shortName = settings.short_name?.value || 'AMQM';
   const address = settings.contact?.address || '';
-
-  function pickFee(student: any) {
-    const sec = String(student.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
-    const f = feeStructures.find(x => x.term_id === nextTerm?.id && x.section === sec)
-      || feeStructures.find(x => !x.term_id && x.academic_year_id === nextTerm?.academic_year_id && x.section === sec);
-    return f ? Number(f.amount) : 0;
-  }
 
   function gradeColor(g: string | null) {
     if (!g) return '#6b7280';
@@ -44,7 +32,6 @@ function bulkPrintReportCards(students: any[], term: any, terms: any[], settings
     const rem = remainingFrom(s.current, s.direction);
     const juz = juzForPosition(s.current);
     const hizb = hizbForPosition(s.current);
-    const fee = pickFee(s);
     const evals = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
 
     return `<div class="page">
@@ -91,11 +78,6 @@ function bulkPrintReportCards(students: any[], term: any, terms: any[], settings
           <div class="hifz-stat"><span class="hs-val">Hizb ${hizb}</span><span class="hs-lbl">Current Hizb</span></div>
         </div>
       </div>
-      ${nextTermName || fee ? `<div class="next-term">
-        <div class="nt-label">Next term</div>
-        ${nextTermName ? `<div class="nt-name">${nextTermName}</div>` : ''}
-        ${fee ? `<div class="nt-fee">Fees due: ₦${fee.toLocaleString()} (${String(s.section).toLowerCase() === 'boarding' ? 'boarding' : 'day'})</div>` : ''}
-      </div>` : ''}
     </div>`;
   });
 
@@ -131,10 +113,6 @@ function bulkPrintReportCards(students: any[], term: any, terms: any[], settings
     .hifz-stat{background:rgba(255,255,255,.08);border-radius:8px;padding:8px;text-align:center}
     .hs-val{display:block;font-size:15px;font-weight:900;color:#fff}
     .hs-lbl{display:block;font-size:9px;color:#a7f3d0;margin-top:2px;text-transform:uppercase;letter-spacing:.08em}
-    .next-term{background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:10px}
-    .nt-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:#92400e}
-    .nt-name{font-size:13px;font-weight:700;color:#78350f;margin-top:3px}
-    .nt-fee{font-size:11px;color:#92400e;margin-top:2px}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:20px 24px;gap:12px}}
   </style>
   </head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
@@ -153,12 +131,11 @@ export default function Reports(){
  const [selected,setSelected]=useState<any|null>(null);
  const [role,setRole]=useState('');
  const [classFilter,setClassFilter]=useState('');
- const [feeStructures,setFeeStructures]=useState<any[]>([]);
 
  const refresh=async()=>{
    const p=await getCurrentProfile();
-   const [s,e,t,c,st,cur,fs]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm(),loadFeeStructures()]);
-   setRole(p?.role||'');setStudents(s);setEvals(e);setTerms(t);setCompleted(c);setSettings(st);setFeeStructures(fs||[]);
+   const [s,e,t,c,st,cur]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm()]);
+   setRole(p?.role||'');setStudents(s);setEvals(e);setTerms(t);setCompleted(c);setSettings(st);
    if(!termId)setTermId(cur?.term_id||t[0]?.id||'');
  };
  useEffect(()=>{refresh()},[]);
@@ -198,7 +175,7 @@ export default function Reports(){
     <div className="flex flex-wrap gap-2 items-center">
       <span className={`pill ${isComplete?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-800'}`}>{isComplete?'Term completed':'Term in progress'}</span>
       {role!=='parent'&&<button className="btn btn-primary" disabled={!termId||busy||isComplete} onClick={markComplete}>{isComplete?'Completed':'Mark term complete'}</button>}
-      {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings,feeStructures)}>Print all reports ({ready.length})</button>}
+      {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings)}>Print all reports ({ready.length})</button>}
     </div>
   </div></section>
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={filtered.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,filtered.length-ready.length)}/><Kpi label="Approved evaluations" value={filtered.reduce((n,s)=>n+s.approved,0)}/></div>
@@ -219,14 +196,14 @@ export default function Reports(){
       </tr>)}</tbody>
     </table></div>
   </section>
-  {selected&&<ReportPreview student={selected} term={term} terms={terms} settings={settings} feeStructures={feeStructures} close={()=>setSelected(null)}/>}
+  {selected&&<ReportPreview student={selected} term={term} settings={settings} close={()=>setSelected(null)}/>}
  </div></AdminShell>
 }
 
 function Kpi({label,value}:{label:string,value:number}){return <div className="card p-5"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
 function Status({status,score}:{status:string;score?:number}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}{score!=null?` · ${score}%`:''}</span>}
 
-function ReportPreview({student,term,terms,settings,feeStructures,close}:{student:any;term:any;terms:any[];settings:any;feeStructures:any[];close:()=>void}){
+function ReportPreview({student,term,settings,close}:{student:any;term:any;settings:any;close:()=>void}){
   const approved=student.es.filter((e:any)=>e.status==='Approved');
   const avgScore=approved.length>0?Math.round(approved.reduce((s:number,e:any)=>s+e.score,0)/approved.length):null;
   const finalStatus=avgScore===null?null:avgScore>=90?'Excellent':avgScore>=75?'Very Good':avgScore>=60?'Satisfactory':'Needs Improvement';
@@ -237,46 +214,7 @@ function ReportPreview({student,term,terms,settings,feeStructures,close}:{studen
   const currentJuz=juzForPosition(student.current);
   const currentHizb=hizbForPosition(student.current);
 
-  // Auto-detect next term: earliest term whose starts_on is after current term's ends_on
-  const nextTerm=term?.ends_on
-    ? [...terms].sort((a,b)=>a.starts_on.localeCompare(b.starts_on)).find(t=>t.starts_on>term.ends_on)
-    : null;
-  const autoNextDate=nextTerm?.starts_on||'';
-
-  const feeKey=`amqm-report-fees-${term?.id||''}`;
-
   const [qrUrl,setQrUrl]=useState('');
-  const [nextTermDate,setNextTermDate]=useState('');
-  const [dayFee,setDayFee]=useState('');
-  const [boardingFee,setBoardingFee]=useState('');
-
-  // Load fees: auto-fill from DB fee structures for the next term; let localStorage override
-  useEffect(()=>{
-    const nextTermId=nextTerm?.id;
-    const nextYearId=nextTerm?.academic_year_id;
-    function pickFee(section:'day'|'boarding'){
-      return feeStructures.find(f=>f.term_id===nextTermId&&f.section===section)
-        ||feeStructures.find(f=>!f.term_id&&f.academic_year_id===nextYearId&&f.section===section)
-        ||null;
-    }
-    const dbDay=pickFee('day');
-    const dbBoarding=pickFee('boarding');
-    try{
-      const saved=JSON.parse(localStorage.getItem(feeKey)||'{}');
-      setDayFee(saved.dayFee??String(dbDay?.amount??''));
-      setBoardingFee(saved.boardingFee??String(dbBoarding?.amount??''));
-      setNextTermDate(saved.nextTermDate??autoNextDate);
-    }catch{
-      setDayFee(String(dbDay?.amount??''));
-      setBoardingFee(String(dbBoarding?.amount??''));
-      setNextTermDate(autoNextDate);
-    }
-  },[feeKey,autoNextDate,feeStructures,nextTerm]);
-
-  // Persist fee fields and date override whenever they change
-  useEffect(()=>{
-    try{localStorage.setItem(feeKey,JSON.stringify({dayFee,boardingFee,nextTermDate}));}catch{}
-  },[feeKey,dayFee,boardingFee,nextTermDate]);
 
   useEffect(()=>{
     const statusText=approved.length===3&&finalStatus?`Final status: ${finalStatus}`:'Evaluations incomplete';
@@ -286,9 +224,6 @@ function ReportPreview({student,term,terms,settings,feeStructures,close}:{studen
     ).then(setQrUrl).catch(()=>{});
   },[student,term,finalStatus]);
 
-  const isBoarder=student.section==='Boarding';
-  const applicableFee=isBoarder?boardingFee:dayFee;
-
   return <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-950/60 p-4">
     <div className="mx-auto my-5 w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
       <div className="flex items-center justify-between border-b p-5">
@@ -296,16 +231,6 @@ function ReportPreview({student,term,terms,settings,feeStructures,close}:{studen
         <div className="flex gap-2">
           <button className="btn bg-slate-100" onClick={close}>Close</button>
           <button className="btn btn-primary" onClick={()=>window.print()}>Print report</button>
-        </div>
-      </div>
-
-      {/* Next term fields — saved per term in localStorage */}
-      <div className="border-b bg-amber-50 px-6 py-3">
-        <div className="text-xs font-black uppercase tracking-wide text-amber-800 mb-2">Next term info — auto-loaded from fee settings · override if needed</div>
-        <div className="flex flex-wrap gap-3">
-          <label className="text-xs font-bold text-amber-900">Next term starts<input className="input mt-1 w-44" type="date" value={nextTermDate} onChange={e=>setNextTermDate(e.target.value)}/></label>
-          <label className="text-xs font-bold text-amber-900">Day fee (₦)<input className="input mt-1 w-32" type="number" value={dayFee} onChange={e=>setDayFee(e.target.value)} placeholder="0"/></label>
-          <label className="text-xs font-bold text-amber-900">Boarding fee (₦)<input className="input mt-1 w-32" type="number" value={boardingFee} onChange={e=>setBoardingFee(e.target.value)} placeholder="0"/></label>
         </div>
       </div>
 
@@ -401,15 +326,6 @@ function ReportPreview({student,term,terms,settings,feeStructures,close}:{studen
           <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-400">Class</div><div className="mt-1 text-sm font-semibold">{student.className||'Unassigned'}</div></div>
           <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-400">Section</div><div className="mt-1"><SectionBadge section={student.section}/></div></div>
         </div>
-
-        {/* Next term */}
-        {(nextTermDate||applicableFee)&&<div className="mt-5 rounded-2xl border-2 border-dashed border-emerald-300 p-4">
-          <div className="text-xs font-black uppercase tracking-wide text-emerald-700 mb-2">Next term information</div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {nextTermDate&&<div className="rounded-xl bg-emerald-50 p-3"><div className="text-xs text-slate-400">Resumption date</div><div className="mt-1 text-sm font-black">{new Date(nextTermDate).toLocaleDateString('en-NG',{weekday:'long',year:'numeric',month:'long',day:'numeric'})}</div></div>}
-            {applicableFee&&<div className="rounded-xl bg-amber-50 p-3"><div className="text-xs text-slate-400">Next term fee ({student.section})</div><div className="mt-1 text-sm font-black">₦{Number(applicableFee).toLocaleString()}</div></div>}
-          </div>
-        </div>}
 
         <div className="mt-8 border-t pt-5 text-xs text-slate-400">Only approved evaluations are official. This report preserves the complete term trail. Printed on {new Date().toLocaleDateString('en-NG')}.</div>
       </div>

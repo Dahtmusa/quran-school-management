@@ -127,7 +127,8 @@ export default function Fees() {
 
   const [showFeeConfig, setShowFeeConfig] = useState(false);
   const [showBankConfig, setShowBankConfig] = useState(false);
-  const [fee, setFee] = useState({ id: '', academicYearId: '', termId: '', section: 'day' as 'day'|'boarding', name: 'Term Fee', amount: '', dueDate: '' });
+  // Simplified combined fee form: one row = both day + boarding amounts
+  const [feeForm, setFeeForm] = useState({ academicYearId: '', termId: '', dayAmount: '', boardingAmount: '', dueDate: '' });
 
   async function refresh() {
     const [s, fs, sm, cms, cur, y, t, siteMeta] = await Promise.all([
@@ -217,15 +218,52 @@ export default function Fees() {
 
   async function saveBank() { setBusy(true); try { await saveCMSSetting('school_payment', bank); setMessage('Bank account saved.'); } catch (e: any) { setMessage(e?.message || 'Failed'); } finally { setBusy(false); } }
 
-  function startEdit(f: any) { setFee({ id: f.id, academicYearId: f.academic_year_id, termId: f.term_id || '', section: f.section, name: f.name, amount: String(f.amount), dueDate: f.due_date || '' }); setShowFeeConfig(true); }
-  async function saveFee() {
+  // Group structures: one entry per (year, term) showing both day + boarding
+  const feeGroups = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const f of structures) {
+      const key = `${f.academic_year_id}|${f.term_id || 'all'}`;
+      if (!map.has(key)) map.set(key, { yearId: f.academic_year_id, termId: f.term_id || null, year: f.academic_years, term: f.terms, dueDate: f.due_date, day: null, boarding: null });
+      const g = map.get(key);
+      if (f.section === 'day') { g.day = f; if (f.due_date) g.dueDate = f.due_date; }
+      if (f.section === 'boarding') g.boarding = f;
+    }
+    return [...map.values()].sort((a, b) => (b.year?.name || '').localeCompare(a.year?.name || '') || (a.term?.term_number || 0) - (b.term?.term_number || 0));
+  }, [structures]);
+
+  function startEditGroup(g: any) {
+    setFeeForm({ academicYearId: g.yearId, termId: g.termId || '', dayAmount: String(g.day?.amount ?? ''), boardingAmount: String(g.boarding?.amount ?? ''), dueDate: g.dueDate || '' });
+    setShowFeeConfig(true);
+  }
+
+  async function saveFees() {
+    if (!feeForm.academicYearId) return;
     setBusy(true); setMessage('');
     try {
-      if (fee.id) await updateFeeStructure(fee.id, { academicYearId: fee.academicYearId, termId: fee.termId || null, section: fee.section, name: fee.name, amount: Number(fee.amount), dueDate: fee.dueDate || null });
-      else await createFeeStructure({ academicYearId: fee.academicYearId, termId: fee.termId || null, section: fee.section, name: fee.name, amount: Number(fee.amount), dueDate: fee.dueDate || null });
-      setFee({ id: '', academicYearId: fee.academicYearId, termId: fee.termId, section: fee.section, name: 'Term Fee', amount: '', dueDate: '' });
-      setMessage(fee.id ? 'Updated.' : 'Saved.'); await refresh();
+      const base = { academicYearId: feeForm.academicYearId, termId: feeForm.termId || null, name: 'Term Fee', dueDate: feeForm.dueDate || null };
+      const existing = structures.filter(f => f.academic_year_id === feeForm.academicYearId && (f.term_id || null) === (feeForm.termId || null));
+      const existDay = existing.find(f => f.section === 'day');
+      const existBoard = existing.find(f => f.section === 'boarding');
+      if (feeForm.dayAmount) {
+        if (existDay) await updateFeeStructure(existDay.id, { ...base, section: 'day', amount: Number(feeForm.dayAmount) });
+        else await createFeeStructure({ ...base, section: 'day', amount: Number(feeForm.dayAmount) });
+      }
+      if (feeForm.boardingAmount) {
+        if (existBoard) await updateFeeStructure(existBoard.id, { ...base, section: 'boarding', amount: Number(feeForm.boardingAmount) });
+        else await createFeeStructure({ ...base, section: 'boarding', amount: Number(feeForm.boardingAmount) });
+      }
+      setFeeForm(f => ({ ...f, dayAmount: '', boardingAmount: '', dueDate: '' }));
+      setMessage('Fee structure saved.'); await refresh();
     } catch (e: any) { setMessage(e?.message || 'Failed'); } finally { setBusy(false); }
+  }
+
+  async function deleteFeeGroup(g: any) {
+    if (!confirm(`Delete fee structure for ${g.year?.name || ''} · ${g.termId ? tLabel(g.term) : 'All terms'}? Student fee records for this structure will also be removed.`)) return;
+    try {
+      if (g.day) await deleteFeeStructure(g.day.id);
+      if (g.boarding) await deleteFeeStructure(g.boarding.id);
+      setMessage('Deleted.'); await refresh();
+    } catch (e: any) { setMessage(e?.message || 'Delete failed: ' + e?.message); }
   }
 
   const pillCls = (st: ReturnType<typeof getStatus>) =>
@@ -397,54 +435,64 @@ export default function Fees() {
           <button className="flex w-full items-center justify-between p-5 text-left hover:bg-slate-50" onClick={() => setShowFeeConfig(x => !x)}>
             <div>
               <div className="font-black">Fee structures</div>
-              <div className="text-xs text-slate-500">Day and boarding fees per term — used on invoices and report cards</div>
+              <div className="text-xs text-slate-500">Set day and boarding fees together — used on invoices</div>
             </div>
             <span className="text-slate-400 text-sm">{showFeeConfig ? '▲' : '▼'}</span>
           </button>
           {showFeeConfig && (
             <div className="border-t p-5 space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <select className="input" value={fee.academicYearId} onChange={e => setFee({ ...fee, academicYearId: e.target.value })}>
+              {/* One row: year, term, day fee, boarding fee, due date */}
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <select className="input" value={feeForm.academicYearId} onChange={e => setFeeForm(f => ({ ...f, academicYearId: e.target.value, termId: '' }))}>
                   <option value="">Academic year</option>
                   {years.map(y => <option key={y.id} value={y.id}>{y.name}{y.is_current ? ' (current)' : ''}</option>)}
                 </select>
-                <select className="input" value={fee.termId} onChange={e => setFee({ ...fee, termId: e.target.value })}>
+                <select className="input" value={feeForm.termId} onChange={e => setFeeForm(f => ({ ...f, termId: e.target.value }))}>
                   <option value="">All terms in year</option>
-                  {terms.filter(t => !fee.academicYearId || t.academic_year_id === fee.academicYearId).map(t => <option key={t.id} value={t.id}>{tLabel(t)}</option>)}
+                  {terms.filter(t => !feeForm.academicYearId || t.academic_year_id === feeForm.academicYearId).map(t => <option key={t.id} value={t.id}>{tLabel(t)}</option>)}
                 </select>
-                <select className="input" value={fee.section} onChange={e => setFee({ ...fee, section: e.target.value as any })}>
-                  <option value="day">Day student</option>
-                  <option value="boarding">Boarding student</option>
-                </select>
-                <input className="input" placeholder="Fee name (e.g. Term Fee)" value={fee.name} onChange={e => setFee({ ...fee, name: e.target.value })} />
-                <input className="input" type="number" min="0" placeholder="Amount" value={fee.amount} onChange={e => setFee({ ...fee, amount: e.target.value })} />
-                <input className="input" type="date" title="Due date" value={fee.dueDate} onChange={e => setFee({ ...fee, dueDate: e.target.value })} />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">Day</span>
+                  <input className="input pl-10" type="number" min="0" placeholder="Day fee" value={feeForm.dayAmount} onChange={e => setFeeForm(f => ({ ...f, dayAmount: e.target.value }))} />
+                </div>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-400">Board</span>
+                  <input className="input pl-12" type="number" min="0" placeholder="Boarding fee" value={feeForm.boardingAmount} onChange={e => setFeeForm(f => ({ ...f, boardingAmount: e.target.value }))} />
+                </div>
+                <input className="input" type="date" title="Due date (optional)" value={feeForm.dueDate} onChange={e => setFeeForm(f => ({ ...f, dueDate: e.target.value }))} />
               </div>
-              <div className="flex gap-2">
-                <button className="btn btn-primary" disabled={busy || !fee.academicYearId || !fee.name || !fee.amount} onClick={saveFee}>{fee.id ? 'Update' : 'Save'}</button>
-                {fee.id && <button className="btn bg-slate-100" onClick={() => setFee({ id: '', academicYearId: '', termId: '', section: 'day', name: 'Term Fee', amount: '', dueDate: '' })}>Cancel</button>}
-              </div>
+              <button className="btn btn-primary" disabled={busy || !feeForm.academicYearId || (!feeForm.dayAmount && !feeForm.boardingAmount)} onClick={saveFees}>Save fee structure</button>
+
+              {/* Grouped table: one row per year/term */}
               <div className="overflow-x-auto rounded-xl border text-sm">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-xs uppercase"><tr><th className="p-3">Year</th><th>Term</th><th>Section</th><th>Name</th><th>Amount</th><th>Due date</th><th /></tr></thead>
+                  <thead className="bg-slate-50 text-xs uppercase">
+                    <tr>
+                      <th className="p-3">Year</th>
+                      <th>Term</th>
+                      <th className="text-right pr-4">Day fee</th>
+                      <th className="text-right pr-4">Boarding fee</th>
+                      <th>Due date</th>
+                      <th />
+                    </tr>
+                  </thead>
                   <tbody>
-                    {structures.map(f => (
-                      <tr className="border-t" key={f.id}>
-                        <td className="p-3 text-slate-600">{f.academic_years?.name || '—'}</td>
-                        <td>{f.terms?.term_number ? tLabel(f.terms) : 'All terms'}</td>
-                        <td><SectionBadge section={f.section === 'boarding' ? 'Boarding' : 'Day'} /></td>
-                        <td>{f.name}</td>
-                        <td className="font-mono font-semibold">{currency} {Number(f.amount).toLocaleString()}</td>
-                        <td className="text-slate-400">{f.due_date || '—'}</td>
+                    {feeGroups.map((g, i) => (
+                      <tr className="border-t" key={i}>
+                        <td className="p-3 text-slate-600">{g.year?.name || '—'}</td>
+                        <td>{g.termId ? tLabel(g.term) : 'All terms'}</td>
+                        <td className="text-right pr-4 font-mono font-semibold">{g.day ? `${currency} ${Number(g.day.amount).toLocaleString()}` : '—'}</td>
+                        <td className="text-right pr-4 font-mono font-semibold text-indigo-700">{g.boarding ? `${currency} ${Number(g.boarding.amount).toLocaleString()}` : '—'}</td>
+                        <td className="text-slate-400">{g.dueDate || '—'}</td>
                         <td>
-                          <div className="flex gap-1.5">
-                            <button className="btn bg-slate-100 text-xs py-1" onClick={() => startEdit(f)}>Edit</button>
-                            <button className="btn bg-rose-50 text-rose-700 border border-rose-100 text-xs py-1" onClick={async () => { if (!confirm(`Delete this fee structure (${f.section} · ${currency} ${Number(f.amount).toLocaleString()})? This cannot be undone.`)) return; try { await deleteFeeStructure(f.id); await refresh(); } catch (e: any) { setMessage(e?.message || 'Delete failed'); } }}>Delete</button>
+                          <div className="flex gap-1.5 pr-2">
+                            <button className="btn bg-slate-100 text-xs py-1" onClick={() => startEditGroup(g)}>Edit</button>
+                            <button className="btn bg-rose-50 text-rose-700 border border-rose-100 text-xs py-1" onClick={() => deleteFeeGroup(g)}>Delete</button>
                           </div>
                         </td>
                       </tr>
                     ))}
-                    {!structures.length && <tr><td colSpan={7} className="p-6 text-center text-slate-400 text-xs">No fee structures yet. Add one above.</td></tr>}
+                    {!feeGroups.length && <tr><td colSpan={6} className="p-6 text-center text-slate-400 text-xs">No fee structures yet. Add one above.</td></tr>}
                   </tbody>
                 </table>
               </div>
