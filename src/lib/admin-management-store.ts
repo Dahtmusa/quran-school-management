@@ -68,6 +68,11 @@ export async function updateFeeStructure(id: string, input: { academicYearId: st
   return data;
 }
 
+export async function deleteFeeStructure(id: string) {
+  const { error } = await db().from('fee_structures').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function syncStudentFeeAllocations(termId: string) {
   const { data, error } = await db().rpc('sync_student_fee_allocations', { p_term_id: termId });
   if (error) throw error;

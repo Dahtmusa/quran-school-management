@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { loadStudents, loadCurrentAcademicTerm } from '@/lib/live-store';
-import { createFeeStructure, updateFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
+import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
 import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
@@ -436,7 +436,12 @@ export default function Fees() {
                         <td>{f.name}</td>
                         <td className="font-mono font-semibold">{currency} {Number(f.amount).toLocaleString()}</td>
                         <td className="text-slate-400">{f.due_date || '—'}</td>
-                        <td><button className="btn bg-slate-100 text-xs py-1" onClick={() => startEdit(f)}>Edit</button></td>
+                        <td>
+                          <div className="flex gap-1.5">
+                            <button className="btn bg-slate-100 text-xs py-1" onClick={() => startEdit(f)}>Edit</button>
+                            <button className="btn bg-rose-50 text-rose-700 border border-rose-100 text-xs py-1" onClick={async () => { if (!confirm(`Delete this fee structure (${f.section} · ${currency} ${Number(f.amount).toLocaleString()})? This cannot be undone.`)) return; try { await deleteFeeStructure(f.id); await refresh(); } catch (e: any) { setMessage(e?.message || 'Delete failed'); } }}>Delete</button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {!structures.length && <tr><td colSpan={7} className="p-6 text-center text-slate-400 text-xs">No fee structures yet. Add one above.</td></tr>}
