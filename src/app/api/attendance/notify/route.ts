@@ -37,14 +37,21 @@ async function sendTermii(apiKey: string, senderId: string, channel: string, to:
 }
 
 async function sendAfricasTalking(apiKey: string, username: string, senderId: string, to: string, message: string) {
-  const body = new URLSearchParams({ username, to, message, from: senderId });
+  const params: Record<string, string> = { username, to, message };
+  if (senderId) params.from = senderId;
+  const body = new URLSearchParams(params);
   const res = await fetch('https://api.africastalking.com/version1/messaging', {
     method: 'POST',
     headers: { apiKey, Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json?.SMSMessageData?.Message || "Africa's Talking error");
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(text); } catch { throw new Error(text.slice(0, 120)); }
+  if (!res.ok) throw new Error(String((json?.SMSMessageData as any)?.Message || json?.message || text.slice(0, 120)));
+  const recipients: any[] = (json?.SMSMessageData as any)?.Recipients || [];
+  const failed = recipients.filter(r => r.status !== 'Success');
+  if (failed.length > 0) throw new Error(failed.map(r => r.status).join(', '));
   return json;
 }
 
