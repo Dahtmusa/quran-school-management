@@ -23,10 +23,13 @@ function normalizePhone(raw: string): string {
 }
 
 async function sendTermii(apiKey: string, senderId: string, channel: string, to: string, message: string) {
+  // If no custom sender ID, use Termii's default (omit 'from' field)
+  const payload: Record<string, unknown> = { api_key: apiKey, to, sms: message, type: 'plain', channel };
+  if (senderId && senderId !== 'default' && senderId !== '') payload.from = senderId;
   const res = await fetch('https://api.ng.termii.com/api/sms/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ api_key: apiKey, to, from: senderId, sms: message, type: 'plain', channel }),
+    body: JSON.stringify(payload),
   });
   const json = await res.json();
   if (!res.ok) throw new Error(json?.message || 'Termii error');
