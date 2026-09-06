@@ -55,12 +55,16 @@ function ReviewModal({
   const [newStatus, setNewStatus] = useState(record.statusCode);
   const [note, setNote] = useState(record.note || '');
   const [saving, setSaving] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
   const [err, setErr] = useState('');
+  const [done, setDone] = useState(false);
+  const [approvedRecordId, setApprovedRecordId] = useState<string | null>(null);
+  const [smsResult, setSmsResult] = useState('');
 
   const statusOptions = [
     { code: 'present', label: 'Present' },
     { code: 'late',    label: 'Late' },
-    { code: 'excused', label: 'Excused' },
+    { code: 'excused', label: 'Excused — student has a valid excuse' },
     { code: 'sick',    label: 'Sick / Ill' },
     { code: 'absent',  label: 'Absent' },
   ];
@@ -73,75 +77,118 @@ function ReviewModal({
       body.newReviewStatus = 'approved';
     }
     const res = await fetch('/api/attendance/review', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     const d = await res.json();
     setSaving(false);
     if (!d.success) { setErr(d.error || 'Failed'); return; }
-    onDone();
+    setDone(true);
+    setApprovedRecordId(record.id);
   };
 
+  const sendSms = async () => {
+    if (!approvedRecordId) return;
+    setSendingSms(true); setSmsResult('');
+    const res = await fetch('/api/attendance/notify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recordId: approvedRecordId, manual: true }),
+    });
+    const d = await res.json();
+    setSendingSms(false);
+    setSmsResult(d.success ? `SMS sent to parent` : (d.error || 'Failed to send SMS'));
+  };
+
+  const scanTime = new Date(record.scannedAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: true });
+  const LS = { display: 'block' as const, fontSize: 10, fontWeight: 800 as const, letterSpacing: '.1em', textTransform: 'uppercase' as const, color: '#9ca3af', marginBottom: 6 };
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-    }}>
-      <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 440, padding: '24px 28px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 460, padding: '24px 28px' }}>
+
         <div style={{ fontWeight: 900, fontSize: 17, color: '#062d2a', marginBottom: 4 }}>Review Attendance</div>
         <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
-          {record.personName} · {record.attendanceDate} · {new Date(record.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+          <strong style={{ color: '#111' }}>{record.personName}</strong> · {record.attendanceDate} · {scanTime}
+          <span style={{ marginLeft: 8, padding: '2px 9px', borderRadius: 99, fontSize: 10, fontWeight: 800,
+            background: record.statusCode === 'late' ? '#fef3c7' : record.statusCode === 'absent' ? '#fee2e2' : '#f3f4f6',
+            color: record.statusCode === 'late' ? '#92400e' : record.statusCode === 'absent' ? '#991b1b' : '#374151',
+          }}>{record.statusLabel}</span>
         </div>
 
-        <div style={{ marginBottom: 14 }}>
-          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>Action</label>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[
-              { v: 'approve',       l: 'Approve' },
-              { v: 'reject',        l: 'Reject' },
-              { v: 'change_status', l: 'Change Status' },
-            ].map(o => (
-              <button key={o.v} onClick={() => setAction(o.v)} style={{
-                padding: '7px 16px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700,
-                background: action === o.v ? '#062d2a' : '#fff',
-                color: action === o.v ? '#fff' : '#374151',
-                borderColor: action === o.v ? '#062d2a' : '#e5e7eb',
-              }}>{o.l}</button>
-            ))}
-          </div>
-        </div>
-
-        {action === 'change_status' && (
+        {!done ? <>
+          {/* Quick actions */}
           <div style={{ marginBottom: 14 }}>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>New Status</label>
-            <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
-              style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit' }}>
-              {statusOptions.map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
-            </select>
+            <label style={LS}>What do you want to do?</label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { v: 'approve',       l: 'Approve as-is',    desc: `Keep as ${record.statusLabel}` },
+                { v: 'change_status', l: 'Change status',    desc: 'e.g. mark Excused or Absent' },
+                { v: 'reject',        l: 'Reject',           desc: 'Remove this record' },
+              ].map(o => (
+                <button key={o.v} onClick={() => setAction(o.v)} style={{
+                  padding: '8px 16px', borderRadius: 10, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700,
+                  background: action === o.v ? '#062d2a' : '#fff',
+                  color: action === o.v ? '#fff' : '#374151',
+                  borderColor: action === o.v ? '#062d2a' : '#e5e7eb',
+                }}>{o.l}</button>
+              ))}
+            </div>
           </div>
-        )}
 
-        <div style={{ marginBottom: 18 }}>
-          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>Note (optional)</label>
-          <textarea value={note} onChange={e => setNote(e.target.value)} rows={2}
-            style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical' }} />
-        </div>
+          {action === 'change_status' && (
+            <div style={{ marginBottom: 14 }}>
+              <label style={LS}>New status</label>
+              <select value={newStatus} onChange={e => setNewStatus(e.target.value)}
+                style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit' }}>
+                {statusOptions.map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
 
-        {err && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+          <div style={{ marginBottom: 18 }}>
+            <label style={LS}>Note (optional)</label>
+            <textarea value={note} onChange={e => setNote(e.target.value)} rows={2} placeholder="e.g. Parent called in sick, permission granted..."
+              style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
+          </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            Cancel
-          </button>
-          <button onClick={submit} disabled={saving} style={{
-            padding: '9px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
-            background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 700,
-            opacity: saving ? 0.6 : 1,
-          }}>
-            {saving ? 'Saving…' : 'Confirm'}
-          </button>
-        </div>
+          {err && <div style={{ color: '#dc2626', fontSize: 12, marginBottom: 12 }}>{err}</div>}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 10, border: '1.5px solid #e5e7eb', background: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Cancel</button>
+            <button onClick={submit} disabled={saving} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', cursor: 'pointer', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 700, opacity: saving ? 0.6 : 1 }}>
+              {saving ? 'Saving…' : 'Confirm'}
+            </button>
+          </div>
+        </> : <>
+          {/* Post-approval: offer SMS */}
+          <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 12, padding: '14px 16px', marginBottom: 16 }}>
+            <div style={{ fontWeight: 800, fontSize: 13, color: '#166534' }}>Record updated successfully</div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#111', marginBottom: 6 }}>Notify parent by SMS?</div>
+            <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
+              Send an SMS to the parent informing them their child was marked <strong>{action === 'change_status' ? newStatus : record.statusLabel}</strong>.
+            </p>
+            <button onClick={sendSms} disabled={sendingSms} style={{
+              padding: '9px 22px', borderRadius: 10, border: 'none', cursor: 'pointer',
+              background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700, opacity: sendingSms ? 0.6 : 1,
+            }}>
+              {sendingSms ? 'Sending…' : 'Send SMS to Parent'}
+            </button>
+            {smsResult && (
+              <div style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: smsResult.includes('sent') ? '#166534' : '#dc2626' }}>
+                {smsResult}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button onClick={onDone} style={{ padding: '9px 18px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              Done
+            </button>
+          </div>
+        </>}
       </div>
     </div>
   );

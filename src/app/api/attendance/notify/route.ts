@@ -37,8 +37,6 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
 
 // Send via SmartSMSSolutions
 async function sendSmartSMS(apiKey: string, senderId: string, to: string, message: string) {
-  const url = new URL('https://www.smartsmssolutions.com/api/json.php');
-  url.searchParams.set('username', '');
   const res = await fetch('https://www.smartsmssolutions.com/api/json.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -80,7 +78,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { recordId } = await req.json();
+  const { recordId, manual = false } = await req.json();
   if (!recordId) return NextResponse.json({ error: 'recordId required' }, { status: 400 });
 
   const admin = createAdminClient();
@@ -105,10 +103,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Notification already sent for this record' }, { status: 400 });
   }
 
-  // Check this status should trigger SMS
-  const sendOn: string[] = (settings['sms_send_on_status'] as string[]) || ['absent', 'late'];
-  if (!sendOn.includes(record.status_code)) {
-    return NextResponse.json({ error: `Status "${record.status_code}" does not trigger SMS` }, { status: 400 });
+  // Check this status should trigger SMS (skip check for manual sends by admin)
+  if (!manual) {
+    const sendOn: string[] = (settings['sms_send_on_status'] as string[]) || ['absent', 'late'];
+    if (!sendOn.includes(record.status_code)) {
+      return NextResponse.json({ error: `Status "${record.status_code}" does not trigger SMS` }, { status: 400 });
+    }
   }
 
   // Load student + parent phone

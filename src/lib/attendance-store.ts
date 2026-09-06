@@ -84,42 +84,34 @@ export async function loadTodayRecords(date?: string): Promise<AttendanceRecord[
   const d = date || new Date().toISOString().slice(0, 10);
   const { data } = await supabase()
     .from('attendance_records')
-    .select(`
-      id, person_id, person_type, scanned_at, attendance_date,
-      status_code, period, review_status, note, is_offline_scan,
-      attendance_statuses!status_code(label,color),
-      attendance_scan_points!scan_point_id(name),
-      profiles!recorded_by(full_name)
-    `)
+    .select('id,person_id,person_type,scanned_at,attendance_date,status_code,period,review_status,note,is_offline_scan,scan_point_id,recorded_by')
     .eq('attendance_date', d)
     .order('scanned_at', { ascending: false });
 
-  if (!data) return [];
+  if (!data || data.length === 0) return [];
 
   const studentIds = data.filter(r => r.person_type === 'student').map(r => r.person_id);
-  const staffIds = data.filter(r => r.person_type === 'staff').map(r => r.person_id);
+  const staffIds   = data.filter(r => r.person_type === 'staff').map(r => r.person_id);
 
-  const [studentsRes, staffRes] = await Promise.all([
-    studentIds.length
-      ? supabase().from('students').select('id,full_name,admission_no').in('id', studentIds)
-      : Promise.resolve({ data: [] }),
-    staffIds.length
-      ? supabase().from('profiles').select('id,full_name').in('id', staffIds)
-      : Promise.resolve({ data: [] }),
+  const [studentsRes, staffRes, statusesRes] = await Promise.all([
+    studentIds.length ? supabase().from('students').select('id,full_name,admission_no').in('id', studentIds) : Promise.resolve({ data: [] }),
+    staffIds.length   ? supabase().from('profiles').select('id,full_name').in('id', staffIds)               : Promise.resolve({ data: [] }),
+    supabase().from('attendance_statuses').select('code,label,color'),
   ]);
 
   const studentMap = Object.fromEntries((studentsRes.data || []).map(s => [s.id, s]));
-  const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
+  const staffMap   = Object.fromEntries((staffRes.data   || []).map(s => [s.id, s]));
+  const statusMap  = Object.fromEntries((statusesRes.data || []).map(s => [s.code, s]));
 
   return data.map(r => {
     const person = r.person_type === 'student' ? studentMap[r.person_id] : staffMap[r.person_id];
-    const st = r.attendance_statuses as any;
+    const st = statusMap[r.status_code];
     return {
       id: r.id,
       personId: r.person_id,
       personType: r.person_type as 'student' | 'staff',
       personName: person?.full_name || 'Unknown',
-      personAdmissionNo: person?.admission_no || null,
+      personAdmissionNo: (person as any)?.admission_no || null,
       scannedAt: r.scanned_at,
       attendanceDate: r.attendance_date,
       statusCode: r.status_code,
@@ -129,8 +121,8 @@ export async function loadTodayRecords(date?: string): Promise<AttendanceRecord[
       reviewStatus: r.review_status as 'pending' | 'approved' | 'rejected',
       note: r.note,
       isOfflineScan: r.is_offline_scan,
-      scanPointName: (r.attendance_scan_points as any)?.name || null,
-      recordedByName: (r.profiles as any)?.full_name || null,
+      scanPointName: null,
+      recordedByName: null,
     };
   });
 }
@@ -158,32 +150,31 @@ export async function loadAttendanceSummary(date?: string): Promise<AttendanceSu
 }
 
 export async function loadPendingRecords(): Promise<AttendanceRecord[]> {
+  // Simple query — no complex joins that can fail silently due to RLS
   const { data } = await supabase()
     .from('attendance_records')
-    .select(`
-      id, person_id, person_type, scanned_at, attendance_date,
-      status_code, period, review_status, note, is_offline_scan,
-      attendance_statuses!status_code(label,color),
-      attendance_scan_points!scan_point_id(name),
-      profiles!recorded_by(full_name)
-    `)
+    .select('id,person_id,person_type,scanned_at,attendance_date,status_code,period,review_status,note,is_offline_scan,scan_point_id,recorded_by')
     .eq('review_status', 'pending')
     .order('scanned_at', { ascending: false })
     .limit(200);
 
-  if (!data) return [];
+  if (!data || data.length === 0) return [];
 
   const studentIds = data.filter(r => r.person_type === 'student').map(r => r.person_id);
-  const [studentsRes] = await Promise.all([
+
+  const [studentsRes, statusesRes] = await Promise.all([
     studentIds.length
       ? supabase().from('students').select('id,full_name,admission_no').in('id', studentIds)
       : Promise.resolve({ data: [] }),
+    supabase().from('attendance_statuses').select('code,label,color'),
   ]);
+
   const studentMap = Object.fromEntries((studentsRes.data || []).map(s => [s.id, s]));
+  const statusMap = Object.fromEntries((statusesRes.data || []).map(s => [s.code, s]));
 
   return data.map(r => {
     const person = r.person_type === 'student' ? studentMap[r.person_id] : null;
-    const st = r.attendance_statuses as any;
+    const st = statusMap[r.status_code];
     return {
       id: r.id,
       personId: r.person_id,
@@ -199,8 +190,8 @@ export async function loadPendingRecords(): Promise<AttendanceRecord[]> {
       reviewStatus: r.review_status as 'pending' | 'approved' | 'rejected',
       note: r.note,
       isOfflineScan: r.is_offline_scan,
-      scanPointName: (r.attendance_scan_points as any)?.name || null,
-      recordedByName: (r.profiles as any)?.full_name || null,
+      scanPointName: null,
+      recordedByName: null,
     };
   });
 }
