@@ -27,7 +27,9 @@ export async function POST(req: NextRequest) {
 
   // Server-side timestamp — client cannot manipulate this
   const scannedAt = new Date().toISOString();
-  const attendanceDate = scannedAt.slice(0, 10);
+  // Use Nigerian date (WAT = UTC+1) so late-night scans don't roll to next day
+  const nigeriaMs = new Date().getTime() + 60 * 60 * 1000;
+  const attendanceDate = new Date(nigeriaMs).toISOString().slice(0, 10);
 
   // Load settings
   const { data: settingsRows } = await supabase
@@ -60,13 +62,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Auto-determine status: present or late
+  // Auto-determine status: present or late (compare in Nigeria time WAT = UTC+1)
   let statusCode = 'present';
-  if (period === 'morning') {
-    const [ch, cm] = cutoff.split(':').map(Number);
-    const scanHour = new Date(scannedAt).getHours();
-    const scanMin = new Date(scannedAt).getMinutes();
-    if (scanHour > ch || (scanHour === ch && scanMin > cm)) {
+  if (period === 'morning' && cutoff) {
+    const nigeriaOffset = 60; // WAT = UTC+1 in minutes
+    const scanMs = new Date(scannedAt).getTime() + nigeriaOffset * 60 * 1000;
+    const scanNigeria = new Date(scanMs);
+    const scanHour = scanNigeria.getUTCHours();
+    const scanMin = scanNigeria.getUTCMinutes();
+    // Strip any surrounding quotes from stored value e.g. "09:00" -> 09:00
+    const cleanCutoff = String(cutoff).replace(/^"|"$/g, '');
+    const [ch, cm] = cleanCutoff.split(':').map(Number);
+    if (!isNaN(ch) && (scanHour > ch || (scanHour === ch && scanMin >= cm))) {
       statusCode = 'late';
     }
   }

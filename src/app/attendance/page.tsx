@@ -277,8 +277,18 @@ function SmsSettings() {
             type="time"
             value={settings.morning_cutoff_time}
             onChange={e => set('morning_cutoff_time', e.target.value)}
-            style={{ ...IS, width: 'auto', minWidth: 140 }}
+            style={{ ...IS, width: 'auto', minWidth: 160 }}
           />
+          {settings.morning_cutoff_time && (
+            <p style={{ fontSize: 11, color: '#6b7280', marginTop: 6 }}>
+              ⏰ {(() => {
+                const [h, m] = settings.morning_cutoff_time.split(':').map(Number);
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                return `${h12}:${String(m).padStart(2, '0')} ${ampm} Nigeria time`;
+              })()}
+            </p>
+          )}
         </div>
 
         {flash && <div style={{ padding: '9px 14px', borderRadius: 10, background: flash.includes('saved') ? '#dcfce7' : '#fee2e2', color: flash.includes('saved') ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13 }}>{flash}</div>}
