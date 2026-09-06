@@ -13,6 +13,15 @@ async function loadSettings(admin: AdminClient) {
 
 const stripQ = (v: unknown) => String(v || '').replace(/^"|"$/g, '');
 
+// Normalize Nigerian phone to international format (2348012345678)
+function normalizePhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('234')) return digits;
+  if (digits.startsWith('0')) return '234' + digits.slice(1);
+  if (digits.length === 10) return '234' + digits; // e.g. 8012345678
+  return digits;
+}
+
 async function sendTermii(apiKey: string, senderId: string, channel: string, to: string, message: string) {
   const res = await fetch('https://api.ng.termii.com/api/sms/send', {
     method: 'POST',
@@ -66,6 +75,7 @@ async function sendTwilio(accountSid: string, authToken: string, from: string, t
 }
 
 async function dispatchSms(settings: Record<string, unknown>, to: string, message: string) {
+  to = normalizePhone(to);
   const provider = stripQ(settings['sms_provider']) || 'termii';
   const apiKey = stripQ(settings['sms_api_key']);
   const senderId = stripQ(settings['sms_sender_id']) || 'AMQM';
