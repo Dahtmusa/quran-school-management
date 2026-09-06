@@ -161,9 +161,10 @@ export async function POST(req: NextRequest) {
     .single();
 
   // Send via configured provider
-  const provider = String(settings['sms_provider'] || 'termii');
-  const apiKey = String(settings['sms_api_key'] || '');
-  const senderId = String(settings['sms_sender_id'] || 'AMQM');
+  const stripQ = (v: unknown) => String(v || '').replace(/^"|"$/g, '');
+  const provider = stripQ(settings['sms_provider']) || 'termii';
+  const apiKey = stripQ(settings['sms_api_key']);
+  const senderId = stripQ(settings['sms_sender_id']) || 'AMQM';
 
   if (!apiKey) {
     await admin.from('attendance_notifications').update({ status: 'failed', error_message: 'No API key configured' }).eq('id', notif!.id);
@@ -172,10 +173,10 @@ export async function POST(req: NextRequest) {
 
   try {
     if (provider === 'termii') {
-      const channel = String(settings['sms_channel'] || 'generic');
+      const channel = stripQ(settings['sms_channel']) || 'generic';
       await sendTermii(apiKey, senderId, channel, parentPhone, message);
     } else if (provider === 'africas_talking') {
-      const username = String(settings['sms_username'] || '');
+      const username = stripQ(settings['sms_username']);
       await sendAfricasTalking(apiKey, username, senderId, parentPhone, message);
     } else if (provider === 'smartsms') {
       await sendSmartSMS(apiKey, senderId, parentPhone, message);
