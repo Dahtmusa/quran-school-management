@@ -47,11 +47,12 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
   });
   const text = await res.text();
   let json: Record<string, unknown> = {};
-  try { json = JSON.parse(text); } catch { throw new Error(text.slice(0, 120)); }
-  if (!res.ok) throw new Error(String((json?.SMSMessageData as any)?.Message || json?.message || text.slice(0, 120)));
+  try { json = JSON.parse(text); } catch { throw new Error(`AT raw error: ${text.slice(0, 200)}`); }
+  if (!res.ok) throw new Error(`AT HTTP ${res.status}: ${(json?.SMSMessageData as any)?.Message || json?.message || text.slice(0, 120)}`);
   const recipients: any[] = (json?.SMSMessageData as any)?.Recipients || [];
+  if (recipients.length === 0) throw new Error(`AT returned no recipients. Response: ${JSON.stringify(json).slice(0, 200)}`);
   const failed = recipients.filter(r => r.status !== 'Success');
-  if (failed.length > 0) throw new Error(failed.map(r => r.status).join(', '));
+  if (failed.length > 0) throw new Error(failed.map(r => `${r.number}: ${r.status}`).join(', '));
   return json;
 }
 
