@@ -184,7 +184,8 @@ type Tab = 'overview' | 'pending' | 'today' | 'reports' | 'settings';
 /* ── SMS Settings panel ── */
 function SmsSettings() {
   const PROVIDERS = [
-    { value: 'termii',          label: 'Termii (recommended for Nigeria)' },
+    { value: 'smartsms',        label: 'SmartSMSSolutions (cheapest for Nigeria)' },
+    { value: 'termii',          label: 'Termii' },
     { value: 'africas_talking', label: "Africa's Talking" },
     { value: 'twilio',          label: 'Twilio' },
   ];
@@ -311,6 +312,10 @@ function SmsSettings() {
         <div><label style={LS}>Sender ID</label>
           <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder="e.g. AMQM" />
         </div>
+
+        {provider === 'smartsms' && (
+          <div><label style={LS}>SmartSMSSolutions API Token</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Paste your token from smartsmssolutions.com/api" /></div>
+        )}
 
         {provider === 'termii' && <>
           <div><label style={LS}>Termii API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>

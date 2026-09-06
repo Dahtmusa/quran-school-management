@@ -35,6 +35,22 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
   return json;
 }
 
+// Send via SmartSMSSolutions
+async function sendSmartSMS(apiKey: string, senderId: string, to: string, message: string) {
+  const url = new URL('https://www.smartsmssolutions.com/api/json.php');
+  url.searchParams.set('username', '');
+  const res = await fetch('https://www.smartsmssolutions.com/api/json.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: apiKey, sender: senderId, to, message, type: 0, routing: 3 }),
+  });
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(text); } catch { throw new Error(`SmartSMS error: ${text}`); }
+  if (json.code !== '1000') throw new Error(String(json.description || json.message || 'SmartSMS error'));
+  return json;
+}
+
 // Send via Twilio
 async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, message: string) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
@@ -161,6 +177,8 @@ export async function POST(req: NextRequest) {
     } else if (provider === 'africas_talking') {
       const username = String(settings['sms_username'] || '');
       await sendAfricasTalking(apiKey, username, senderId, parentPhone, message);
+    } else if (provider === 'smartsms') {
+      await sendSmartSMS(apiKey, senderId, parentPhone, message);
     } else if (provider === 'twilio') {
       const accountSid = String(settings['sms_account_sid'] || '');
       const authToken = String(settings['sms_auth_token'] || '');
