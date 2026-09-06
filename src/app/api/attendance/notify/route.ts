@@ -148,15 +148,18 @@ export async function POST(req: NextRequest) {
     const studentIds = records.map(r => r.person_id);
     const { data: students } = await admin
       .from('students')
-      .select('id, full_name, parent_students(profiles(phone))')
+      .select('id, full_name, parent_phone, guardian_phone, parent_students(profiles(phone))')
       .in('id', studentIds);
     const studentMap: Record<string, { name: string; phone: string | null }> = {};
     for (const s of students || []) {
+      // 1. Linked parent user account phone
       const parents = (s as any).parent_students || [];
       let phone: string | null = null;
       for (const ps of parents) {
         if (ps?.profiles?.phone) { phone = ps.profiles.phone; break; }
       }
+      // 2. Fall back to parent_phone / guardian_phone on student record
+      if (!phone) phone = (s as any).parent_phone || (s as any).guardian_phone || null;
       studentMap[s.id] = { name: s.full_name, phone };
     }
 
@@ -220,16 +223,19 @@ export async function POST(req: NextRequest) {
   if (record.person_type === 'student') {
     const { data: student } = await admin
       .from('students')
-      .select('full_name, parent_students(profiles(phone))')
+      .select('full_name, parent_phone, guardian_phone, parent_students(profiles(phone))')
       .eq('id', record.person_id)
       .single();
     if (student) {
       studentName = student.full_name;
+      // 1. Check linked parent user accounts
       const parents = (student as any).parent_students || [];
       for (const ps of parents) {
         const phone = ps?.profiles?.phone;
         if (phone) { parentPhone = phone; break; }
       }
+      // 2. Fall back to parent_phone / guardian_phone stored on student record
+      if (!parentPhone) parentPhone = (student as any).parent_phone || (student as any).guardian_phone || null;
     }
   }
 
