@@ -22,11 +22,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const admin = createAdminClient();
 
-  // Update profile fields
+  // Update profile fields (full_name is NOT NULL — skip update if blank)
   const profileUpdates: Record<string, unknown> = {};
   if (role !== undefined) profileUpdates.role = role;
-  if (fullName !== undefined) profileUpdates.full_name = fullName;
-  if (phone !== undefined) profileUpdates.phone = phone;
+  if (fullName !== undefined && fullName !== null && fullName !== '') profileUpdates.full_name = fullName;
+  if (phone !== undefined) profileUpdates.phone = phone || null;
 
   if (Object.keys(profileUpdates).length > 0) {
     const { error } = await admin.from('profiles').update(profileUpdates).eq('id', id);

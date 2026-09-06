@@ -22,10 +22,10 @@ export async function GET() {
   const { data: { users }, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Get all profiles for extra fields
+  // Get all profiles for extra fields (only columns that exist in the schema)
   const { data: profiles } = await admin
     .from('profiles')
-    .select('id, full_name, role, phone, staff_number');
+    .select('id, full_name, role, phone');
 
   const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p]));
 
@@ -35,7 +35,6 @@ export async function GET() {
     fullName: profileMap[u.id]?.full_name || null,
     role: profileMap[u.id]?.role || null,
     phone: profileMap[u.id]?.phone || null,
-    staffNumber: profileMap[u.id]?.staff_number || null,
     banned: u.banned_until ? new Date(u.banned_until) > new Date() : false,
     createdAt: u.created_at,
     lastSignIn: u.last_sign_in_at,
@@ -71,10 +70,10 @@ export async function POST(req: NextRequest) {
 
   if (createErr) return NextResponse.json({ error: createErr.message }, { status: 400 });
 
-  // Upsert profile row (trigger may have created it already)
+  // Upsert profile row — full_name is NOT NULL in schema, use email as fallback
   await admin.from('profiles').upsert({
     id: created.user.id,
-    full_name: fullName || null,
+    full_name: fullName || email,
     role,
     phone: phone || null,
   }, { onConflict: 'id' });

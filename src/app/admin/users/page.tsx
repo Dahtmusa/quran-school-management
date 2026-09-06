@@ -19,7 +19,7 @@ const ROLES = [
   { value: 'admin',        label: 'Admin' },
   { value: 'principal',    label: 'Principal' },
   { value: 'teacher',      label: 'Teacher' },
-  { value: 'security',     label: 'Security (Scanner)' },
+  { value: 'security',     label: 'Attendance Scanner' },
   { value: 'finance',      label: 'Finance' },
   { value: 'admissions',   label: 'Admissions' },
   { value: 'parent',       label: 'Parent' },
