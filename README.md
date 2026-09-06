@@ -5,7 +5,7 @@ A responsive Quran memorization school platform for a two-year programme (Year 1
 ## Core rules
 
 - Three formal Quran evaluations per term.
-- A teacher submission is **not official** until an authorised administrator approves it.
+- A teacher submission is **not official** until an authorised administrator approves it. 
 - Only approved evaluations can update the student's official memorization position.
 - Only approved evaluations can be included in report cards.
 - Evaluation 1, 2 and 3 must all be approved before a term report card can be finalized.
