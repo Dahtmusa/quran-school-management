@@ -179,7 +179,136 @@ function RecordRow({ record, onReview }: { record: AttendanceRecord; onReview: (
   );
 }
 
-type Tab = 'overview' | 'pending' | 'today' | 'reports';
+type Tab = 'overview' | 'pending' | 'today' | 'reports' | 'settings';
+
+/* ── SMS Settings panel ── */
+function SmsSettings() {
+  const PROVIDERS = [
+    { value: 'termii',          label: 'Termii (recommended for Nigeria)' },
+    { value: 'africas_talking', label: "Africa's Talking" },
+    { value: 'twilio',          label: 'Twilio' },
+  ];
+  const STATUS_OPTIONS = ['present','late','excused','sick','absent'];
+
+  const [settings, setSettings] = useState<Record<string, string>>({
+    sms_enabled: 'false', sms_provider: 'termii', sms_api_key: '',
+    sms_sender_id: 'AMQM', sms_channel: 'generic',
+    sms_account_sid: '', sms_auth_token: '', sms_username: '',
+  });
+  const [sendOn, setSendOn] = useState<string[]>(['absent','late']);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [flash, setFlash] = useState('');
+
+  useEffect(() => {
+    fetch('/api/attendance/settings').then(r => r.json()).then(d => {
+      if (d.settings) {
+        setSettings(prev => ({ ...prev, ...d.settings }));
+        try { setSendOn(JSON.parse(d.settings.sms_send_on_status || '["absent","late"]')); } catch {}
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    const payload = { ...settings, sms_send_on_status: JSON.stringify(sendOn) };
+    const res = await fetch('/api/attendance/settings', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: payload }),
+    });
+    const d = await res.json();
+    setSaving(false);
+    setFlash(d.success ? 'Settings saved' : (d.error || 'Failed'));
+    if (d.success) setTimeout(() => setFlash(''), 3000);
+  };
+
+  const set = (key: string, value: string) => setSettings(prev => ({ ...prev, [key]: value }));
+  const IS = { width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const };
+  const LS = { display: 'block' as const, fontSize: 10, fontWeight: 800 as const, letterSpacing: '.1em', textTransform: 'uppercase' as const, color: '#9ca3af', marginBottom: 5 };
+
+  if (loading) return <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>Loading…</div>;
+
+  const provider = settings.sms_provider;
+
+  return (
+    <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '24px 28px' }} className="space-y-5">
+      <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>SMS Notification Settings</div>
+
+      {flash && <div style={{ padding: '9px 14px', borderRadius: 10, background: flash === 'Settings saved' ? '#dcfce7' : '#fee2e2', color: flash === 'Settings saved' ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13 }}>{flash}</div>}
+
+      {/* Enable toggle */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => set('sms_enabled', settings.sms_enabled === 'true' ? 'false' : 'true')} style={{
+          width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative',
+          background: settings.sms_enabled === 'true' ? '#16a34a' : '#d1d5db', transition: 'background .2s',
+        }}>
+          <div style={{ position: 'absolute', top: 3, left: settings.sms_enabled === 'true' ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+        </button>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+          SMS notifications are {settings.sms_enabled === 'true' ? 'enabled' : 'disabled'}
+        </span>
+      </div>
+
+      {/* Provider */}
+      <div><label style={LS}>SMS Provider</label>
+        <select value={provider} onChange={e => set('sms_provider', e.target.value)} style={IS}>
+          {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+        </select>
+      </div>
+
+      {/* Sender ID */}
+      <div><label style={LS}>Sender ID</label>
+        <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder="e.g. AMQM" />
+      </div>
+
+      {/* Provider-specific fields */}
+      {provider === 'termii' && <>
+        <div><label style={LS}>Termii API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+        <div><label style={LS}>Channel</label>
+          <select value={settings.sms_channel} onChange={e => set('sms_channel', e.target.value)} style={IS}>
+            <option value="generic">Generic</option>
+            <option value="dnd">DND (bypasses do-not-disturb)</option>
+            <option value="whatsapp">WhatsApp</option>
+          </select>
+        </div>
+      </>}
+
+      {provider === 'africas_talking' && <>
+        <div><label style={LS}>API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+        <div><label style={LS}>Username</label><input value={settings.sms_username} onChange={e => set('sms_username', e.target.value)} style={IS} /></div>
+      </>}
+
+      {provider === 'twilio' && <>
+        <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} /></div>
+        <div><label style={LS}>Auth Token</label><input value={settings.sms_auth_token} onChange={e => set('sms_auth_token', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+      </>}
+
+      {/* Which statuses trigger SMS */}
+      <div>
+        <label style={LS}>Send SMS when status is</label>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {STATUS_OPTIONS.map(s => {
+            const on = sendOn.includes(s);
+            return (
+              <button key={s} onClick={() => setSendOn(prev => on ? prev.filter(x => x !== s) : [...prev, s])}
+                style={{ padding: '6px 14px', borderRadius: 99, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+                  background: on ? '#062d2a' : '#fff', color: on ? '#fff' : '#6b7280', borderColor: on ? '#062d2a' : '#e5e7eb' }}>
+                {s}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={{ paddingTop: 4 }}>
+        <button onClick={save} disabled={saving} style={{ padding: '10px 24px', borderRadius: 11, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving…' : 'Save Settings'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function AttendanceDashboard() {
   const [tab, setTab] = useState<Tab>('overview');
@@ -228,10 +357,11 @@ export default function AttendanceDashboard() {
   const todayStr = new Date(filterDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
-    { key: 'overview', label: 'Overview' },
-    { key: 'pending',  label: 'Pending Review', badge: pendingRecords.length },
-    { key: 'today',    label: 'All Records' },
-    { key: 'reports',  label: 'Reports' },
+    { key: 'overview',  label: 'Overview' },
+    { key: 'pending',   label: 'Pending Review', badge: pendingRecords.length },
+    { key: 'today',     label: 'All Records' },
+    { key: 'reports',   label: 'Reports' },
+    { key: 'settings',  label: 'SMS Settings' },
   ];
 
   return (
@@ -431,6 +561,8 @@ export default function AttendanceDashboard() {
             <div style={{ fontSize: 13 }}>Daily, weekly, monthly, and term summaries will appear here once enough data has been collected.</div>
           </div>
         )}
+
+        {tab === 'settings' && <SmsSettings />}
       </div>
     </AdminShell>
   );

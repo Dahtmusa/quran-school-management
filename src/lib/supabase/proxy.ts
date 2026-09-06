@@ -12,6 +12,7 @@ const roleRoutes:{prefix:string;roles:string[]}[]=[
  {prefix:'/teacher',roles:['teacher']},
  {prefix:'/parent',roles:['parent','super_admin','admin','principal']},
  {prefix:'/fees',roles:['finance','super_admin','admin','principal','parent']},
+ {prefix:'/admin/users',roles:['super_admin','admin','principal']},
  {prefix:'/attendance',roles:['super_admin','admin','principal']},
  {prefix:'/evaluations',roles:['super_admin','admin','principal']},
  {prefix:'/reports',roles:['super_admin','admin','principal','parent']},
