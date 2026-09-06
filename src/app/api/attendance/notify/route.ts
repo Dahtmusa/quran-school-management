@@ -92,7 +92,7 @@ async function dispatchSms(settings: Record<string, unknown>, to: string, messag
   to = normalizePhone(to);
   const provider = stripQ(settings['sms_provider']) || 'termii';
   const apiKey = stripQ(settings['sms_api_key']);
-  const senderId = stripQ(settings['sms_sender_id']) || 'AMQM';
+  const senderId = stripQ(settings['sms_sender_id']);
   if (!apiKey) throw new Error('SMS API key not configured');
 
   if (provider === 'termii') {
