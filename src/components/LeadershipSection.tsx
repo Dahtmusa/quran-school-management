@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { forwardRef, useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 export type Leader = {
   id: string;
@@ -16,361 +16,54 @@ export type Leader = {
   subjects?: string | null;
 };
 
-/* ── brand tokens ── */
+/* ── Brand tokens ── */
 const CREAM  = '#F5F0E8';
 const DARK   = '#062d2a';
 const GOLD   = '#C9A84C';
 const GOLD_L = '#E8C97A';
 const GOLD_D = '#9A7020';
+const TAU    = Math.PI * 2;
+/* FEAT = top of ellipse (12 o'clock). cos(FEAT)=0, sin(FEAT)=-1 */
+const FEAT   = -Math.PI / 2;
 
-/* ── sizing constants ── */
-const PH = 148; // portrait area cell height (line runs at PH/2 = 74)
-const AW = 132; // ring+portrait wrapper size (active)
-const AD = 108; // active portrait diameter
-const ID = 70;  // inactive portrait diameter
-
-/* ────────────────────────────────────
-   Islamic geometric SVG decoration
-──────────────────────────────────── */
-function GeometricDecor({ size = 180, opacity = 0.05 }: { size?: number; opacity?: number }) {
-  return (
-    <svg viewBox="0 0 120 120" width={size} height={size} aria-hidden style={{ display: 'block', opacity }}>
-      <defs>
-        <pattern id="ls-geo" x="0" y="0" width="30" height="30" patternUnits="userSpaceOnUse">
-          <polygon
-            points="15,2 28,9 28,21 15,28 2,21 2,9"
-            fill="none" stroke={GOLD} strokeWidth="0.9"
-          />
-          <line x1="15" y1="2"  x2="15" y2="28" stroke={GOLD} strokeWidth="0.4" opacity="0.55" />
-          <line x1="2"  y1="15" x2="28" y2="15" stroke={GOLD} strokeWidth="0.4" opacity="0.55" />
-          <circle cx="15" cy="15" r="3.5" fill="none" stroke={GOLD} strokeWidth="0.7" />
-        </pattern>
-      </defs>
-      <rect width="120" height="120" fill="url(#ls-geo)" />
-    </svg>
-  );
+/* ── Helpers ── */
+function norm(a: number): number {
+  return ((a % TAU) + TAU) % TAU;
+}
+function shortDelta(from: number, to: number): number {
+  let d = norm(to - from);
+  if (d > Math.PI) d -= TAU;
+  return d;
+}
+function activeFromAngle(n: number, globalAngle: number): number {
+  const featN = norm(FEAT);
+  let best = 0, bestDist = Infinity;
+  for (let i = 0; i < n; i++) {
+    const a = norm((TAU * i / n) + globalAngle);
+    const dist = Math.abs(shortDelta(a, featN));
+    if (dist < bestDist) { bestDist = dist; best = i; }
+  }
+  return best;
 }
 
-/* ────────────────────────────────────
-   Timeline bubble (portrait + name)
-──────────────────────────────────── */
-const TimelineBubble = forwardRef<HTMLButtonElement, {
-  leader: Leader;
-  isActive: boolean;
-  reduced: boolean;
-  onClick: () => void;
-  onFocus: () => void;
-}>(function TimelineBubble({ leader, isActive, reduced, onClick, onFocus }, ref) {
-  const d = isActive ? AD : ID;
-  const initial = leader.full_name?.charAt(0) ?? '?';
-
-  return (
-    <button
-      ref={ref}
-      role="tab"
-      aria-selected={isActive}
-      aria-label={leader.full_name}
-      onClick={onClick}
-      onFocus={onFocus}
-      className="ls-bubble"
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: '0 10px',
-        flexShrink: 0,
-        outline: 'none',
-        transition: reduced ? 'none' : 'padding .3s ease',
-        userSelect: 'none',
-      }}
-    >
-      {/* Portrait area — fixed height keeps the timeline line aligned */}
-      <div style={{ height: PH, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ position: 'relative', width: AW, height: AW, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {/* Outer halo ring */}
-          {isActive && (
-            <div style={{ position: 'absolute', inset: -4, borderRadius: '50%', border: `1.5px solid ${GOLD}40`, pointerEvents: 'none' }} />
-          )}
-          {/* Inner gold ring */}
-          {isActive && (
-            <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: `3px solid ${GOLD}`, pointerEvents: 'none' }} />
-          )}
-          {/* Portrait circle */}
-          <div style={{
-            width: d, height: d,
-            borderRadius: '50%',
-            overflow: 'hidden',
-            background: DARK,
-            flexShrink: 0,
-            filter: isActive ? 'none' : 'grayscale(45%) brightness(0.82)',
-            opacity: isActive ? 1 : 0.58,
-            boxShadow: isActive ? `0 6px 24px rgba(6,45,42,.28)` : 'none',
-            transition: reduced
-              ? 'none'
-              : 'width .32s ease, height .32s ease, opacity .32s ease, filter .32s ease, box-shadow .32s ease',
-          }}>
-            {leader.photo_url
-              ? <img
-                  src={leader.photo_url}
-                  alt={leader.full_name}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }}
-                />
-              : <div style={{
-                  height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: 'Georgia,serif', fontSize: d * 0.36, color: GOLD, fontWeight: 900,
-                }}>{initial}</div>
-            }
-          </div>
-          {/* Active indicator dot */}
-          {isActive && (
-            <div style={{
-              position: 'absolute', bottom: 5, right: 5,
-              width: 14, height: 14, borderRadius: '50%',
-              background: GOLD, border: `2.5px solid ${CREAM}`,
-              zIndex: 2,
-            }} />
-          )}
-        </div>
-      </div>
-
-      {/* Name */}
-      <div style={{
-        marginTop: 7,
-        fontSize: isActive ? 11.5 : 10.5,
-        fontWeight: isActive ? 900 : 600,
-        color: isActive ? DARK : `${DARK}50`,
-        textAlign: 'center',
-        lineHeight: 1.3,
-        maxWidth: 96,
-        transition: reduced ? 'none' : 'font-size .3s ease, color .3s ease',
-      }}>
-        {leader.full_name}
-      </div>
-
-      {/* Role (active only) */}
-      {isActive && leader.role_title && (
-        <div style={{
-          marginTop: 4,
-          fontSize: 9.5, fontWeight: 800,
-          color: GOLD_D, letterSpacing: '.09em',
-          textTransform: 'uppercase',
-          textAlign: 'center',
-          maxWidth: 110, lineHeight: 1.25,
-        }}>
-          {leader.role_title}
-        </div>
-      )}
-    </button>
-  );
-});
-
-/* ────────────────────────────────────
-   Desktop profile card (2-column)
-──────────────────────────────────── */
-function ProfileCard({ leader, reduced }: { leader: Leader; reduced: boolean }) {
-  const initial = leader.full_name?.charAt(0) ?? '?';
-  const hasDetail = leader.qualifications || leader.experience || leader.subjects || leader.brief_bio;
-
-  return (
-    <div style={{
-      display: 'flex',
-      borderRadius: 24,
-      background: '#fff',
-      border: `1.5px solid ${GOLD}2e`,
-      boxShadow: '0 24px 64px rgba(6,45,42,.09)',
-      overflow: 'hidden',
-      animation: reduced ? 'none' : 'ls-card-in .32s ease',
-    }}>
-      {/* Left: image column */}
-      <div style={{ width: 300, flexShrink: 0, position: 'relative', background: DARK, overflow: 'hidden' }}>
-        {/* Gold top rule */}
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, zIndex: 3,
-          background: `linear-gradient(90deg,transparent,${GOLD} 30%,${GOLD_L} 50%,${GOLD} 70%,transparent)` }} />
-        {/* Geometric decoration bottom-right */}
-        <div style={{ position: 'absolute', bottom: -24, right: -24, zIndex: 0 }}>
-          <GeometricDecor size={200} opacity={0.09} />
-        </div>
-        {/* Photo */}
-        {leader.photo_url
-          ? <img
-              src={leader.photo_url}
-              alt={leader.full_name}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%', minHeight: 340, position: 'relative', zIndex: 1 }}
-            />
-          : <div style={{
-              height: '100%', minHeight: 340, width: '100%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'Georgia,serif', fontSize: 96, color: `${GOLD}25`, fontWeight: 900,
-              position: 'relative', zIndex: 1,
-            }}>{initial}</div>
-        }
-        {/* Bottom gradient */}
-        <div style={{ position: 'absolute', inset: 0, zIndex: 2,
-          background: 'linear-gradient(to top, rgba(6,45,42,.6) 0%, transparent 48%)' }} />
-      </div>
-
-      {/* Right: info column */}
-      <div style={{ flex: 1, padding: '36px 42px 36px', position: 'relative', overflow: 'hidden' }}>
-        {/* Decorative corner */}
-        <div style={{ position: 'absolute', top: -28, right: -28, pointerEvents: 'none' }}>
-          <GeometricDecor size={160} opacity={0.04} />
-        </div>
-
-        {/* Name */}
-        <h3 style={{
-          fontFamily: "Georgia, 'Times New Roman', serif",
-          fontSize: 'clamp(1.3rem, 2.2vw, 1.9rem)',
-          fontWeight: 900, color: DARK, margin: 0,
-          lineHeight: 1.12, letterSpacing: '-.015em',
-        }}>
-          {leader.full_name}
-        </h3>
-
-        {/* Role badge */}
-        {leader.role_title && (
-          <div style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            marginTop: 14, padding: '5px 16px', borderRadius: 99,
-            background: `${GOLD}18`, border: `1px solid ${GOLD}44`,
-          }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: GOLD, flexShrink: 0 }} />
-            <span style={{ fontSize: 10.5, fontWeight: 900, color: GOLD_D, letterSpacing: '.13em', textTransform: 'uppercase' }}>
-              {leader.role_title}
-            </span>
-          </div>
-        )}
-
-        {/* Gold divider */}
-        <div style={{ height: 1, background: `linear-gradient(90deg,${GOLD}44,transparent)`, margin: '22px 0' }} />
-
-        {/* Detail rows */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {leader.qualifications && <ProfileRow label="Qualifications"   value={leader.qualifications} />}
-          {leader.experience     && <ProfileRow label="Experience"       value={leader.experience}     />}
-          {leader.subjects       && <ProfileRow label="Responsibilities" value={leader.subjects}       />}
-          {leader.brief_bio && (
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: GOLD_D, opacity: .72, marginBottom: 6 }}>About</div>
-              <p style={{
-                fontSize: 14, lineHeight: 1.74, color: `${DARK}77`, margin: 0,
-                overflow: 'hidden', display: '-webkit-box',
-                WebkitLineClamp: 4, WebkitBoxOrient: 'vertical',
-              }}>{leader.brief_bio}</p>
-            </div>
-          )}
-          {!hasDetail && (
-            <p style={{ fontSize: 13.5, color: `${DARK}38`, fontStyle: 'italic', margin: 0 }}>Profile details coming soon.</p>
-          )}
-        </div>
-
-        {/* CTA */}
-        <Link
-          href={`/leadership/${leader.id}`}
-          className="ls-cta"
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 8,
-            marginTop: 28, padding: '12px 26px', borderRadius: 12,
-            background: DARK, color: '#fff',
-            fontSize: 13, fontWeight: 800, letterSpacing: '.04em',
-            textDecoration: 'none', transition: 'background .2s ease',
-          }}
-        >
-          View Full Profile →
-        </Link>
-      </div>
-    </div>
-  );
+/* ── Responsive orbit dimensions ── */
+interface OrbDims {
+  cw: number;  // container pixel width
+  h:  number;  // stage height
+  rx: number;  // ellipse semi-axis x
+  ry: number;  // ellipse semi-axis y
+  ap: number;  // active portrait diameter
+  op: number;  // orbital portrait diameter
 }
-
-function ProfileRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.18em', textTransform: 'uppercase', color: GOLD_D, opacity: .72, marginBottom: 5 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 14, lineHeight: 1.62, color: `${DARK}80` }}>{value}</div>
-    </div>
-  );
-}
-
-/* ────────────────────────────────────
-   Mobile compact card
-──────────────────────────────────── */
-function MobileCard({ leader }: { leader: Leader }) {
-  const initial = leader.full_name?.charAt(0) ?? '?';
-  return (
-    <div style={{
-      borderRadius: 20, background: '#fff',
-      border: `1.5px solid ${GOLD}2e`,
-      boxShadow: '0 8px 32px rgba(6,45,42,.1)',
-      overflow: 'hidden',
-      animation: 'ls-card-in .28s ease',
-    }}>
-      <div style={{ height: 3, background: `linear-gradient(90deg,transparent,${GOLD} 30%,${GOLD_L} 50%,${GOLD} 70%,transparent)` }} />
-      <div style={{ padding: '20px 20px 24px' }}>
-        {/* Header */}
-        <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-          <div style={{
-            width: 66, height: 66, borderRadius: '50%', overflow: 'hidden',
-            background: DARK, flexShrink: 0,
-            boxShadow: `0 0 0 2.5px ${CREAM}, 0 0 0 5px ${GOLD}`,
-          }}>
-            {leader.photo_url
-              ? <img src={leader.photo_url} alt={leader.full_name} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 15%' }} />
-              : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Georgia,serif', fontSize: 24, color: GOLD, fontWeight: 900 }}>{initial}</div>
-            }
-          </div>
-          <div>
-            <h3 style={{ fontFamily: 'Georgia,serif', fontSize: 14.5, fontWeight: 900, color: DARK, margin: 0, lineHeight: 1.2 }}>
-              {leader.full_name}
-            </h3>
-            {leader.role_title && (
-              <div style={{ marginTop: 5, fontSize: 9.5, fontWeight: 800, color: GOLD_D, letterSpacing: '.1em', textTransform: 'uppercase' }}>
-                {leader.role_title}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div style={{ height: 1, background: `${GOLD}22`, margin: '14px 0' }} />
-
-        {leader.qualifications && <MobileRow label="Qualifications"   v={leader.qualifications} />}
-        {leader.experience     && <MobileRow label="Experience"       v={leader.experience}     />}
-        {leader.subjects       && <MobileRow label="Responsibilities" v={leader.subjects}       />}
-        {leader.brief_bio && (
-          <p style={{ fontSize: 13, lineHeight: 1.68, color: `${DARK}75`, margin: '0 0 14px' }}>{leader.brief_bio}</p>
-        )}
-
-        <Link
-          href={`/leadership/${leader.id}`}
-          style={{
-            display: 'block', textAlign: 'center',
-            padding: '12px', borderRadius: 12,
-            background: DARK, color: '#fff',
-            fontSize: 13, fontWeight: 800, textDecoration: 'none',
-          }}
-        >
-          View Full Profile →
-        </Link>
-      </div>
-    </div>
-  );
-}
-
-function MobileRow({ label, v }: { label: string; v: string }) {
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <span style={{ fontSize: 9.5, fontWeight: 800, color: GOLD_D }}>{label}: </span>
-      <span style={{ fontSize: 13, color: `${DARK}75` }}>{v}</span>
-    </div>
-  );
+function computeDims(cw: number): OrbDims {
+  if (cw < 400) return { cw, h: 320, rx: Math.max(78,  cw * 0.34), ry: 80,  ap: 86,  op: 42 };
+  if (cw < 560) return { cw, h: 370, rx: Math.max(130, cw * 0.34), ry: 100, ap: 108, op: 52 };
+  if (cw < 750) return { cw, h: 430, rx: Math.max(180, cw * 0.33), ry: 120, ap: 132, op: 62 };
+  return           { cw, h: 500, rx: Math.min(295, cw * 0.33), ry: 145, ap: 158, op: 74 };
 }
 
 /* ════════════════════════════════════════
-   MAIN EXPORTED COMPONENT
+   MAIN COMPONENT
 ════════════════════════════════════════ */
 export function LeadershipSection({
   leaders,
@@ -379,96 +72,149 @@ export function LeadershipSection({
   leaders: Leader[];
   shortName?: string;
 }) {
-  const [idx, setIdx]         = useState(0);
-  const [entered, setEntered] = useState(false);
+  const n = leaders.length;
+
+  /* Place leader 0 at FEAT on mount */
+  const initAngle = norm(FEAT);
+  const [angle,   setAngle]   = useState(initAngle);
   const [reduced, setReduced] = useState(false);
+  const [entered, setEntered] = useState(false);
+  const [dims,    setDims]    = useState<OrbDims>(() => computeDims(820));
 
-  const sectionRef  = useRef<HTMLDivElement>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const bubbleRefs  = useRef<(HTMLButtonElement | null)[]>([]);
+  const angleRef     = useRef(initAngle);
+  const targetRef    = useRef<number | null>(null);
+  const visibleRef   = useRef(false);
+  const reducedRef   = useRef(false);
+  const rafRef       = useRef<number>(0);
+  const sectionRef   = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  /* prefers-reduced-motion */
+  /* Derived values for render */
+  const activeIdx = activeFromAngle(n, angle);
+  const { cw, h, rx, ry, ap, op } = dims;
+  const cx = cw / 2;
+  const cy = h  / 2;
+
+  function leaderAngle(i: number) {
+    return norm((TAU * i / n) + angle);
+  }
+
+  /* ── prefers-reduced-motion ── */
   useEffect(() => {
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
     setReduced(mq.matches);
-    const h = (e: MediaQueryListEvent) => setReduced(e.matches);
+    reducedRef.current = mq.matches;
+    const h = (e: MediaQueryListEvent) => { setReduced(e.matches); reducedRef.current = e.matches; };
     mq.addEventListener('change', h);
     return () => mq.removeEventListener('change', h);
   }, []);
 
-  /* Scroll-reveal entrance */
+  /* ── ResizeObserver ── */
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting) { setEntered(true); obs.disconnect(); } },
-      { threshold: 0.08 }
-    );
+    function measure() {
+      const w = containerRef.current?.clientWidth ?? 820;
+      setDims(computeDims(w));
+    }
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  /* ── IntersectionObserver ── */
+  useEffect(() => {
+    const obs = new IntersectionObserver(([e]) => {
+      visibleRef.current = e.isIntersecting;
+      if (e.isIntersecting) setEntered(true);
+    }, { threshold: 0.08 });
     if (sectionRef.current) obs.observe(sectionRef.current);
     return () => obs.disconnect();
   }, []);
 
-  /* Scroll active bubble into view */
+  /* ── RAF orbit animation ── */
   useEffect(() => {
-    const b = bubbleRefs.current[idx];
-    if (b && timelineRef.current) {
-      b.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
+    const AUTO  = 0.09; // rad/s — slow continuous orbit
+    const SNAP  = 2.6;  // rad/s — click snap
+    let last = 0;
+
+    function frame(ts: number) {
+      if (!last) last = ts;
+      const dt = Math.min((ts - last) / 1000, 0.05);
+      last = ts;
+
+      if (visibleRef.current && !reducedRef.current) {
+        if (targetRef.current !== null) {
+          const d = shortDelta(angleRef.current, targetRef.current);
+          if (Math.abs(d) < 0.005) {
+            angleRef.current  = targetRef.current;
+            targetRef.current = null;
+          } else {
+            angleRef.current += Math.sign(d) * Math.min(SNAP * dt, Math.abs(d));
+          }
+        } else {
+          angleRef.current += AUTO * dt;
+        }
+        setAngle(angleRef.current);
+      }
+
+      rafRef.current = requestAnimationFrame(frame);
     }
-  }, [idx, reduced]);
 
-  const go = useCallback((n: number) => {
-    setIdx(Math.max(0, Math.min(leaders.length - 1, n)));
-  }, [leaders.length]);
+    rafRef.current = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, []);
 
-  /* Arrow-key navigation on the timeline row */
-  const onTimelineKey = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowLeft')  { e.preventDefault(); go(idx - 1); }
-    if (e.key === 'ArrowRight') { e.preventDefault(); go(idx + 1); }
-    if (e.key === 'Home')       { e.preventDefault(); go(0); }
-    if (e.key === 'End')        { e.preventDefault(); go(leaders.length - 1); }
-  }, [idx, go, leaders.length]);
+  /* ── Navigation ── */
+  const clickLeader = useCallback((i: number) => {
+    const cur = activeFromAngle(n, angleRef.current);
+    if (i === cur) return;
+    const a     = norm((TAU * i / n) + angleRef.current);
+    const featN = norm(FEAT);
+    targetRef.current = angleRef.current + shortDelta(a, featN);
+  }, [n]);
 
+  const go = useCallback((offset: number) => {
+    const cur  = activeFromAngle(n, angleRef.current);
+    const next = ((cur + offset) % n + n) % n;
+    if (next !== cur) clickLeader(next);
+  }, [n, clickLeader]);
+
+  /* ── Entrance fade ── */
   const fadeUp = (delay = 0): React.CSSProperties => ({
     opacity:   reduced ? 1 : entered ? 1 : 0,
     transform: reduced ? 'none' : entered ? 'translateY(0)' : 'translateY(14px)',
-    transition: reduced ? 'none' : `opacity .5s ${delay}ms ease, transform .46s ${delay}ms ease`,
+    transition: reduced ? 'none' : `opacity .52s ${delay}ms ease, transform .48s ${delay}ms ease`,
   });
 
-  const navBtn = (enabled: boolean): React.CSSProperties => ({
-    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
-    background: enabled ? GOLD : `${DARK}10`,
-    color:      enabled ? DARK : `${DARK}28`,
-    border: 'none', cursor: enabled ? 'pointer' : 'not-allowed',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontSize: 22, fontWeight: 900,
-    transition: 'background .2s ease, color .2s ease',
-    outline: 'none',
-  });
+  const leader = leaders[activeIdx];
 
-  const leader = leaders[idx] ?? leaders[0];
+  if (n === 0) return null;
 
-  if (leaders.length === 0) return null;
+  /* ── Featured position ── cos(FEAT)=0, sin(FEAT)=-1 ── */
+  const featX = cx;          // cx + rx * 0
+  const featY = cy - ry;     // cy + ry * (-1)
 
   return (
     <>
       <style>{`
-        @keyframes ls-card-in {
-          from { opacity: 0; transform: translateY(9px); }
-          to   { opacity: 1; transform: translateY(0); }
+        @keyframes ls-pulse {
+          0%,100% { box-shadow: 0 0 0 0 rgba(201,168,76,.42); }
+          55%      { box-shadow: 0 0 0 22px rgba(201,168,76,.0); }
         }
-        .ls-cta:hover { background: #0d4a40 !important; }
-        .ls-bubble:focus-visible {
-          outline: 2.5px solid ${GOLD};
-          outline-offset: 4px;
-          border-radius: 50%;
+        @keyframes ls-in {
+          from { opacity:0; transform:translate(-50%,-50%) scale(.86); }
+          to   { opacity:1; transform:translate(-50%,-50%) scale(1); }
         }
-        .ls-nav:focus-visible { outline: 2px solid ${GOLD}; outline-offset: 2px; border-radius: 50%; }
-        .ls-nav:hover:not(:disabled) { filter: brightness(1.1); }
-        .ls-tl { display:flex; overflow-x:auto; scrollbar-width:none; -ms-overflow-style:none; scroll-snap-type:x proximity; }
-        .ls-tl::-webkit-scrollbar { display:none; }
-        .ls-desk { display:none; }
-        .ls-mob  { display:block; }
-        @media (min-width:600px) { .ls-desk { display:block; } .ls-mob { display:none; } }
+        @keyframes ls-orb-enter {
+          from { opacity:0; } to { opacity:1; }
+        }
+        .ls-cta:hover  { background:#0d4a40 !important; }
+        .ls-nav:focus-visible  { outline:2px solid ${GOLD}; outline-offset:3px; border-radius:50%; }
+        .ls-dot:focus-visible  { outline:2px solid ${GOLD}; outline-offset:2px; border-radius:4px; }
+        .ls-orb  { transition:opacity .22s ease; }
+        .ls-orb:hover { opacity:1 !important; filter:none !important; }
         @media (prefers-reduced-motion:reduce) {
-          .ls-desk>div, .ls-mob>div { animation:none !important; }
+          .ls-orb, .ls-cta { transition:none !important; }
         }
       `}</style>
 
@@ -476,129 +222,335 @@ export function LeadershipSection({
         ref={sectionRef}
         id="leadership"
         aria-label="Leadership & Management"
-        style={{ background: CREAM, position: 'relative', overflow: 'hidden', paddingTop: 80, paddingBottom: 92 }}
+        style={{
+          background: CREAM,
+          position: 'relative',
+          overflow: 'hidden',
+          paddingTop: 72,
+          paddingBottom: 88,
+        }}
       >
-        {/* Gold radial wash */}
-        <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: `radial-gradient(ellipse 70% 42% at 50% 0%, ${GOLD}0e 0%, transparent 60%)` }} />
+        {/* Ambient gold top-wash */}
+        <div aria-hidden style={{
+          position:'absolute', inset:0, pointerEvents:'none',
+          background:`radial-gradient(ellipse 90% 55% at 50% 0%, ${GOLD}12 0%, transparent 68%)`,
+        }} />
 
-        <div className="mx-auto max-w-[1200px] px-5 sm:px-8" style={{ position: 'relative' }}>
+        <div
+          ref={containerRef}
+          className="mx-auto max-w-[1200px] px-5 sm:px-8"
+          style={{ position:'relative' }}
+        >
 
           {/* ── Section header ── */}
-          <div style={{ textAlign: 'center', marginBottom: 58 }}>
-            <div style={{ ...fadeUp(0), display: 'inline-flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div style={{ width: 32, height: 1, background: GOLD, opacity: .6 }} />
-              <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.3em', textTransform: 'uppercase', color: GOLD_D }}>
+          <div style={{ textAlign:'center', marginBottom:52 }}>
+            <div style={{ ...fadeUp(0), display:'inline-flex', alignItems:'center', gap:12, marginBottom:16 }}>
+              <div style={{ width:28, height:1, background:GOLD, opacity:.65 }} />
+              <span style={{
+                fontSize:10, fontWeight:900, letterSpacing:'.3em',
+                textTransform:'uppercase', color:GOLD_D,
+              }}>
                 Leadership &amp; Management
               </span>
-              <div style={{ width: 32, height: 1, background: GOLD, opacity: .6 }} />
+              <div style={{ width:28, height:1, background:GOLD, opacity:.65 }} />
             </div>
             <h2 style={{
-              ...fadeUp(90),
-              fontFamily: "Georgia, 'Times New Roman', serif",
-              fontSize: 'clamp(1.85rem, 3.2vw, 2.8rem)',
-              fontWeight: 900, color: DARK, lineHeight: 1.08, margin: 0, letterSpacing: '-.02em',
+              ...fadeUp(80),
+              fontFamily:"Georgia,'Times New Roman',serif",
+              fontSize:'clamp(1.8rem,3vw,2.7rem)',
+              fontWeight:900, color:DARK,
+              lineHeight:1.08, margin:0, letterSpacing:'-.02em',
             }}>
               The people who lead {shortName}.
             </h2>
             <p style={{
-              ...fadeUp(170),
-              marginTop: 14, fontSize: 15, lineHeight: 1.72,
-              color: `${DARK}6e`, maxWidth: 420,
-              marginLeft: 'auto', marginRight: 'auto',
+              ...fadeUp(160),
+              marginTop:14, fontSize:15, lineHeight:1.72,
+              color:`${DARK}6e`, maxWidth:420,
+              marginLeft:'auto', marginRight:'auto',
             }}>
-              Experienced educators and visionary leaders dedicated to excellence in Qur&apos;anic education.
+              Experienced educators and visionary leaders dedicated to excellence
+              in Qur&apos;anic education.
             </p>
           </div>
 
-          {/* ── Timeline strip + nav ── */}
-          <div style={fadeUp(250)}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* ── Orbital stage ── */}
+          <div style={{
+            ...fadeUp(240),
+            position:'relative',
+            width:'100%',
+            height:h,
+            userSelect:'none',
+          }}>
+
+            {/* Orbit ring (CSS ellipse border) */}
+            <div aria-hidden style={{
+              position:'absolute',
+              left: cx - rx, top: cy - ry,
+              width: rx * 2, height: ry * 2,
+              borderRadius:'50%',
+              border:`1.5px dashed ${GOLD}45`,
+              boxShadow:`0 0 0 3px ${GOLD_L}12`,
+              pointerEvents:'none',
+              zIndex:0,
+            }} />
+
+            {/* Featured-spot gold dot (top of orbit, 12 o'clock) */}
+            <div aria-hidden style={{
+              position:'absolute',
+              left: featX - 5, top: featY - 5,
+              width:10, height:10, borderRadius:'50%',
+              background:GOLD, opacity:.55,
+              pointerEvents:'none', zIndex:1,
+            }} />
+
+            {/* ── Active leader – center ── */}
+            {leader && (
+              <div
+                key={leader.id}
+                style={{
+                  position:'absolute',
+                  left: cx, top: cy,
+                  transform:'translate(-50%,-50%)',
+                  display:'flex', flexDirection:'column', alignItems:'center',
+                  zIndex:20,
+                  animation: reduced ? 'none' : 'ls-in .32s ease',
+                  width: ap + 72,
+                }}
+              >
+                {/* Double-ring portrait */}
+                <div style={{ position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
+                  {/* Outer pulse ring */}
+                  <div style={{
+                    position:'absolute',
+                    width: ap + 36, height: ap + 36,
+                    borderRadius:'50%',
+                    border:`1.5px solid ${GOLD}48`,
+                    animation: reduced ? 'none' : 'ls-pulse 3s ease infinite',
+                    pointerEvents:'none',
+                  }} />
+                  {/* Inner gold ring + glow */}
+                  <div style={{
+                    position:'absolute',
+                    width: ap + 16, height: ap + 16,
+                    borderRadius:'50%',
+                    border:`2.5px solid ${GOLD}`,
+                    boxShadow:`0 0 32px ${GOLD}42, inset 0 0 14px ${GOLD}18`,
+                    pointerEvents:'none',
+                  }} />
+                  {/* Portrait */}
+                  <div style={{
+                    width:ap, height:ap, borderRadius:'50%',
+                    overflow:'hidden', background:DARK, flexShrink:0,
+                    boxShadow:`0 8px 40px rgba(6,45,42,.34), 0 0 0 4px ${CREAM}`,
+                    position:'relative', zIndex:2,
+                  }}>
+                    {leader.photo_url
+                      ? (
+                        <img
+                          src={leader.photo_url}
+                          alt={leader.full_name}
+                          style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 15%' }}
+                        />
+                      ) : (
+                        <div style={{
+                          height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
+                          fontFamily:"Georgia,'Times New Roman',serif",
+                          fontSize: ap * 0.38, color:GOLD, fontWeight:900,
+                        }}>
+                          {leader.full_name?.charAt(0) ?? '?'}
+                        </div>
+                      )
+                    }
+                  </div>
+                </div>
+
+                {/* Name / role / CTA */}
+                <div style={{ textAlign:'center', marginTop:17 }}>
+                  <div style={{
+                    fontFamily:"Georgia,'Times New Roman',serif",
+                    fontSize:'clamp(.82rem,1.45vw,1.05rem)',
+                    fontWeight:900, color:DARK, lineHeight:1.18,
+                  }}>
+                    {leader.full_name}
+                  </div>
+                  {leader.role_title && (
+                    <div style={{
+                      marginTop:6, fontSize:8.5, fontWeight:900,
+                      letterSpacing:'.22em', textTransform:'uppercase', color:GOLD_D,
+                    }}>
+                      {leader.role_title}
+                    </div>
+                  )}
+                  <Link
+                    href={`/leadership/${leader.id}`}
+                    className="ls-cta"
+                    style={{
+                      display:'inline-flex', alignItems:'center', gap:6,
+                      marginTop:12, padding:'8px 18px', borderRadius:10,
+                      background:DARK, color:'#fff',
+                      fontSize:11.5, fontWeight:800, letterSpacing:'.045em',
+                      textDecoration:'none',
+                      transition:'background .2s ease',
+                    }}
+                  >
+                    View Profile →
+                  </Link>
+                </div>
+              </div>
+            )}
+
+            {/* ── Orbital leaders ── */}
+            {leaders.map((l, i) => {
+              if (i === activeIdx) return null;
+              const a     = leaderAngle(i);
+              const lx    = cx + rx * Math.cos(a);
+              const ly    = cy + ry * Math.sin(a);
+              /* depth: 0 = top of ellipse, 1 = bottom — bottom leaders appear larger/brighter */
+              const depth = (Math.sin(a) + 1) / 2;
+              const sc    = 0.78 + depth * 0.24;
+              const opc   = 0.48 + depth * 0.48;
+              const od    = Math.round(op * sc);
+              const zIdx  = Math.round(depth * 6) + 2;
+
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => clickLeader(i)}
+                  aria-label={`View ${l.full_name}`}
+                  className="ls-orb"
+                  style={{
+                    position:'absolute',
+                    left: lx, top: ly,
+                    transform:'translate(-50%,-50%)',
+                    background:'none', border:'none', padding:0,
+                    cursor:'pointer', outline:'none',
+                    display:'flex', flexDirection:'column', alignItems:'center',
+                    zIndex:zIdx,
+                    opacity:opc,
+                  }}
+                >
+                  <div style={{
+                    width:od, height:od, borderRadius:'50%',
+                    overflow:'hidden', background:DARK, flexShrink:0,
+                    border:`2px solid ${GOLD}55`,
+                    boxShadow:`0 4px 18px rgba(6,45,42,.22)`,
+                    filter:`grayscale(38%) brightness(.84)`,
+                  }}>
+                    {l.photo_url
+                      ? (
+                        <img
+                          src={l.photo_url}
+                          alt={l.full_name}
+                          style={{ width:'100%', height:'100%', objectFit:'cover', objectPosition:'center 15%' }}
+                        />
+                      ) : (
+                        <div style={{
+                          height:'100%', display:'flex', alignItems:'center', justifyContent:'center',
+                          fontFamily:"Georgia,'Times New Roman',serif",
+                          fontSize:od * 0.36, color:GOLD, fontWeight:900,
+                        }}>
+                          {l.full_name?.charAt(0) ?? '?'}
+                        </div>
+                      )
+                    }
+                  </div>
+                  <div style={{
+                    marginTop:5, fontSize:8.5, fontWeight:700,
+                    color:DARK, textAlign:'center',
+                    lineHeight:1.22, maxWidth:84,
+                    textShadow:`0 1px 6px ${CREAM}, 0 1px 6px ${CREAM}, 0 2px 8px ${CREAM}`,
+                    whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                  }}>
+                    {l.full_name.split(' ').slice(0, 2).join(' ')}
+                  </div>
+                  {l.role_title && (
+                    <div style={{
+                      fontSize:7.5, fontWeight:800,
+                      color:GOLD_D, letterSpacing:'.07em',
+                      textTransform:'uppercase', textAlign:'center',
+                      maxWidth:84, lineHeight:1.15,
+                      textShadow:`0 1px 5px ${CREAM}, 0 1px 5px ${CREAM}`,
+                      whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis',
+                    }}>
+                      {l.role_title.split(' ').slice(0, 3).join(' ')}
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* ── Navigation bar ── */}
+          <div style={{
+            ...fadeUp(330),
+            display:'flex', flexDirection:'column',
+            alignItems:'center', gap:14, marginTop:32,
+          }}>
+            <div style={{ display:'flex', alignItems:'center', gap:18 }}>
               {/* Prev */}
               <button
                 aria-label="Previous leader"
-                onClick={() => go(idx - 1)}
-                disabled={idx === 0}
+                onClick={() => go(-1)}
                 className="ls-nav"
-                style={navBtn(idx > 0)}
+                style={{
+                  width:46, height:46, borderRadius:'50%',
+                  background:GOLD, color:DARK,
+                  border:'none', cursor:'pointer',
+                  fontSize:24, fontWeight:900, lineHeight:1,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  outline:'none',
+                  boxShadow:`0 3px 14px ${GOLD}55`,
+                  transition:'background .2s ease',
+                }}
               >‹</button>
 
-              {/* Timeline */}
-              <div style={{ flex: 1, minWidth: 0, position: 'relative' }}>
-                {/* Connecting line — centred at PH/2 from top */}
-                <div aria-hidden style={{
-                  position: 'absolute',
-                  top: PH / 2 - 1,
-                  left: 16, right: 16,
-                  height: 2,
-                  background: `linear-gradient(90deg, transparent, ${GOLD}50 12%, ${GOLD}50 88%, transparent)`,
-                  pointerEvents: 'none', zIndex: 0,
-                }} />
-
-                {/* Scroll row */}
-                <div
-                  ref={timelineRef}
-                  className="ls-tl"
-                  role="tablist"
-                  aria-label="Leadership team"
-                  onKeyDown={onTimelineKey}
-                  style={{ position: 'relative', zIndex: 1, paddingBottom: 8, alignItems: 'flex-start' }}
-                >
-                  {leaders.map((l, i) => (
-                    <TimelineBubble
-                      key={l.id}
-                      ref={(el: HTMLButtonElement | null) => { bubbleRefs.current[i] = el; }}
-                      leader={l}
-                      isActive={i === idx}
-                      reduced={reduced}
-                      onClick={() => go(i)}
-                      onFocus={() => go(i)}
+              {/* Progress dots */}
+              {n > 1 && (
+                <div aria-hidden style={{ display:'flex', gap:7, alignItems:'center' }}>
+                  {leaders.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => i !== activeIdx ? clickLeader(i) : undefined}
+                      className="ls-dot"
+                      aria-label={`Go to ${leaders[i].full_name}`}
+                      style={{
+                        width: i === activeIdx ? 24 : 7, height:7,
+                        borderRadius:4, border:'none', cursor:'pointer', padding:0,
+                        background: i === activeIdx ? GOLD : `${DARK}22`,
+                        transition: reduced ? 'none' : 'width .28s ease, background .28s ease',
+                        outline:'none',
+                      }}
                     />
                   ))}
                 </div>
-              </div>
+              )}
 
               {/* Next */}
               <button
                 aria-label="Next leader"
-                onClick={() => go(idx + 1)}
-                disabled={idx === leaders.length - 1}
+                onClick={() => go(1)}
                 className="ls-nav"
-                style={navBtn(idx < leaders.length - 1)}
+                style={{
+                  width:46, height:46, borderRadius:'50%',
+                  background:GOLD, color:DARK,
+                  border:'none', cursor:'pointer',
+                  fontSize:24, fontWeight:900, lineHeight:1,
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  outline:'none',
+                  boxShadow:`0 3px 14px ${GOLD}55`,
+                  transition:'background .2s ease',
+                }}
               >›</button>
             </div>
 
-            {/* Progress dots */}
-            {leaders.length > 1 && (
-              <div aria-hidden style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-                {leaders.map((_, i) => (
-                  <button
-                    key={i}
-                    onClick={() => go(i)}
-                    style={{
-                      width: i === idx ? 24 : 7, height: 7,
-                      borderRadius: 4, border: 'none', cursor: 'pointer', padding: 0,
-                      background: i === idx ? GOLD : `${DARK}20`,
-                      transition: reduced ? 'none' : 'width .26s ease, background .26s ease',
-                      outline: 'none',
-                    }}
-                  />
-                ))}
-              </div>
-            )}
+            <p style={{
+              fontSize:11, color:`${DARK}48`,
+              letterSpacing:'.06em', margin:0, fontWeight:600,
+            }}>
+              Click any leader to bring them to the center
+            </p>
           </div>
-
-          {/* ── Profile panel ── */}
-          {leader && (
-            <div style={{ ...fadeUp(310), marginTop: 44 }}>
-              <div className="ls-desk">
-                <ProfileCard key={leader.id} leader={leader} reduced={reduced} />
-              </div>
-              <div className="ls-mob">
-                <MobileCard key={leader.id} leader={leader} />
-              </div>
-            </div>
-          )}
 
         </div>
       </section>
