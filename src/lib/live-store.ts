@@ -95,6 +95,7 @@ export type LiveClass = {
   programYear: 'Year 1' | 'Year 2' | null;
   capacity: number | null;
   active: boolean;
+  studentCount: number;
   teachers: { id: string; name: string; primary: boolean }[];
 };
 
@@ -121,7 +122,7 @@ export async function loadClasses(): Promise<LiveClass[]> {
   const db = supabase();
   const { data, error } = await db
     .from('classes')
-    .select('id,name,code,academic_year_id,program_year,capacity,active,academic_years:academic_year_id(name),class_teachers(teacher_id,is_primary,profiles:teacher_id(full_name))')
+    .select('id,name,code,academic_year_id,program_year,capacity,active,academic_years:academic_year_id(name),class_teachers(teacher_id,is_primary,profiles:teacher_id(full_name)),students(count)')
     .order('name');
   if (error || !data) return [];
   return data.map((c: any) => ({
@@ -133,6 +134,7 @@ export async function loadClasses(): Promise<LiveClass[]> {
     programYear: c.program_year === 'year_2' ? 'Year 2' : c.program_year === 'year_1' ? 'Year 1' : null,
     capacity: c.capacity,
     active: c.active,
+    studentCount: c.students?.[0]?.count ?? 0,
     teachers: (c.class_teachers ?? []).map((ct: any) => ({ id: ct.teacher_id, name: ct.profiles?.full_name ?? 'Teacher', primary: !!ct.is_primary }))
   }));
 }

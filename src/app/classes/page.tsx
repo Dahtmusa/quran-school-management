@@ -200,7 +200,7 @@ export default function ClassesPage() {
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Kpi label="Teachers"           value={teachers.length} />
           <Kpi label="Active classes"     value={classes.filter(c => c.active).length} />
-          <Kpi label="Assigned classes"   value={classes.filter(c => c.teachers.length > 0).length} />
+          <Kpi label="Total students"     value={classes.reduce((s, c) => s + c.studentCount, 0)} />
           <Kpi label="Unassigned classes" value={classes.filter(c => c.teachers.length === 0).length} />
         </div>
 
@@ -309,8 +309,22 @@ export default function ClassesPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 text-xs text-slate-500">
-                  Capacity: {c.capacity ?? 'Not set'} · Day + Boarding students can share this class.
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <div className="text-xs text-slate-500">
+                    Capacity: {c.capacity ?? 'Not set'}
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-2.5 py-1">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="text-slate-500" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="8" cy="5" r="3"/>
+                      <path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/>
+                    </svg>
+                    <span className="text-xs font-bold text-slate-700">
+                      {c.studentCount} student{c.studentCount !== 1 ? 's' : ''}
+                    </span>
+                    {c.capacity && (
+                      <span className="text-xs text-slate-400">/ {c.capacity}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
