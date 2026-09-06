@@ -371,8 +371,8 @@ function SmsSettings() {
           </select>
         </div>
 
-        <div><label style={LS}>Sender ID</label>
-          <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder="e.g. AMQM" />
+        <div><label style={LS}>{provider === 'twilio' ? 'From Number (your Twilio phone number)' : 'Sender ID'}</label>
+          <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder={provider === 'twilio' ? '+1234567890' : 'e.g. AMQM'} />
         </div>
 
         {provider === 'smartsms' && (
@@ -400,7 +400,7 @@ function SmsSettings() {
         </>}
 
         {provider === 'twilio' && <>
-          <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} /></div>
+          <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" /></div>
           <div><label style={LS}>Auth Token</label><input value={settings.sms_auth_token} onChange={e => set('sms_auth_token', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
         </>}
 
