@@ -74,7 +74,7 @@ export default function Students(){
    }catch(e:any){setMessage(e?.message??'Unable to create student.')}finally{setSaving(false)}
  }
 
- async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.admissionNo,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl});}
+ async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.id,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl});}
 
  function openEdit(s:Student){setEdit(s);loadStudentExtended(s.id).then(d=>setEditExt(d||blankExt));}
 
