@@ -24,10 +24,10 @@ const GOLD_L = '#E8C97A';
 const GOLD_D = '#9A7020';
 
 /* ── sizing constants ── */
-const PH = 112; // portrait area cell height (line runs at PH/2 = 56)
-const AW = 104; // ring+portrait wrapper size (active)
-const AD = 82;  // active portrait diameter
-const ID = 52;  // inactive portrait diameter
+const PH = 148; // portrait area cell height (line runs at PH/2 = 74)
+const AW = 132; // ring+portrait wrapper size (active)
+const AD = 108; // active portrait diameter
+const ID = 70;  // inactive portrait diameter
 
 /* ────────────────────────────────────
    Islamic geometric SVG decoration
@@ -80,7 +80,7 @@ const TimelineBubble = forwardRef<HTMLButtonElement, {
         background: 'none',
         border: 'none',
         cursor: 'pointer',
-        padding: '0 8px',
+        padding: '0 10px',
         flexShrink: 0,
         outline: 'none',
         transition: reduced ? 'none' : 'padding .3s ease',
