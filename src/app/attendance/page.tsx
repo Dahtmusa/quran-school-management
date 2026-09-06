@@ -194,18 +194,26 @@ function SmsSettings() {
     sms_enabled: 'false', sms_provider: 'termii', sms_api_key: '',
     sms_sender_id: 'AMQM', sms_channel: 'generic',
     sms_account_sid: '', sms_auth_token: '', sms_username: '',
+    morning_cutoff_time: '09:00',
   });
   const [sendOn, setSendOn] = useState<string[]>(['absent','late']);
+  const [templates, setTemplates] = useState<{code:string;name:string;template:string;channel:string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingTpls, setSavingTpls] = useState(false);
   const [flash, setFlash] = useState('');
+  const [tplFlash, setTplFlash] = useState('');
 
   useEffect(() => {
-    fetch('/api/attendance/settings').then(r => r.json()).then(d => {
-      if (d.settings) {
-        setSettings(prev => ({ ...prev, ...d.settings }));
-        try { setSendOn(JSON.parse(d.settings.sms_send_on_status || '["absent","late"]')); } catch {}
+    Promise.all([
+      fetch('/api/attendance/settings').then(r => r.json()),
+      fetch('/api/attendance/templates').then(r => r.json()),
+    ]).then(([sd, td]) => {
+      if (sd.settings) {
+        setSettings(prev => ({ ...prev, ...sd.settings }));
+        try { setSendOn(JSON.parse(sd.settings.sms_send_on_status || '["absent","late"]')); } catch {}
       }
+      if (td.templates) setTemplates(td.templates);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -223,7 +231,22 @@ function SmsSettings() {
     if (d.success) setTimeout(() => setFlash(''), 3000);
   };
 
+  const saveTemplates = async () => {
+    setSavingTpls(true);
+    const res = await fetch('/api/attendance/templates', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templates }),
+    });
+    const d = await res.json();
+    setSavingTpls(false);
+    setTplFlash(d.success ? 'Templates saved' : (d.error || 'Failed'));
+    if (d.success) setTimeout(() => setTplFlash(''), 3000);
+  };
+
   const set = (key: string, value: string) => setSettings(prev => ({ ...prev, [key]: value }));
+  const setTpl = (code: string, field: 'name'|'template', value: string) =>
+    setTemplates(prev => prev.map(t => t.code === code ? { ...t, [field]: value } : t));
+
   const IS = { width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box' as const };
   const LS = { display: 'block' as const, fontSize: 10, fontWeight: 800 as const, letterSpacing: '.1em', textTransform: 'uppercase' as const, color: '#9ca3af', marginBottom: 5 };
 
@@ -231,80 +254,161 @@ function SmsSettings() {
 
   const provider = settings.sms_provider;
 
+  const DIVIDER = <div style={{ height: 1, background: '#f3f4f6', margin: '8px 0' }} />;
+
   return (
-    <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '24px 28px' }} className="space-y-5">
-      <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>SMS Notification Settings</div>
+    <div className="space-y-4">
 
-      {flash && <div style={{ padding: '9px 14px', borderRadius: 10, background: flash === 'Settings saved' ? '#dcfce7' : '#fee2e2', color: flash === 'Settings saved' ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13 }}>{flash}</div>}
+      {/* ── Attendance timing ── */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '22px 26px' }} className="space-y-4">
+        <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>Attendance Timing</div>
 
-      {/* Enable toggle */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => set('sms_enabled', settings.sms_enabled === 'true' ? 'false' : 'true')} style={{
-          width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative',
-          background: settings.sms_enabled === 'true' ? '#16a34a' : '#d1d5db', transition: 'background .2s',
-        }}>
-          <div style={{ position: 'absolute', top: 3, left: settings.sms_enabled === 'true' ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+        <div>
+          <label style={LS}>Morning late cutoff time</label>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginBottom: 8 }}>
+            Students scanned <strong>after</strong> this time are automatically marked <strong>Late</strong> instead of Present.
+          </p>
+          <input
+            type="time"
+            value={settings.morning_cutoff_time}
+            onChange={e => set('morning_cutoff_time', e.target.value)}
+            style={{ ...IS, width: 'auto', minWidth: 140 }}
+          />
+        </div>
+
+        {flash && <div style={{ padding: '9px 14px', borderRadius: 10, background: flash.includes('saved') ? '#dcfce7' : '#fee2e2', color: flash.includes('saved') ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13 }}>{flash}</div>}
+
+        <button onClick={save} disabled={saving} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving…' : 'Save Timing'}
         </button>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-          SMS notifications are {settings.sms_enabled === 'true' ? 'enabled' : 'disabled'}
-        </span>
       </div>
 
-      {/* Provider */}
-      <div><label style={LS}>SMS Provider</label>
-        <select value={provider} onChange={e => set('sms_provider', e.target.value)} style={IS}>
-          {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-        </select>
-      </div>
+      {/* ── SMS Settings ── */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '22px 26px' }} className="space-y-4">
+        <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>SMS Notifications</div>
 
-      {/* Sender ID */}
-      <div><label style={LS}>Sender ID</label>
-        <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder="e.g. AMQM" />
-      </div>
+        {/* Enable toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => set('sms_enabled', settings.sms_enabled === 'true' ? 'false' : 'true')} style={{
+            width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative',
+            background: settings.sms_enabled === 'true' ? '#16a34a' : '#d1d5db', transition: 'background .2s', flexShrink: 0,
+          }}>
+            <div style={{ position: 'absolute', top: 3, left: settings.sms_enabled === 'true' ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+          </button>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
+            SMS notifications are {settings.sms_enabled === 'true' ? 'enabled' : 'disabled'}
+          </span>
+        </div>
 
-      {/* Provider-specific fields */}
-      {provider === 'termii' && <>
-        <div><label style={LS}>Termii API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
-        <div><label style={LS}>Channel</label>
-          <select value={settings.sms_channel} onChange={e => set('sms_channel', e.target.value)} style={IS}>
-            <option value="generic">Generic</option>
-            <option value="dnd">DND (bypasses do-not-disturb)</option>
-            <option value="whatsapp">WhatsApp</option>
+        {DIVIDER}
+
+        <div><label style={LS}>SMS Provider</label>
+          <select value={provider} onChange={e => set('sms_provider', e.target.value)} style={IS}>
+            {PROVIDERS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </div>
-      </>}
 
-      {provider === 'africas_talking' && <>
-        <div><label style={LS}>API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
-        <div><label style={LS}>Username</label><input value={settings.sms_username} onChange={e => set('sms_username', e.target.value)} style={IS} /></div>
-      </>}
-
-      {provider === 'twilio' && <>
-        <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} /></div>
-        <div><label style={LS}>Auth Token</label><input value={settings.sms_auth_token} onChange={e => set('sms_auth_token', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
-      </>}
-
-      {/* Which statuses trigger SMS */}
-      <div>
-        <label style={LS}>Send SMS when status is</label>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {STATUS_OPTIONS.map(s => {
-            const on = sendOn.includes(s);
-            return (
-              <button key={s} onClick={() => setSendOn(prev => on ? prev.filter(x => x !== s) : [...prev, s])}
-                style={{ padding: '6px 14px', borderRadius: 99, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
-                  background: on ? '#062d2a' : '#fff', color: on ? '#fff' : '#6b7280', borderColor: on ? '#062d2a' : '#e5e7eb' }}>
-                {s}
-              </button>
-            );
-          })}
+        <div><label style={LS}>Sender ID</label>
+          <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder="e.g. AMQM" />
         </div>
+
+        {provider === 'termii' && <>
+          <div><label style={LS}>Termii API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+          <div><label style={LS}>Channel</label>
+            <select value={settings.sms_channel} onChange={e => set('sms_channel', e.target.value)} style={IS}>
+              <option value="generic">Generic</option>
+              <option value="dnd">DND (bypasses Do-Not-Disturb — recommended)</option>
+              <option value="whatsapp">WhatsApp</option>
+            </select>
+          </div>
+        </>}
+
+        {provider === 'africas_talking' && <>
+          <div><label style={LS}>API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+          <div><label style={LS}>Username</label><input value={settings.sms_username} onChange={e => set('sms_username', e.target.value)} style={IS} /></div>
+        </>}
+
+        {provider === 'twilio' && <>
+          <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} /></div>
+          <div><label style={LS}>Auth Token</label><input value={settings.sms_auth_token} onChange={e => set('sms_auth_token', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+        </>}
+
+        {DIVIDER}
+
+        <div>
+          <label style={LS}>Send SMS when student is marked</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 6 }}>
+            {STATUS_OPTIONS.map(s => {
+              const on = sendOn.includes(s);
+              return (
+                <button key={s} onClick={() => setSendOn(prev => on ? prev.filter(x => x !== s) : [...prev, s])}
+                  style={{ padding: '6px 14px', borderRadius: 99, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+                    background: on ? '#062d2a' : '#fff', color: on ? '#fff' : '#6b7280', borderColor: on ? '#062d2a' : '#e5e7eb' }}>
+                  {s}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <button onClick={save} disabled={saving} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving…' : 'Save SMS Settings'}
+        </button>
       </div>
 
-      <div style={{ paddingTop: 4 }}>
-        <button onClick={save} disabled={saving} style={{ padding: '10px 24px', borderRadius: 11, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
-          {saving ? 'Saving…' : 'Save Settings'}
-        </button>
+      {/* ── Message templates ── */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '22px 26px' }} className="space-y-4">
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>SMS Message Templates</div>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>
+            Customise the message sent to parents for each status. Available placeholders:{' '}
+            <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{'{student_name}'}</code>{' '}
+            <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{'{date}'}</code>{' '}
+            <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{'{scan_time}'}</code>{' '}
+            <code style={{ background: '#f3f4f6', padding: '1px 5px', borderRadius: 4, fontSize: 11 }}>{'{status}'}</code>
+          </p>
+        </div>
+
+        {tplFlash && <div style={{ padding: '9px 14px', borderRadius: 10, background: tplFlash.includes('saved') ? '#dcfce7' : '#fee2e2', color: tplFlash.includes('saved') ? '#166534' : '#991b1b', fontWeight: 700, fontSize: 13 }}>{tplFlash}</div>}
+
+        {templates.length === 0 && (
+          <div style={{ color: '#9ca3af', fontSize: 13 }}>No templates found. Run migration 065 in Supabase to seed the defaults.</div>
+        )}
+
+        {templates.map(t => (
+          <div key={t.code} style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: '16px 18px' }} className="space-y-3">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 800, textTransform: 'capitalize',
+                background: t.code === 'absent' ? '#fee2e2' : t.code === 'late' ? '#fef3c7' : t.code === 'excused' ? '#dbeafe' : t.code === 'sick' ? '#ede9fe' : '#dcfce7',
+                color: t.code === 'absent' ? '#991b1b' : t.code === 'late' ? '#92400e' : t.code === 'excused' ? '#1e40af' : t.code === 'sick' ? '#5b21b6' : '#166534',
+              }}>{t.code}</span>
+              <input value={t.name} onChange={e => setTpl(t.code, 'name', e.target.value)}
+                style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 8, padding: '5px 10px', fontSize: 12, fontFamily: 'inherit', fontWeight: 700 }}
+                placeholder="Template name" />
+            </div>
+            <textarea
+              value={t.template}
+              onChange={e => setTpl(t.code, 'template', e.target.value)}
+              rows={3}
+              style={{ ...IS, resize: 'vertical', fontSize: 12, lineHeight: 1.6 }}
+              placeholder="Message text…"
+            />
+            <div style={{ fontSize: 11, color: '#9ca3af' }}>
+              Preview: {t.template
+                .replace(/{student_name}/g, 'Amina Musa')
+                .replace(/{date}/g, new Date().toLocaleDateString('en-GB', { day:'numeric',month:'long',year:'numeric' }))
+                .replace(/{scan_time}/g, '08:47 AM')
+                .replace(/{time}/g, '08:47 AM')
+                .replace(/{status}/g, t.code.toUpperCase())}
+            </div>
+          </div>
+        ))}
+
+        {templates.length > 0 && (
+          <button onClick={saveTemplates} disabled={savingTpls} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: savingTpls ? 0.6 : 1 }}>
+            {savingTpls ? 'Saving…' : 'Save Templates'}
+          </button>
+        )}
       </div>
     </div>
   );
