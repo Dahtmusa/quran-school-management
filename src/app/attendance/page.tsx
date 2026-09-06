@@ -488,6 +488,8 @@ export default function AttendanceDashboard() {
   const [reviewTarget, setReviewTarget] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ sent: number; skipped: number; failed: number; errors?: string[] } | null>(null);
   const [filterSection, setFilterSection] = useState('all');
   const [searchQ, setSearchQ] = useState('');
   const [flash, setFlash] = useState('');
@@ -628,6 +630,55 @@ export default function AttendanceDashboard() {
                 }}>
                   Review now →
                 </button>
+              </div>
+            )}
+
+            {/* Bulk SMS card */}
+            {summary && summary.total > 0 && (
+              <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '16px 20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 3 }}>Notify All Parents</div>
+                    <div style={{ fontSize: 12, color: '#6b7280' }}>
+                      Send one SMS per student to their parent based on today&apos;s attendance status (Present, Late, Absent, etc.).
+                      Already-notified students are skipped automatically.
+                    </div>
+                  </div>
+                  <button
+                    disabled={bulkSending}
+                    onClick={async () => {
+                      setBulkSending(true); setBulkResult(null);
+                      const res = await fetch('/api/attendance/notify', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bulk: true, date: filterDate, period: 'morning' }),
+                      });
+                      const d = await res.json();
+                      setBulkSending(false);
+                      setBulkResult(d);
+                    }}
+                    style={{
+                      padding: '9px 20px', borderRadius: 10, border: 'none', cursor: bulkSending ? 'default' : 'pointer',
+                      background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700,
+                      whiteSpace: 'nowrap', opacity: bulkSending ? 0.6 : 1, flexShrink: 0,
+                    }}
+                  >
+                    {bulkSending ? 'Sending…' : 'Send SMS to All Parents'}
+                  </button>
+                </div>
+                {bulkResult && (
+                  <div style={{
+                    marginTop: 12, padding: '10px 14px', borderRadius: 10,
+                    background: bulkResult.failed > 0 ? '#fef3c7' : '#dcfce7',
+                    border: `1px solid ${bulkResult.failed > 0 ? '#fcd34d' : '#86efac'}`,
+                    fontSize: 12, fontWeight: 700,
+                    color: bulkResult.failed > 0 ? '#92400e' : '#166534',
+                  }}>
+                    {bulkResult.sent} sent · {bulkResult.skipped} skipped (no phone / already notified) · {bulkResult.failed} failed
+                    {bulkResult.errors && bulkResult.errors.length > 0 && (
+                      <div style={{ marginTop: 6, fontWeight: 400 }}>{bulkResult.errors.join(' · ')}</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

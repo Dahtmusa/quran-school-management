@@ -2,15 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-// Load all attendance_settings as a plain object
-async function loadSettings(admin: ReturnType<typeof createAdminClient>) {
+type AdminClient = ReturnType<typeof createAdminClient>;
+
+async function loadSettings(admin: AdminClient) {
   const { data } = await admin.from('attendance_settings').select('key,value');
   const out: Record<string, unknown> = {};
   for (const r of data || []) out[r.key] = r.value;
   return out;
 }
 
-// Send via Termii
+const stripQ = (v: unknown) => String(v || '').replace(/^"|"$/g, '');
+
 async function sendTermii(apiKey: string, senderId: string, channel: string, to: string, message: string) {
   const res = await fetch('https://api.ng.termii.com/api/sms/send', {
     method: 'POST',
@@ -22,7 +24,6 @@ async function sendTermii(apiKey: string, senderId: string, channel: string, to:
   return json;
 }
 
-// Send via Africa's Talking
 async function sendAfricasTalking(apiKey: string, username: string, senderId: string, to: string, message: string) {
   const body = new URLSearchParams({ username, to, message, from: senderId });
   const res = await fetch('https://api.africastalking.com/version1/messaging', {
@@ -31,11 +32,10 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
     body,
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json?.SMSMessageData?.Message || 'Africa\'s Talking error');
+  if (!res.ok) throw new Error(json?.SMSMessageData?.Message || "Africa's Talking error");
   return json;
 }
 
-// Send via SmartSMSSolutions
 async function sendSmartSMS(apiKey: string, senderId: string, to: string, message: string) {
   const res = await fetch('https://www.smartsmssolutions.com/api/json.php', {
     method: 'POST',
@@ -49,7 +49,6 @@ async function sendSmartSMS(apiKey: string, senderId: string, to: string, messag
   return json;
 }
 
-// Send via Twilio
 async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, message: string) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const body = new URLSearchParams({ To: to, From: from, Body: message });
@@ -66,8 +65,43 @@ async function sendTwilio(accountSid: string, authToken: string, from: string, t
   return json;
 }
 
+async function dispatchSms(settings: Record<string, unknown>, to: string, message: string) {
+  const provider = stripQ(settings['sms_provider']) || 'termii';
+  const apiKey = stripQ(settings['sms_api_key']);
+  const senderId = stripQ(settings['sms_sender_id']) || 'AMQM';
+  if (!apiKey) throw new Error('SMS API key not configured');
+
+  if (provider === 'termii') {
+    const channel = stripQ(settings['sms_channel']) || 'generic';
+    await sendTermii(apiKey, senderId, channel, to, message);
+  } else if (provider === 'africas_talking') {
+    const username = stripQ(settings['sms_username']);
+    await sendAfricasTalking(apiKey, username, senderId, to, message);
+  } else if (provider === 'smartsms') {
+    await sendSmartSMS(apiKey, senderId, to, message);
+  } else if (provider === 'twilio') {
+    const accountSid = stripQ(settings['sms_account_sid']);
+    const authToken = stripQ(settings['sms_auth_token']);
+    await sendTwilio(accountSid, authToken, senderId, to, message);
+  } else {
+    throw new Error(`Unknown provider: ${provider}`);
+  }
+}
+
+function buildMessage(template: string, studentName: string, statusCode: string, scannedAt: string) {
+  const scanDate = new Date(scannedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const scanTime = new Date(scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return template
+    .replace(/{student_name}/g, studentName)
+    .replace(/{date}/g, scanDate)
+    .replace(/{time}/g, scanTime)
+    .replace(/{scan_time}/g, scanTime)
+    .replace(/{status}/g, statusCode.toUpperCase());
+}
+
 // POST /api/attendance/notify
-// Body: { recordId } — sends SMS for a single approved attendance record
+// Single: { recordId, manual? }
+// Bulk:   { bulk: true, date?, period? } — sends to all approved unsent records for the day
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -78,9 +112,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { recordId, manual = false } = await req.json();
-  if (!recordId) return NextResponse.json({ error: 'recordId required' }, { status: 400 });
-
+  const body = await req.json();
   const admin = createAdminClient();
   const settings = await loadSettings(admin);
 
@@ -88,7 +120,83 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'SMS is disabled in settings' }, { status: 400 });
   }
 
-  // Load the attendance record
+  // ── BULK MODE ──────────────────────────────────────────────────────────────
+  if (body.bulk) {
+    const nigeriaMs = Date.now() + 60 * 60 * 1000;
+    const date = body.date || new Date(nigeriaMs).toISOString().slice(0, 10);
+    const period = body.period || 'morning';
+
+    // All approved, unsent student records for the day
+    const { data: records } = await admin
+      .from('attendance_records')
+      .select('id, person_id, status_code, scanned_at, notification_sent')
+      .eq('attendance_date', date)
+      .eq('period', period)
+      .eq('person_type', 'student')
+      .eq('review_status', 'approved');
+
+    if (!records || records.length === 0) {
+      return NextResponse.json({ success: true, sent: 0, skipped: 0, failed: 0, message: 'No approved records found for this date' });
+    }
+
+    // Load all templates at once
+    const { data: templates } = await admin.from('notification_templates').select('code,template');
+    const tplMap: Record<string, string> = {};
+    for (const t of templates || []) tplMap[t.code] = t.template;
+
+    // Load all student info + parent phones for these records
+    const studentIds = records.map(r => r.person_id);
+    const { data: students } = await admin
+      .from('students')
+      .select('id, full_name, parent_students(profiles(phone))')
+      .in('id', studentIds);
+    const studentMap: Record<string, { name: string; phone: string | null }> = {};
+    for (const s of students || []) {
+      const parents = (s as any).parent_students || [];
+      let phone: string | null = null;
+      for (const ps of parents) {
+        if (ps?.profiles?.phone) { phone = ps.profiles.phone; break; }
+      }
+      studentMap[s.id] = { name: s.full_name, phone };
+    }
+
+    let sent = 0, failed = 0, skipped = 0;
+    const errors: string[] = [];
+
+    for (const rec of records) {
+      if (rec.notification_sent) { skipped++; continue; }
+      const info = studentMap[rec.person_id];
+      if (!info?.phone) { skipped++; continue; }
+
+      const defaultTpl = `Dear parent, {student_name} was marked {status} on {date} at {scan_time}. - AMQM`;
+      const tpl = tplMap[rec.status_code] || defaultTpl;
+      const message = buildMessage(tpl, info.name, rec.status_code, rec.scanned_at);
+
+      const { data: notif } = await admin
+        .from('attendance_notifications')
+        .insert({ record_id: rec.id, phone_number: info.phone, message, status: 'pending' })
+        .select('id').single();
+
+      try {
+        await dispatchSms(settings, info.phone, message);
+        await admin.from('attendance_notifications').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', notif!.id);
+        await admin.from('attendance_records').update({ notification_sent: true }).eq('id', rec.id);
+        sent++;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        await admin.from('attendance_notifications').update({ status: 'failed', error_message: msg }).eq('id', notif!.id);
+        errors.push(`${info.name}: ${msg}`);
+        failed++;
+      }
+    }
+
+    return NextResponse.json({ success: true, sent, skipped, failed, errors: errors.slice(0, 5) });
+  }
+
+  // ── SINGLE MODE ────────────────────────────────────────────────────────────
+  const { recordId, manual = false } = body;
+  if (!recordId) return NextResponse.json({ error: 'recordId required' }, { status: 400 });
+
   const { data: record } = await admin
     .from('attendance_records')
     .select('id, person_id, person_type, scanned_at, status_code, review_status, notification_sent')
@@ -96,14 +204,9 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (!record) return NextResponse.json({ error: 'Record not found' }, { status: 404 });
-  if (record.review_status !== 'approved') {
-    return NextResponse.json({ error: 'Record must be approved before sending SMS' }, { status: 400 });
-  }
-  if (record.notification_sent) {
-    return NextResponse.json({ error: 'Notification already sent for this record' }, { status: 400 });
-  }
+  if (record.review_status !== 'approved') return NextResponse.json({ error: 'Record must be approved before sending SMS' }, { status: 400 });
+  if (record.notification_sent) return NextResponse.json({ error: 'Notification already sent for this record' }, { status: 400 });
 
-  // Check this status should trigger SMS (skip check for manual sends by admin)
   if (!manual) {
     const sendOn: string[] = (settings['sms_send_on_status'] as string[]) || ['absent', 'late'];
     if (!sendOn.includes(record.status_code)) {
@@ -111,7 +214,6 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Load student + parent phone
   let studentName = 'your child';
   let parentPhone: string | null = null;
 
@@ -121,7 +223,6 @@ export async function POST(req: NextRequest) {
       .select('full_name, parent_students(profiles(phone))')
       .eq('id', record.person_id)
       .single();
-
     if (student) {
       studentName = student.full_name;
       const parents = (student as any).parent_students || [];
@@ -132,66 +233,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!parentPhone) {
-    return NextResponse.json({ error: 'No parent phone number on file for this student' }, { status: 400 });
-  }
+  if (!parentPhone) return NextResponse.json({ error: 'No parent phone number on file for this student' }, { status: 400 });
 
-  // Load template
-  const { data: tpl } = await admin
-    .from('notification_templates')
-    .select('template')
-    .eq('code', record.status_code)
-    .single();
+  const { data: tpl } = await admin.from('notification_templates').select('template').eq('code', record.status_code).single();
+  const defaultTpl = `Dear parent, {student_name} was marked {status} on {date} at {scan_time}. - AMQM`;
+  const message = buildMessage(tpl?.template || defaultTpl, studentName, record.status_code, record.scanned_at);
 
-  const scanDate = new Date(record.scanned_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-  const scanTime = new Date(record.scanned_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-  const message = (tpl?.template || `Dear parent, {student_name} was marked {status} on {date} at {scan_time}.`)
-    .replace(/{student_name}/g, studentName)
-    .replace(/{date}/g, scanDate)
-    .replace(/{time}/g, scanTime)
-    .replace(/{scan_time}/g, scanTime)
-    .replace(/{status}/g, record.status_code.toUpperCase());
-
-  // Create notification record
   const { data: notif } = await admin
     .from('attendance_notifications')
     .insert({ record_id: recordId, phone_number: parentPhone, message, status: 'pending' })
-    .select('id')
-    .single();
-
-  // Send via configured provider
-  const stripQ = (v: unknown) => String(v || '').replace(/^"|"$/g, '');
-  const provider = stripQ(settings['sms_provider']) || 'termii';
-  const apiKey = stripQ(settings['sms_api_key']);
-  const senderId = stripQ(settings['sms_sender_id']) || 'AMQM';
-
-  if (!apiKey) {
-    await admin.from('attendance_notifications').update({ status: 'failed', error_message: 'No API key configured' }).eq('id', notif!.id);
-    return NextResponse.json({ error: 'SMS API key not configured' }, { status: 400 });
-  }
+    .select('id').single();
 
   try {
-    if (provider === 'termii') {
-      const channel = stripQ(settings['sms_channel']) || 'generic';
-      await sendTermii(apiKey, senderId, channel, parentPhone, message);
-    } else if (provider === 'africas_talking') {
-      const username = stripQ(settings['sms_username']);
-      await sendAfricasTalking(apiKey, username, senderId, parentPhone, message);
-    } else if (provider === 'smartsms') {
-      await sendSmartSMS(apiKey, senderId, parentPhone, message);
-    } else if (provider === 'twilio') {
-      const accountSid = String(settings['sms_account_sid'] || '');
-      const authToken = String(settings['sms_auth_token'] || '');
-      await sendTwilio(accountSid, authToken, senderId, parentPhone, message);
-    } else {
-      throw new Error(`Unknown provider: ${provider}`);
-    }
-
-    // Mark as sent
+    await dispatchSms(settings, parentPhone, message);
     await admin.from('attendance_notifications').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', notif!.id);
     await admin.from('attendance_records').update({ notification_sent: true }).eq('id', recordId);
-
     return NextResponse.json({ success: true, sentTo: parentPhone });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
