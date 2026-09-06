@@ -157,6 +157,30 @@ export async function createClass(input: {
   return data.id as string;
 }
 
+export async function updateClass(id: string, input: {
+  name: string;
+  code: string;
+  academicYearId?: string | null;
+  programYear?: 'year_1' | 'year_2' | null;
+  capacity?: number | null;
+  active?: boolean;
+}) {
+  const { error } = await supabase().from('classes').update({
+    name: input.name.trim(),
+    code: input.code.trim().toUpperCase(),
+    academic_year_id: input.academicYearId || null,
+    program_year: input.programYear || null,
+    capacity: input.capacity || null,
+    active: input.active ?? true,
+  }).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteClass(id: string) {
+  const { error } = await supabase().from('classes').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function assignTeacherToClass(classId: string, teacherId: string, primary = false) {
   const { error } = await supabase().from('class_teachers').upsert({
     class_id: classId,
