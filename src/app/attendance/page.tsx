@@ -211,6 +211,10 @@ function SmsSettings() {
       fetch('/api/attendance/templates').then(r => r.json()),
     ]).then(([sd, td]) => {
       if (sd.settings) {
+        // Strip JSON quotes from time value if stored as '"09:00"'
+        if (sd.settings.morning_cutoff_time) {
+          sd.settings.morning_cutoff_time = sd.settings.morning_cutoff_time.replace(/^"|"$/g, '');
+        }
         setSettings(prev => ({ ...prev, ...sd.settings }));
         try { setSendOn(JSON.parse(sd.settings.sms_send_on_status || '["absent","late"]')); } catch {}
       }

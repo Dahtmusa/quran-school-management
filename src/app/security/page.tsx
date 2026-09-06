@@ -178,6 +178,10 @@ export default function SecurityScanner() {
     const person = await lookupPerson(raw);
     setPersonLoading(false);
     if (!person) { showFlash('ID not recognised', false); return; }
+    if (person.type === 'student' && person.section?.toLowerCase() === 'boarding') {
+      showFlash('Boarding student — attendance taken by class teacher', false);
+      return;
+    }
     await submitScan(person);
   }, [lookupPerson, submitScan]);
 
@@ -227,6 +231,10 @@ export default function SecurityScanner() {
     const person = await lookupPerson(manualId);
     setPreviewLoading(false);
     if (!person) { showFlash('ID not found', false); return; }
+    if (person.type === 'student' && person.section?.toLowerCase() === 'boarding') {
+      showFlash('Boarding student — attendance taken by class teacher', false);
+      return;
+    }
     setPreview(person);
   };
 
@@ -314,9 +322,9 @@ export default function SecurityScanner() {
           </div>
         )}
 
-        {/* Config row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <div>
+        {/* Config row — scan point only; period is always morning */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
             <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 5 }}>
               Scan Point
             </label>
@@ -329,19 +337,8 @@ export default function SecurityScanner() {
               {!scanPoints.length && <option value="">Main Gate</option>}
             </select>
           </div>
-          <div>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 5 }}>
-              Period
-            </label>
-            <select
-              value={period}
-              onChange={e => setPeriod(e.target.value)}
-              style={{ width: '100%', border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '9px 12px', fontSize: 13, fontWeight: 600, background: '#fff' }}
-            >
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
-            </select>
+          <div style={{ padding: '6px 16px', borderRadius: 99, background: '#dcfce7', color: '#166534', fontSize: 12, fontWeight: 800, marginTop: 20, whiteSpace: 'nowrap' }}>
+            Morning Attendance · Day Students Only
           </div>
         </div>
 
