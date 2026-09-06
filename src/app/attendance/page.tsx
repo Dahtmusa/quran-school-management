@@ -258,12 +258,13 @@ function SmsSettings() {
       fetch('/api/attendance/templates').then(r => r.json()),
     ]).then(([sd, td]) => {
       if (sd.settings) {
-        // Strip JSON quotes from time value if stored as '"09:00"'
-        if (sd.settings.morning_cutoff_time) {
-          sd.settings.morning_cutoff_time = sd.settings.morning_cutoff_time.replace(/^"|"$/g, '');
+        // Strip surrounding JSONB quotes from all string settings (e.g. '"AMQM"' → 'AMQM')
+        const cleaned: Record<string, string> = {};
+        for (const [k, v] of Object.entries(sd.settings)) {
+          cleaned[k] = typeof v === 'string' ? v.replace(/^"|"$/g, '') : String(v ?? '');
         }
-        setSettings(prev => ({ ...prev, ...sd.settings }));
-        try { setSendOn(JSON.parse(sd.settings.sms_send_on_status || '["absent","late"]')); } catch {}
+        setSettings(prev => ({ ...prev, ...cleaned }));
+        try { setSendOn(JSON.parse(cleaned.sms_send_on_status || '["absent","late"]')); } catch {}
       }
       if (td.templates) setTemplates(td.templates);
       setLoading(false);
@@ -381,9 +382,13 @@ function SmsSettings() {
         {provider === 'termii' && <>
           <div><label style={LS}>Termii API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
           <div><label style={LS}>Channel</label>
-            <select value={settings.sms_channel} onChange={e => set('sms_channel', e.target.value)} style={IS}>
-              <option value="generic">Generic</option>
-              <option value="dnd">DND (bypasses Do-Not-Disturb — recommended)</option>
+            <select value={settings.sms_channel} onChange={e => {
+              set('sms_channel', e.target.value);
+              if (e.target.value === 'N-Alert') set('sms_sender_id', 'N-Alert');
+            }} style={IS}>
+              <option value="generic">Generic (no sender ID approval needed)</option>
+              <option value="N-Alert">N-Alert (bypasses DND, no approval needed — use for testing)</option>
+              <option value="dnd">DND (requires approved sender ID — use after AMQM is approved)</option>
               <option value="whatsapp">WhatsApp</option>
             </select>
           </div>
