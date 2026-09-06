@@ -241,7 +241,7 @@ function SmsSettings() {
   const [settings, setSettings] = useState<Record<string, string>>({
     sms_enabled: 'false', sms_provider: 'termii', sms_api_key: '',
     sms_sender_id: 'AMQM', sms_channel: 'generic',
-    sms_account_sid: '', sms_auth_token: '', sms_username: '',
+    sms_account_sid: '', sms_auth_token: '', sms_username: '', sms_api_key_sid: '', sms_api_key_secret: '',
     morning_cutoff_time: '09:00',
   });
   const [sendOn, setSendOn] = useState<string[]>(['absent','late']);
@@ -400,8 +400,14 @@ function SmsSettings() {
         </>}
 
         {provider === 'twilio' && <>
-          <div><label style={LS}>Account SID</label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" /></div>
-          <div><label style={LS}>Auth Token</label><input value={settings.sms_auth_token} onChange={e => set('sms_auth_token', e.target.value)} style={IS} type="password" autoComplete="off" /></div>
+          <div><label style={LS}>Account SID <span style={{fontWeight:400,color:'#9ca3af'}}>(from twilio.com/console — starts with AC)</span></label><input value={settings.sms_account_sid} onChange={e => set('sms_account_sid', e.target.value)} style={IS} placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" /></div>
+          <div style={{background:'#f0fdf4',border:'1px solid #86efac',borderRadius:10,padding:'12px 14px'}}>
+            <div style={{fontSize:11,fontWeight:800,color:'#166534',marginBottom:8}}>API KEY AUTH (use the SK key you just created)</div>
+            <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+              <div style={{flex:1,minWidth:200}}><label style={LS}>API Key SID</label><input value={settings.sms_api_key_sid||''} onChange={e => set('sms_api_key_sid', e.target.value)} style={IS} placeholder="SKxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" /></div>
+              <div style={{flex:1,minWidth:200}}><label style={LS}>API Key Secret</label><input value={settings.sms_api_key_secret||''} onChange={e => set('sms_api_key_secret', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Client secret from when you created the key" /></div>
+            </div>
+          </div>
         </>}
 
         {DIVIDER}

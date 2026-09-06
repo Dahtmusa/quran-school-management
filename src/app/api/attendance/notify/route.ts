@@ -61,19 +61,22 @@ async function sendSmartSMS(apiKey: string, senderId: string, to: string, messag
   return json;
 }
 
-async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, message: string) {
+async function sendTwilio(accountSid: string, authToken: string, from: string, to: string, message: string, apiKeySid?: string, apiKeySecret?: string) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const body = new URLSearchParams({ To: to, From: from, Body: message });
+  // Use API Key auth if provided, otherwise fall back to Account SID + Auth Token
+  const username = apiKeySid || accountSid;
+  const password = apiKeySecret || authToken;
   const res = await fetch(url, {
     method: 'POST',
     headers: {
-      Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+      Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body,
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json?.message || 'Twilio error');
+  if (!res.ok) throw new Error(json?.message || json?.code || 'Twilio error');
   return json;
 }
 
@@ -95,7 +98,9 @@ async function dispatchSms(settings: Record<string, unknown>, to: string, messag
   } else if (provider === 'twilio') {
     const accountSid = stripQ(settings['sms_account_sid']);
     const authToken = stripQ(settings['sms_auth_token']);
-    await sendTwilio(accountSid, authToken, senderId, to, message);
+    const apiKeySid = stripQ(settings['sms_api_key_sid']);
+    const apiKeySecret = stripQ(settings['sms_api_key_secret']);
+    await sendTwilio(accountSid, authToken, senderId, to, message, apiKeySid || undefined, apiKeySecret || undefined);
   } else {
     throw new Error(`Unknown provider: ${provider}`);
   }
