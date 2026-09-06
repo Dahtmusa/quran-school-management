@@ -357,14 +357,6 @@ export async function loadTermCompletions() {
   if(error||!data) return []; return data;
 }
 
-export async function recordTeacherAttendance(studentId:string,status:'present'|'absent'|'late'|'excused',note?:string) {
-  const user = await getCurrentUser();
-  if (!user) throw new Error('You are not signed in');
-  const client=supabase(); const attendance_date=new Date().toISOString().slice(0,10);
-  const {data:existing}=await client.from('attendance_records').select('id').eq('student_id',studentId).eq('attendance_date',attendance_date).maybeSingle();
-  const {error}=existing ? await client.from('attendance_records').update({recorded_by:user.id,status,note:note||null}).eq('id',existing.id) : await client.from('attendance_records').insert({student_id:studentId,recorded_by:user.id,attendance_date,status,note:note||null});
-  if(error) throw error;
-}
 
 export async function updateOwnProfile(input:{phone?:string|null;avatar_url?:string|null}) {
   const user = await getCurrentUser();

@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { loadTeacherDirectory, loadTeacherEvaluations, recordTeacherAttendance, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation } from '@/lib/live-store';
 import { SURAHS, label, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
@@ -106,10 +106,8 @@ export default function TeacherDashboard() {
     catch (e: any) { setMessage(e?.message || 'Photo upload failed'); } finally { setBusy(false); }
   }
 
-  async function mark(studentId: string, status: any) {
-    setBusy(true);
-    try { await recordTeacherAttendance(studentId, status); setMessage('Attendance recorded.'); }
-    catch (e: any) { setMessage(e?.message || 'Attendance could not be recorded'); } finally { setBusy(false); }
+  function mark(_studentId: string, _status: string) {
+    setMessage('Attendance is now handled by Security staff at the gate. Contact admin if a correction is needed.');
   }
 
   const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;

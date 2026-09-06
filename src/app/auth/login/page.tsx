@@ -10,7 +10,7 @@ type Tab='staff'|'teacher'|'parent';
 function dashboardFor(role?:string){
   if(role==='teacher')return'/teacher';
   if(role==='parent')return'/parent';
-  if(role==='security')return'/attendance';
+  if(role==='security')return'/security';
   if(role==='finance')return'/fees';
   if(role==='admissions')return'/admissions/manage';
   return'/admin';

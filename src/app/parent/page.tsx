@@ -5,6 +5,7 @@ import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
 import { loadStudents, loadEvaluations, getCurrentProfile } from '@/lib/live-store';
 import { loadFinanceSummary } from '@/lib/admin-management-store';
+import { loadChildAttendance, AttendanceRecord } from '@/lib/attendance-store';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -13,6 +14,7 @@ export default function ParentPortal() {
   const [evals, setEvals] = useState<any[]>([]);
   const [me, setMe] = useState<any>(null);
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
+  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expandedEval, setExpandedEval] = useState<string | null>(null);
   const [payments, setPayments] = useState<any[]>([]);
   const [fees, setFees] = useState<any[]>([]);
@@ -25,6 +27,11 @@ export default function ParentPortal() {
       if (s.length > 0) setSelectedChild(s[0].id);
     });
   }, []);
+
+  useEffect(() => {
+    if (!selectedChild) return;
+    loadChildAttendance(selectedChild, 30).then(setAttendanceRecords);
+  }, [selectedChild]);
 
   const child = useMemo(() => students.find(s => s.id === selectedChild) || students[0], [students, selectedChild]);
   const childEvals = useMemo(() => evals.filter(e => e.studentId === child?.id), [evals, child]);
@@ -203,6 +210,39 @@ export default function ParentPortal() {
         </section>
       );
     })()}
+    {/* Attendance section */}
+    {attendanceRecords.length > 0 && (
+      <section className="overflow-hidden rounded-[2rem] bg-white shadow-sm border border-slate-200">
+        <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+          <span className="text-lg">📋</span>
+          <div>
+            <h3 className="font-black text-[#062d2a]">Attendance History</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Last {attendanceRecords.length} approved records</p>
+          </div>
+        </div>
+        <div className="divide-y max-h-72 overflow-y-auto">
+          {attendanceRecords.map(r => {
+            const statusColors: Record<string, string> = { present: '#16a34a', late: '#d97706', excused: '#2563eb', sick: '#7c3aed', absent: '#dc2626' };
+            const color = statusColors[r.statusCode] || '#6b7280';
+            return (
+              <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-slate-700">
+                    {new Date(r.attendanceDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    {new Date(r.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} · {r.period}
+                  </div>
+                </div>
+                <span style={{ padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: color + '20', color }}>{r.statusLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    )}
+
   </div></AdminShell>;
 }
 
