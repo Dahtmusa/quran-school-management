@@ -439,7 +439,7 @@ export type HistoricalEvalEntry = {
 export async function bulkImportHistoricalEvals(
   entries: HistoricalEvalEntry[],
   termId: string,
-  mode: 'eval1_eval2' | 'eval3' = 'eval1_eval2'
+  mode: 'eval1_eval2' | 'eval3' | 'capture_term' = 'eval1_eval2'
 ): Promise<{ imported: number }> {
   if (!entries.length) throw new Error('No valid entries to import');
   const { data, error } = await supabase().rpc('bulk_import_historical_evals', {
