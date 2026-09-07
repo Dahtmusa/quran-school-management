@@ -186,10 +186,10 @@ export default function Eval3ImportPage() {
 
     setImporting(true); setMessage(null);
     try {
-      const result = await bulkImportHistoricalEvals(batch, selectedTermId, 'eval3');
+      const result = await bulkImportHistoricalEvals(batch, selectedTermId, 'capture_term');
       // Refresh existing evals so edit indicators update
       loadEvaluations().then(ev => setExistingEvals(ev)).catch(() => {});
-      setMessage({ type: 'success', text: `Saved Eval 3 for ${result.imported} student${result.imported !== 1 ? 's' : ''}. Go to Reports to print report cards.` });
+      setMessage({ type: 'success', text: `Saved all 3 evaluations for ${result.imported} student${result.imported !== 1 ? 's' : ''}. Their profiles are updated and report cards are ready.` });
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message ?? 'Import failed. Try again.' });
     } finally {
@@ -210,9 +210,9 @@ export default function Eval3ImportPage() {
       <div className="bg-white border-b border-neutral-100 px-6 py-4 sticky top-0 z-10">
         <div className="max-w-[1200px] mx-auto flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-lg font-bold text-neutral-900">Evaluation 3 — Enter Results</h1>
+            <h1 className="text-lg font-bold text-neutral-900">Capture Student Positions — First Term</h1>
             <p className="text-xs text-neutral-500 mt-0.5">
-              Enter the final Quran position reached by each student at the end of Evaluation 3. Already-saved entries are pre-filled — edit and save again to correct them.
+              Enter each student's start-of-term position and where they are now. The system records all 3 evaluations as approved, updates each student's profile, and the position carries into next term automatically.
             </p>
           </div>
           <button onClick={() => router.push('/evaluations')} className="text-sm text-neutral-500 hover:text-neutral-800 transition-colors">
@@ -288,7 +288,7 @@ export default function Eval3ImportPage() {
             <div className="text-4xl mb-3">📖</div>
             <h2 className="text-base font-semibold text-neutral-800 mb-1">Select a term and class to begin</h2>
             <p className="text-sm text-neutral-500 max-w-lg mx-auto">
-              Choose a term and class above. If a student's Eval 3 is already saved it will be pre-filled — just correct any errors and click Save.
+              Choose a term and class above. For each student enter where they started this term and where they are now. Already-saved students are pre-filled — correct and save again to update.
             </p>
           </div>
         )}
@@ -307,9 +307,9 @@ export default function Eval3ImportPage() {
                   <th className="px-4 py-3 text-xs font-semibold text-neutral-500">#</th>
                   <th className="px-4 py-3 text-xs font-semibold text-neutral-500">Student</th>
                   <th className="px-3 py-3 text-xs font-semibold text-indigo-600 bg-indigo-50 text-center">Direction</th>
-                  <th className="px-3 py-3 text-xs font-semibold text-emerald-600 bg-emerald-50 text-center" colSpan={2}>Eval 3 Starts</th>
-                  <th className="px-3 py-3 text-xs font-semibold text-teal-600 bg-teal-50 text-center" colSpan={2}>Eval 3 End ✏️</th>
-                  <th className="px-3 py-3 text-xs font-semibold text-teal-500 text-center">Result</th>
+                  <th className="px-3 py-3 text-xs font-semibold text-emerald-600 bg-emerald-50 text-center" colSpan={2}>Start of Term ✏️</th>
+                  <th className="px-3 py-3 text-xs font-semibold text-teal-600 bg-teal-50 text-center" colSpan={2}>Current Position ✏️</th>
+                  <th className="px-3 py-3 text-xs font-semibold text-teal-500 text-center">Score</th>
                   <th className="px-3 py-3 text-xs font-semibold text-neutral-400 text-center">Status</th>
                 </tr>
               </thead>
