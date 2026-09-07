@@ -241,7 +241,7 @@ function SmsSettings() {
 
   const [settings, setSettings] = useState<Record<string, string>>({
     sms_enabled: 'false', sms_provider: 'termii', sms_api_key: '',
-    sms_sender_id: 'AMQM', sms_channel: 'generic',
+    sms_sender_id: 'AMQM', sms_channel: 'generic', sms_route: 'dnd',
     sms_account_sid: '', sms_auth_token: '', sms_username: '', sms_api_key_sid: '', sms_api_key_secret: '',
     morning_cutoff_time: '09:00',
   });
@@ -376,9 +376,16 @@ function SmsSettings() {
           <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder={provider === 'twilio' ? '+1234567890' : 'e.g. AMQM'} />
         </div>
 
-        {provider === 'bestbulksms' && (
+        {provider === 'bestbulksms' && (<>
           <div><label style={LS}>BestBulkSMS API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Paste your API key from bestbulksms.com.ng/app/user/developer" /></div>
-        )}
+          <div><label style={LS}>SMS Route</label>
+            <select value={settings.sms_route || 'dnd'} onChange={e => set('sms_route', e.target.value)} style={IS}>
+              <option value="dnd">DND Bypass (recommended — reaches all numbers)</option>
+              <option value="standard">Standard / Promotional (blocked by DND)</option>
+            </select>
+            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>Use DND Bypass for school attendance notifications — it reaches parents even if they registered for Do Not Disturb.</div>
+          </div>
+        </>)}
 
         {provider === 'smartsms' && (
           <div><label style={LS}>SmartSMSSolutions API Token</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Paste your token from smartsmssolutions.com/api" /></div>

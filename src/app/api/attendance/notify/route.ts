@@ -56,11 +56,11 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
   return json;
 }
 
-async function sendBestBulkSMS(apiKey: string, senderId: string, to: string, message: string) {
+async function sendBestBulkSMS(apiKey: string, senderId: string, to: string, message: string, route = 'dnd') {
   const res = await fetch('https://www.bestbulksms.com.ng/api/sms/send', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ sender_id: senderId || 'BESTBULKSMS', to: [to], message, route: 'standard' }),
+    body: JSON.stringify({ sender_id: senderId || 'BESTBULKSMS', to: [to], message, route }),
   });
   const text = await res.text();
   let json: Record<string, unknown> = {};
@@ -116,7 +116,8 @@ async function dispatchSms(settings: Record<string, unknown>, to: string, messag
     const username = stripQ(settings['sms_username']);
     await sendAfricasTalking(apiKey, username, senderId, to, message);
   } else if (provider === 'bestbulksms') {
-    await sendBestBulkSMS(apiKey, senderId, to, message);
+    const route = stripQ(settings['sms_route']) || 'dnd';
+    await sendBestBulkSMS(apiKey, senderId, to, message, route);
   } else if (provider === 'smartsms') {
     await sendSmartSMS(apiKey, senderId, to, message);
   } else if (provider === 'twilio') {
