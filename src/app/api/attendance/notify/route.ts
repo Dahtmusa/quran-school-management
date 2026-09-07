@@ -64,8 +64,9 @@ async function sendBestBulkSMS(apiKey: string, senderId: string, to: string, mes
   });
   const text = await res.text();
   let json: Record<string, unknown> = {};
-  try { json = JSON.parse(text); } catch { throw new Error(`BestBulkSMS error: ${text.slice(0, 120)}`); }
-  if (json.status !== 'success') throw new Error(String(json.message || json.error || 'BestBulkSMS error'));
+  try { json = JSON.parse(text); } catch { /* non-JSON response */ }
+  // Trust HTTP 200 as success; only throw on HTTP errors
+  if (!res.ok) throw new Error(String(json.message || json.error || text.slice(0, 120) || 'BestBulkSMS error'));
   return json;
 }
 
