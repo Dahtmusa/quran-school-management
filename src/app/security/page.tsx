@@ -94,7 +94,39 @@ export default function SecurityScanner() {
     if (isOnline && offlineQueue.length > 0) syncQueue();
   }, [isOnline]);
 
+  function beep(success: boolean) {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (success) {
+        // Two rising tones for success
+        [0, 0.15].forEach((delay, i) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.value = i === 0 ? 880 : 1100;
+          gain.gain.setValueAtTime(0.6, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+          osc.start(ctx.currentTime + delay);
+          osc.stop(ctx.currentTime + delay + 0.18);
+        });
+      } else {
+        // Single low buzz for failure
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.value = 220;
+        gain.gain.setValueAtTime(0.5, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.4);
+      }
+    } catch {}
+  }
+
   function showFlash(msg: string, ok = true) {
+    beep(ok);
     setFlash({ msg, ok });
     setTimeout(() => setFlash(null), 4000);
   }
