@@ -56,6 +56,19 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
   return json;
 }
 
+async function sendBestBulkSMS(apiKey: string, senderId: string, to: string, message: string) {
+  const res = await fetch('https://www.bestbulksms.com.ng/api/send.php', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({ sender_id: senderId || 'BESTBULKSMS', to: [to], message, route: 'standard' }),
+  });
+  const text = await res.text();
+  let json: Record<string, unknown> = {};
+  try { json = JSON.parse(text); } catch { throw new Error(`BestBulkSMS error: ${text.slice(0, 120)}`); }
+  if (json.status !== 'success') throw new Error(String(json.message || json.error || 'BestBulkSMS error'));
+  return json;
+}
+
 async function sendSmartSMS(apiKey: string, senderId: string, to: string, message: string) {
   const res = await fetch('https://www.smartsmssolutions.com/api/json.php', {
     method: 'POST',
@@ -101,6 +114,8 @@ async function dispatchSms(settings: Record<string, unknown>, to: string, messag
   } else if (provider === 'africas_talking') {
     const username = stripQ(settings['sms_username']);
     await sendAfricasTalking(apiKey, username, senderId, to, message);
+  } else if (provider === 'bestbulksms') {
+    await sendBestBulkSMS(apiKey, senderId, to, message);
   } else if (provider === 'smartsms') {
     await sendSmartSMS(apiKey, senderId, to, message);
   } else if (provider === 'twilio') {

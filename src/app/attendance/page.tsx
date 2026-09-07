@@ -231,7 +231,8 @@ type Tab = 'overview' | 'pending' | 'today' | 'reports' | 'settings';
 /* ── SMS Settings panel ── */
 function SmsSettings() {
   const PROVIDERS = [
-    { value: 'smartsms',        label: 'SmartSMSSolutions (cheapest for Nigeria)' },
+    { value: 'bestbulksms',     label: 'BestBulkSMS (Nigeria)' },
+    { value: 'smartsms',        label: 'SmartSMSSolutions' },
     { value: 'termii',          label: 'Termii' },
     { value: 'africas_talking', label: "Africa's Talking" },
     { value: 'twilio',          label: 'Twilio' },
