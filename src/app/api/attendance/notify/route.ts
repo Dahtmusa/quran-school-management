@@ -57,7 +57,7 @@ async function sendAfricasTalking(apiKey: string, username: string, senderId: st
 }
 
 async function sendBestBulkSMS(apiKey: string, senderId: string, to: string, message: string) {
-  const res = await fetch('https://www.bestbulksms.com.ng/api/send.php', {
+  const res = await fetch('https://www.bestbulksms.com.ng/api/sms/send', {
     method: 'POST',
     headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ sender_id: senderId || 'BESTBULKSMS', to: [to], message, route: 'standard' }),

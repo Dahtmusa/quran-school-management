@@ -376,6 +376,10 @@ function SmsSettings() {
           <input value={settings.sms_sender_id} onChange={e => set('sms_sender_id', e.target.value)} style={IS} placeholder={provider === 'twilio' ? '+1234567890' : 'e.g. AMQM'} />
         </div>
 
+        {provider === 'bestbulksms' && (
+          <div><label style={LS}>BestBulkSMS API Key</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Paste your API key from bestbulksms.com.ng/app/user/developer" /></div>
+        )}
+
         {provider === 'smartsms' && (
           <div><label style={LS}>SmartSMSSolutions API Token</label><input value={settings.sms_api_key} onChange={e => set('sms_api_key', e.target.value)} style={IS} type="password" autoComplete="off" placeholder="Paste your token from smartsmssolutions.com/api" /></div>
         )}
