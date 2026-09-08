@@ -25,88 +25,108 @@ function getStudentFee(structs: any[], termId: string | null, yearId: string | n
     || null;
 }
 
-function printReceipt(student: any, payment: any, bank: any, currency: string, schoolName: string) {
-  const w = window.open('', '_blank', 'width=520,height=750');
+function schoolHeader(logoUrl: string, schoolName: string, schoolAddress: string, badgeLabel: string, accentColor: string) {
+  return `<div class="top">
+    ${logoUrl ? `<img src="${logoUrl}" style="height:64px;max-width:180px;object-fit:contain;margin-bottom:8px;" alt="logo">` : ''}
+    <div class="school" style="color:${accentColor}">${schoolName || 'AMQM'}</div>
+    ${schoolAddress ? `<div class="sub">${schoolAddress}</div>` : ''}
+    <div class="badge" style="background:${accentColor}">${badgeLabel}</div>
+  </div>`;
+}
+
+function printReceipt(student: any, payment: any, bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+  const w = window.open('', '_blank', 'width=520,height=780');
   if (!w) return;
   const date = new Date(payment.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' });
   const refNo = String(payment.id || '').slice(-8).toUpperCase();
-  w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:30px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:16px;border-bottom:3px solid #062d2a;margin-bottom:16px}.school{font-size:15px;font-weight:800;color:#062d2a}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;background:#062d2a;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:9px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:14px;margin:16px 0}.al{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.av{font-size:28px;font-weight:900;color:#062d2a;margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:12px}td{padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:40%}td:last-child{font-weight:600}.st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:12px 0 5px}.footer{margin-top:16px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}@media print{body{padding:16px}}</style>
+  const accent = '#062d2a';
+  w.document.write(`<!DOCTYPE html><html><head><title>Receipt · ${student.name||student.full_name||''}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:30px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:16px;border-bottom:3px solid ${accent};margin-bottom:16px}.school{font-size:16px;font-weight:800;letter-spacing:-.01em}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:9px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:14px;margin:16px 0}.al{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.av{font-size:28px;font-weight:900;color:${accent};margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:12px}td{padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:40%}td:last-child{font-weight:600}.st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:12px 0 5px}.footer{margin-top:16px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}@media print{body{padding:16px}}</style>
   </head><body>
-  <div class="top"><div class="school">${schoolName||'AMQM'}</div><div class="sub">Aliyu and Maimuna Center for Qur'anic Memorization</div><div class="badge">PAYMENT RECEIPT</div></div>
+  ${schoolHeader(logoUrl, schoolName, schoolAddress, 'PAYMENT RECEIPT', accent)}
   <div class="ab"><div class="al">Amount Paid</div><div class="av">${currency} ${Number(payment.amount||0).toLocaleString()}</div></div>
   <div class="st">Receipt details</div>
   <table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${payment.method||'Cash'}</td></tr>${payment.reference?`<tr><td>Reference</td><td>${payment.reference}</td></tr>`:''}</table>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${student.section||'—'}</td></tr></table>
-  ${bank?.bank_name?`<div class="st">School bank</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}
-  <div class="footer"><div>Official AMQM payment receipt</div><div style="margin-top:4px">Printed ${new Date().toLocaleDateString('en-NG')}</div></div>
+  ${bank?.bank_name?`<div class="st">School bank account</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}
+  <div class="footer"><div>Official ${schoolName||'AMQM'} payment receipt · Keep for your records</div><div style="margin-top:4px">Printed ${new Date().toLocaleDateString('en-NG')}</div></div>
   <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
-function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, currency: string, schoolName: string) {
+function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
   if (!nextTerm) { alert('Could not determine next term. Set up terms in the school calendar first.'); return; }
   const sec = String(student.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
   const feeRow = getStudentFee(structs, nextTerm.id, nextTerm.academic_year_id, sec);
-  const feeAmount = Number(feeRow?.amount ?? 0);
-  const dueDate = feeRow?.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+  if (!feeRow) { alert(`No fee structure found for ${sec} students in ${tLabel(nextTerm)}. Please configure fee structures first.`); return; }
+  const feeAmount = Number(feeRow.amount);
+  const dueDate = feeRow.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
   const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
   const invoiceNo = `INV-${String(student.admissionNo||student.admission_no||'').toUpperCase()}-T${nextTerm.term_number||''}`;
-  const w = window.open('', '_blank', 'width=520,height=780');
+  const accent = '#062d2a';
+  const w = window.open('', '_blank', 'width=520,height=820');
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>Invoice · ${student.name||student.full_name}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:30px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:16px;border-bottom:3px solid #7c3500;margin-bottom:16px}.school{font-size:15px;font-weight:800;color:#7c3500}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;background:#7c3500;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:9px}.term-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;text-align:center;padding:10px;margin-bottom:14px;font-weight:700;font-size:13px}.ab{background:#fff7ed;border:2px solid #fdba74;border-radius:12px;text-align:center;padding:14px;margin:16px 0}.al{font-size:11px;color:#9a3412;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.av{font-size:28px;font-weight:900;color:#7c3500;margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:12px}td{padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:40%}td:last-child{font-weight:600}.st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:12px 0 5px}.ref-box{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;font-size:12px;color:#92400e;margin-top:8px}.footer{margin-top:16px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}@media print{body{padding:16px}}</style>
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:30px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:16px;border-bottom:3px solid ${accent};margin-bottom:16px}.school{font-size:16px;font-weight:800;letter-spacing:-.01em}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:9px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:8px;text-align:center;padding:10px;margin-bottom:14px;font-weight:700;font-size:13px;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:14px;margin:16px 0}.al{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.av{font-size:28px;font-weight:900;color:${accent};margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:12px}td{padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:40%}td:last-child{font-weight:600}.st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:12px 0 5px}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:10px;font-size:12px;color:#166534;margin-top:8px}.footer{margin-top:16px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}@media print{body{padding:16px}}</style>
   </head><body>
-  <div class="top"><div class="school">${schoolName||'AMQM'}</div><div class="sub">Aliyu and Maimuna Center for Qur'anic Memorization</div><div class="badge">NEXT TERM INVOICE</div></div>
+  ${schoolHeader(logoUrl, schoolName, schoolAddress, 'SCHOOL FEES INVOICE', accent)}
   <div class="term-box">For: ${nextTermName}</div>
   <div class="ab"><div class="al">Total Fees Due</div><div class="av">${currency} ${feeAmount.toLocaleString()}</div></div>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table>
   <div class="st">Invoice</div>
   <table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Due date</td><td>${dueDate}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG',{day:'2-digit',month:'long',year:'numeric'})}</td></tr></table>
-  ${bank?.bank_name?`<div class="st">Pay to</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}
+  ${bank?.bank_name?`<div class="st">Pay to</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td><b>${bank.account_number||'—'}</b></td></tr></table>`:''}
   <div class="ref-box"><b>Payment reference:</b> ${bank?.reference_instruction||`Use admission number ${student.admissionNo||student.admission_no||''} as payment reference`}</div>
-  <div class="footer">Official AMQM invoice · Keep this document for your records<br><span style="margin-top:4px;display:block">Printed ${new Date().toLocaleDateString('en-NG')}</span></div>
+  <div class="footer">Official ${schoolName||'AMQM'} fee invoice · Keep this document for your records<br><span style="margin-top:4px;display:block">Printed ${new Date().toLocaleDateString('en-NG')}</span></div>
   <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
-function bulkPrintReceipts(students: Student[], payments: any[], bank: any, currency: string, schoolName: string) {
+function bulkPrintReceipts(students: Student[], payments: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
   const w = window.open('', '_blank');
   if (!w) return;
+  const accent = '#062d2a';
+  const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
   const pages = students.map(s => {
     const p = payments.find((x: any) => x.student_id === s.id);
     if (!p) return '';
     const date = new Date(p.paid_on||Date.now()).toLocaleDateString('en-NG',{day:'2-digit',month:'long',year:'numeric'});
     const refNo = String(p.id||'').slice(-8).toUpperCase();
-    return `<div class="page"><div class="top"><div class="school">${schoolName||'AMQM'}</div><div class="badge">PAYMENT RECEIPT</div></div><div class="ab"><div class="al">Amount Paid</div><div class="av">${currency} ${Number(p.amount||0).toLocaleString()}</div></div><table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${p.method||'Cash'}</td></tr>${p.reference?`<tr><td>Ref</td><td>${p.reference}</td></tr>`:''}</table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${s.section||'—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account</td><td>${bank.account_number||'—'}</td></tr></table>`:''}</div>`;
+    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">PAYMENT RECEIPT</div></div><div class="ab"><div class="al">Amount Paid</div><div class="av">${currency} ${Number(p.amount||0).toLocaleString()}</div></div><table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${p.method||'Cash'}</td></tr>${p.reference?`<tr><td>Ref</td><td>${p.reference}</td></tr>`:''}</table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${s.section||'—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account</td><td>${bank.account_number||'—'}</td></tr></table>`:''}</div>`;
   }).filter(Boolean);
   if (!pages.length) { w.close(); alert('No payment records found for this class.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Receipts</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid #062d2a;margin-bottom:14px}.school{font-size:14px;font-weight:800;color:#062d2a}.badge{display:inline-block;background:#062d2a;color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:#062d2a;margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Receipts</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
-function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], bank: any, currency: string, schoolName: string) {
+function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
   const nextTerm = findNextTerm(currentTerm, terms);
   if (!nextTerm) { alert('Could not determine next term. Set up terms in school calendar first.'); return; }
   const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
+  const accent = '#062d2a';
+  const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
   const w = window.open('', '_blank');
   if (!w) return;
   const pages = students.map(s => {
     const sec = String(s.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
     const feeRow = getStudentFee(structs, nextTerm.id, nextTerm.academic_year_id, sec);
-    const feeAmount = Number(feeRow?.amount??0);
+    if (!feeRow) return '';
+    const feeAmount = Number(feeRow.amount);
     const invoiceNo = `INV-${String(s.admissionNo||'').toUpperCase()}-T${nextTerm.term_number||''}`;
-    return `<div class="page"><div class="top"><div class="school">${schoolName||'AMQM'}</div><div class="badge">NEXT TERM INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Fees Due</div><div class="av">${currency} ${feeAmount.toLocaleString()}</div></div><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG')}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
-  });
-  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid #7c3500;margin-bottom:14px}.school{font-size:14px;font-weight:800;color:#7c3500}.badge{display:inline-block;background:#7c3500;color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700}.ab{background:#fff7ed;border:2px solid #fdba74;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#9a3412;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:#7c3500;margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:8px;font-size:11px;color:#92400e;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
+    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Fees Due</div><div class="av">${currency} ${feeAmount.toLocaleString()}</div></div><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG')}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td><b>${bank.account_number||'—'}</b></td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
+  }).filter(Boolean);
+  if (!pages.length) { w.close(); alert('No fee structures configured for the next term yet.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;font-size:11px;color:#166534;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
 
 export default function Fees() {
   const [currency, setCurrency] = useState('₦');
   const [schoolName, setSchoolName] = useState('AMQM');
+  const [schoolAddress, setSchoolAddress] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
   const [structures, setStructures] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({ fees: [], payments: [] });
@@ -125,8 +145,8 @@ export default function Fees() {
   const [payRef, setPayRef] = useState('');
   const [paying, setPaying] = useState(false);
 
-  const [showFeeConfig, setShowFeeConfig] = useState(false);
-  const [showBankConfig, setShowBankConfig] = useState(false);
+  const [showFeeConfig, setShowFeeConfig] = useState(true);
+  const [showBankConfig, setShowBankConfig] = useState(true);
   // Simplified combined fee form: one row = both day + boarding amounts
   const [feeForm, setFeeForm] = useState({ academicYearId: '', termId: '', dayAmount: '', boardingAmount: '', dueDate: '' });
 
@@ -144,6 +164,8 @@ export default function Fees() {
     for (const r of siteMeta) meta[r.key] = r.value;
     setCurrency(meta.currency?.symbol || meta.currency?.code || '₦');
     setSchoolName(meta.school_name?.value || cms.school_name?.value || 'AMQM');
+    setLogoUrl(meta.logo_url?.value || '');
+    setSchoolAddress(meta.contact?.address || '');
     if (!selectedTermId && cur?.term_id) setSelectedTermId(cur.term_id);
   }
 
@@ -209,7 +231,7 @@ export default function Fees() {
       const payment = await recordPayment({ studentId: payTarget.id, termId: selectedTermId, amount: Number(payAmount), method: payMethod, reference: payRef || undefined });
       await refresh();
       setPayTarget(null);
-      printReceipt(payTarget, payment, bank, currency, schoolName);
+      printReceipt(payTarget, payment, bank, currency, schoolName, logoUrl, schoolAddress);
     } catch (e: any) { setMessage(e?.message || 'Payment failed'); }
     finally { setPaying(false); }
   }
@@ -222,7 +244,7 @@ export default function Fees() {
     try {
       const payment = await recordPayment({ studentId: s.id, termId: selectedTermId, amount: bal, method: 'Cash' });
       await refresh();
-      printReceipt(s, payment, bank, currency, schoolName);
+      printReceipt(s, payment, bank, currency, schoolName, logoUrl, schoolAddress);
     } catch (e: any) { setMessage(e?.message || 'Failed to record payment'); }
   }
 
@@ -288,6 +310,18 @@ export default function Fees() {
       <div className="space-y-5">
         {message && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800 cursor-pointer" onClick={() => setMessage('')}>{message} ×</div>}
 
+        {/* Fee structures warning — shown when no fee set for selected term */}
+        {selectedTermId && termFees.length === 0 && structures.length > 0 && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            <b>No fees configured for this term.</b> Existing fee structures below do not match the selected term. Review and configure fees for this term, or delete outdated structures.
+          </div>
+        )}
+        {selectedTermId && structures.length === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+            No fee structures have been set up yet. Use the <b>Fee structures</b> section below to configure day and boarding fees for this term.
+          </div>
+        )}
+
         {/* Controls */}
         <section className="card p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -350,13 +384,13 @@ export default function Fees() {
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <span className="text-xs font-bold text-slate-600 mr-2">{classFilter} — bulk print:</span>
             <button
-              onClick={() => bulkPrintReceipts(byClass.filter(hasPaid), summary.payments, bank, currency, schoolName)}
+              onClick={() => bulkPrintReceipts(byClass.filter(hasPaid), summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)}
               className="btn bg-white border border-emerald-200 text-emerald-800 text-sm py-2 px-4 hover:bg-emerald-50"
             >
               All receipts for class
             </button>
             <button
-              onClick={() => bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName)}
+              onClick={() => bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress)}
               className="btn bg-white border border-amber-200 text-amber-800 text-sm py-2 px-4 hover:bg-amber-50"
             >
               All invoices for class
@@ -427,13 +461,13 @@ export default function Fees() {
                             {st === 'full' ? '+ Pay' : 'Pay'}
                           </button>
                           {hasPaid(s) && (
-                            <button onClick={() => printReceipt(s, summary.payments.find((p: any) => p.student_id === s.id), bank, currency, schoolName)} className="btn bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs py-1.5 px-3">
+                            <button onClick={() => printReceipt(s, summary.payments.find((p: any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs py-1.5 px-3">
                               Receipt
                             </button>
                           )}
-                          <button onClick={() => printInvoice(s, nextTerm, structures, bank, currency, schoolName)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
+                          {nextTerm && <button onClick={() => printInvoice(s, nextTerm, structures, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
                             Invoice
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>
@@ -517,24 +551,48 @@ export default function Fees() {
           )}
         </section>
 
-        {/* Bank config */}
-        <section className="card overflow-hidden">
-          <button className="flex w-full items-center justify-between p-5 text-left hover:bg-slate-50" onClick={() => setShowBankConfig(x => !x)}>
+        {/* Bank & payment account — always visible */}
+        <section className="overflow-hidden rounded-2xl border-2 border-emerald-200 bg-white shadow-sm">
+          <button className="flex w-full items-center justify-between bg-emerald-50 p-5 text-left" onClick={() => setShowBankConfig(x => !x)}>
             <div>
-              <div className="font-black">Bank & payment account</div>
-              <div className="text-xs text-slate-500">Printed on receipts and invoices</div>
+              <div className="font-black text-emerald-900">School Bank Account Details</div>
+              <div className="text-xs text-emerald-700 mt-0.5">These appear on all receipts and invoices given to parents</div>
             </div>
-            <span className="text-slate-400 text-sm">{showBankConfig ? '▲' : '▼'}</span>
+            <span className="text-emerald-600 text-sm font-bold">{showBankConfig ? '▲ Hide' : '▼ Show'}</span>
           </button>
           {showBankConfig && (
-            <div className="border-t p-5">
+            <div className="p-5">
+              {!bank.bank_name && (
+                <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 font-semibold">
+                  Bank details not yet configured. Fill in the fields below and click Save — parents will see this on invoices and receipts.
+                </div>
+              )}
               <div className="grid gap-3 md:grid-cols-2">
-                <input className="input" placeholder="Bank name" value={bank.bank_name || ''} onChange={e => setBank({ ...bank, bank_name: e.target.value })} />
-                <input className="input" placeholder="Account name" value={bank.account_name || ''} onChange={e => setBank({ ...bank, account_name: e.target.value })} />
-                <input className="input" placeholder="Account number" value={bank.account_number || ''} onChange={e => setBank({ ...bank, account_number: e.target.value })} />
-                <input className="input" placeholder="Payment reference instruction (printed on invoice)" value={bank.reference_instruction || ''} onChange={e => setBank({ ...bank, reference_instruction: e.target.value })} />
+                <label className="block text-xs font-bold text-slate-600">
+                  Bank name
+                  <input className="input mt-1 w-full" placeholder="e.g. First Bank of Nigeria" value={bank.bank_name || ''} onChange={e => setBank({ ...bank, bank_name: e.target.value })} />
+                </label>
+                <label className="block text-xs font-bold text-slate-600">
+                  Account name
+                  <input className="input mt-1 w-full" placeholder="e.g. AMQM School Fees Account" value={bank.account_name || ''} onChange={e => setBank({ ...bank, account_name: e.target.value })} />
+                </label>
+                <label className="block text-xs font-bold text-slate-600">
+                  Account number
+                  <input className="input mt-1 w-full font-mono" placeholder="e.g. 0123456789" value={bank.account_number || ''} onChange={e => setBank({ ...bank, account_number: e.target.value })} />
+                </label>
+                <label className="block text-xs font-bold text-slate-600">
+                  Payment reference instruction <span className="font-normal text-slate-400">(optional)</span>
+                  <input className="input mt-1 w-full" placeholder="e.g. Use student admission number as reference" value={bank.reference_instruction || ''} onChange={e => setBank({ ...bank, reference_instruction: e.target.value })} />
+                </label>
               </div>
-              <button className="btn btn-primary mt-4" disabled={busy} onClick={saveBank}>Save bank details</button>
+              <button className="btn btn-primary mt-4" disabled={busy} onClick={saveBank}>
+                {bank.bank_name ? 'Update bank details' : 'Save bank details'}
+              </button>
+              {bank.bank_name && (
+                <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-xs text-emerald-800">
+                  Saved: <b>{bank.bank_name}</b> · {bank.account_name} · Acc: {bank.account_number}
+                </div>
+              )}
             </div>
           )}
         </section>
