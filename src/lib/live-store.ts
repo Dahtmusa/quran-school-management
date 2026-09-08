@@ -302,6 +302,7 @@ export async function loadTeacherDirectory() {
     section:r.section === 'boarding' ? 'Boarding' : 'Day', year:r.program_year === 'year_2' ? 'Year 2' : 'Year 1',
     status:r.status, photoUrl:r.photo_url, start:{surah:r.start_surah,ayah:r.start_ayah},
     current:{surah:r.current_surah,ayah:r.current_ayah,page:r.current_page,hizb:r.current_hizb},
+    direction:r.memorization_direction === 'nas_to_baqarah' ? 'Nas-to-Baqarah' : 'Baqarah-to-Nas',
     className:r.class_name, classId:r.class_id,
     parent:{name:r.parent_name,phone:r.parent_phone,relationship:r.parent_relationship},
   }));

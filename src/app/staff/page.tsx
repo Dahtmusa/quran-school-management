@@ -43,6 +43,7 @@ export default function StaffPage(){
 
  /* ── signatures tab ── */
  const [sigRows,setSigRows]=useState<StaffSignatureRow[]>([]);
+ const [sigLoading,setSigLoading]=useState(false);
  const [sigBusy,setSigBusy]=useState<string|null>(null); // staff_id being acted on
  const [sigPreview,setSigPreview]=useState<StaffSignatureRow|null>(null);
 
@@ -150,7 +151,7 @@ export default function StaffPage(){
 
    {/* Tabs */}
    <div className="flex gap-1 rounded-2xl border bg-slate-50 p-1">
-     {(['teaching','leadership','accounts','signatures'] as const).map(t=><button key={t} onClick={()=>{setTab(t);if(t==='signatures')loadStaffSignaturesAdmin().then(setSigRows);}} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':t==='accounts'?'Accounts & Access':'Signatures'}</button>)}
+     {(['teaching','leadership','accounts','signatures'] as const).map(t=><button key={t} onClick={()=>{setTab(t);if(t==='signatures'){setSigLoading(true);loadStaffSignaturesAdmin().then(r=>{setSigRows(r);setSigLoading(false);});}}} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':t==='accounts'?'Accounts & Access':'Signatures'}</button>)}
    </div>
 
    {/* ── TEACHING STAFF ── */}
@@ -308,10 +309,11 @@ export default function StaffPage(){
           <h2 className="font-black text-slate-900">Staff Signature Status</h2>
           <p className="text-xs text-slate-500 mt-0.5">Staff add their own signatures from Edit Profile in their account. Admin can view and clear them here.</p>
         </div>
-        <button className="btn bg-slate-100 text-sm" onClick={()=>loadStaffSignaturesAdmin().then(setSigRows)}>Refresh</button>
+        <button className="btn bg-slate-100 text-sm" onClick={()=>{setSigLoading(true);loadStaffSignaturesAdmin().then(r=>{setSigRows(r);setSigLoading(false);});}}>Refresh</button>
       </div>
-      {sigRows.length===0&&<div className="p-8 text-center text-sm text-slate-400">Loading signatures…</div>}
-      {sigRows.length>0&&<div className="divide-y">
+      {sigLoading&&<div className="p-8 text-center text-sm text-slate-400">Loading signatures…</div>}
+      {!sigLoading&&sigRows.length===0&&<div className="p-8 text-center text-sm text-slate-400">No staff signatures on record yet.</div>}
+      {!sigLoading&&sigRows.length>0&&<div className="divide-y">
         {sigRows.map(r=><div key={r.staff_id} className="flex items-center gap-4 px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="font-black text-sm text-slate-900 truncate">{r.full_name}</div>
