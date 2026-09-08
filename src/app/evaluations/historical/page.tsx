@@ -169,12 +169,15 @@ export default function Eval3ImportPage() {
       if (!e) continue;
       const m = getMetrics(student, e);
       if (!m.valid) continue;
+      const dir = (e.direction || student.direction) as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
       const start = { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah };
+
+      // SQL derives eval1/eval2 from eval3 — send only start + eval3 data
       batch.push({
         studentId: student.id,
         startSurah: start.surah, startAyah: start.ayah,
         eval3Surah: e.eval3Surah, eval3Ayah: e.eval3Ayah,
-        eval3: m,
+        eval3: { ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs, score: m.score, rubric: m.rubric, grade: m.grade },
         direction: e.direction || student.direction,
       });
     }
@@ -215,7 +218,7 @@ export default function Eval3ImportPage() {
               Enter each student's start-of-term position and where they are now. The system records all 3 evaluations as approved, updates each student's profile, and the position carries into next term automatically.
             </p>
           </div>
-          <button onClick={() => router.push('/evaluations')} className="text-sm text-neutral-500 hover:text-neutral-800 transition-colors">
+          <button onClick={() => router.push('/evaluations')} className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg px-4 py-2 transition-colors">
             ← Back to Evaluations
           </button>
         </div>

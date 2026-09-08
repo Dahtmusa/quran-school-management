@@ -4,7 +4,7 @@ import QuranProgress from '@/components/QuranProgress';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { Student } from '@/lib/data';
-import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, type LiveClass } from '@/lib/live-store';
+import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
@@ -31,6 +31,21 @@ export default function Students(){
  const [showCreate,setShowCreate]=useState(false),[saving,setSaving]=useState(false),[message,setMessage]=useState(''),[photoFile,setPhotoFile]=useState<File|null>(null);
  const [activeTab,setActiveTab]=useState<'academic'|'personal'|'contacts'>('academic');
  const [form,setForm]=useState({admissionNo:'',fullName:'',dateOfBirth:'',gender:'',section:'day',programYear:'year_1',direction:'baqarah_to_nas',startSurah:'2',startAyah:'1',classId:'',photoUrl:''});
+
+ /* ── page tab ── */
+ const [pageTab,setPageTab]=useState<'active'|'removed'|'duplicates'>('active');
+
+ /* ── removed students ── */
+ const [removed,setRemoved]=useState<RemovedStudent[]>([]);
+ const [removedLoaded,setRemovedLoaded]=useState(false);
+ const [reinstating,setReinstating]=useState<string|null>(null);
+
+ /* ── removal modal ── */
+ const [removeTarget,setRemoveTarget]=useState<Student|null>(null);
+ const [removeStatus,setRemoveStatus]=useState<'suspended'|'expelled'|'withdrawn'>('suspended');
+ const [removeReason,setRemoveReason]=useState('');
+ const [removeNotes,setRemoveNotes]=useState('');
+ const [removeBusy,setRemoveBusy]=useState(false);
 
  async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null)}
  useEffect(()=>{refresh()},[]);
@@ -78,13 +93,66 @@ export default function Students(){
 
  function openEdit(s:Student){setEdit(s);loadStudentExtended(s.id).then(d=>setEditExt(d||blankExt));}
 
+ function openRemovedTab(){
+   setPageTab('removed');
+   if(!removedLoaded){loadRemovedStudents().then(r=>{setRemoved(r);setRemovedLoaded(true);});}
+ }
+
+ async function confirmRemove(){
+   if(!removeTarget||!removeReason.trim())return;
+   setRemoveBusy(true);
+   try{
+     await removeStudent(removeTarget.id,removeStatus,removeReason.trim(),removeNotes.trim()||undefined);
+     await refresh();
+     setRemoved([]);setRemovedLoaded(false);
+     setRemoveTarget(null);setRemoveReason('');setRemoveNotes('');
+     setMessage(`${removeTarget.name} has been ${removeStatus}.`);
+   }catch(e:any){setMessage(e?.message??'Failed to remove student.');}
+   finally{setRemoveBusy(false);}
+ }
+
+ async function reinstate(id:string,name:string){
+   if(!confirm(`Reinstate ${name} as an active student?`))return;
+   setReinstating(id);
+   try{
+     await reinstateStudent(id);
+     setRemoved(r=>r.filter(s=>s.id!==id));
+     await refresh();
+     setMessage(`${name} has been reinstated.`);
+   }catch(e:any){setMessage(e?.message??'Failed to reinstate student.');}
+   finally{setReinstating(null);}
+ }
+
+ /* Duplicate detection — client-side: group by normalised name, show groups with 2+ */
+ const duplicateGroups=useMemo(()=>{
+   const groups:Record<string,Student[]>={};
+   for(const s of all){
+     const key=s.name.trim().toLowerCase();
+     if(!groups[key])groups[key]=[];
+     groups[key].push(s);
+   }
+   return Object.values(groups).filter(g=>g.length>1);
+ },[all]);
+
  return <AdminShell title="Students"><div className="space-y-4">
-  {message&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">{message}</div>}
+  {message&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 cursor-pointer" onClick={()=>setMessage('')}>{message} <span className="float-right text-emerald-600">✕</span></div>}
   <div className="card overflow-hidden">
-   <div className="flex flex-col gap-3 border-b p-5 md:flex-row md:items-center md:justify-between">
-     <div><h2 className="font-bold">Student Directory</h2><p className="text-xs text-slate-500">Admin can create, edit, place and manage students.</p></div>
-     <button className="btn btn-primary" onClick={()=>setShowCreate(true)}>+ Add Student</button>
+   {/* ── Page tabs ── */}
+   <div className="flex items-center justify-between border-b px-5 pt-4">
+     <div className="flex gap-1">
+       {(['active','removed','duplicates'] as const).map(t=>(
+         <button key={t} onClick={()=>t==='removed'?openRemovedTab():setPageTab(t)}
+           className={`rounded-lg px-4 py-2 text-sm font-bold capitalize transition-colors ${pageTab===t?'bg-emerald-700 text-white':'text-slate-500 hover:bg-slate-100'}`}>
+           {t==='active'?`Active (${all.length})`:t==='removed'?`Removed (${removed.length}${!removedLoaded?'…':''})`:
+             `Duplicates${duplicateGroups.length?` (${duplicateGroups.length})`:''}`}
+         </button>
+       ))}
+     </div>
+     {pageTab==='active'&&<button className="btn btn-primary" onClick={()=>setShowCreate(true)}>+ Add Student</button>}
    </div>
+
+   {/* ── Active students tab ── */}
+   {pageTab==='active'&&<>
    <div className="flex flex-wrap gap-3 border-b p-4">
      <input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search student..." className="rounded-lg border px-3 py-2 text-sm md:w-64"/>
      <select value={section} onChange={e=>setSection(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
@@ -110,8 +178,67 @@ export default function Students(){
      <td><MemorizationBadge direction={s.direction}/></td>
      <td className="text-sm">{s.attendance}%</td>
      <td className={s.fees?'font-bold text-rose-600 text-sm':'text-emerald-600 text-sm'}>{s.fees?'₦'+s.fees.toLocaleString():'Paid'}</td>
-     <td className="pr-4"><div className="flex gap-2"><button onClick={()=>setSelected(s)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">Profile</button><button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button></div></td>
+     <td className="pr-4"><div className="flex gap-2">
+       <button onClick={()=>setSelected(s)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">Profile</button>
+       <button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button>
+       <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('suspended');setRemoveReason('');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove</button>
+     </div></td>
    </tr>)}</tbody></table></div>
+   {filtered.length===0&&<div className="p-8 text-center text-sm text-slate-400">No active students found.</div>}
+   </>}
+
+   {/* ── Removed students tab ── */}
+   {pageTab==='removed'&&<>
+   {!removedLoaded&&<div className="p-8 text-center text-sm text-slate-400">Loading…</div>}
+   {removedLoaded&&removed.length===0&&<div className="p-8 text-center text-sm text-slate-400">No removed students on record.</div>}
+   {removedLoaded&&removed.length>0&&<div className="overflow-x-auto"><table className="w-full text-left text-sm">
+     <thead className="bg-slate-50 text-xs uppercase"><tr><th className="p-4">Student</th><th>Status</th><th>Reason</th><th>Removed by</th><th>Date</th><th></th></tr></thead>
+     <tbody>{removed.map(s=>(
+       <tr key={s.id} className="border-t">
+         <td className="p-4"><div className="flex items-center gap-3">
+           {s.photo_url?<img src={s.photo_url} alt={s.full_name} className="h-10 w-10 rounded-full object-cover"/>:<div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 font-black text-rose-700">{s.full_name.slice(0,1)}</div>}
+           <div><b>{s.full_name}</b><div className="text-xs text-slate-500">{s.admission_no}</div></div>
+         </div></td>
+         <td><span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold ${s.status==='expelled'?'bg-rose-100 text-rose-800':s.status==='suspended'?'bg-amber-100 text-amber-800':'bg-slate-100 text-slate-700'}`}>{s.status}</span></td>
+         <td className="max-w-xs text-xs text-slate-600"><div className="font-semibold">{s.removal_reason||'—'}</div>{s.removal_notes&&<div className="mt-0.5 text-slate-400 line-clamp-2">{s.removal_notes}</div>}</td>
+         <td className="text-xs text-slate-500">{s.removed_by_name||'—'}</td>
+         <td className="text-xs text-slate-500 whitespace-nowrap">{s.removed_at?new Date(s.removed_at).toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
+         <td className="pr-4"><button onClick={()=>reinstate(s.id,s.full_name)} disabled={reinstating===s.id} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">{reinstating===s.id?'…':'Reinstate'}</button></td>
+       </tr>
+     ))}</tbody>
+   </table></div>}
+   </>}
+
+   {/* ── Duplicates tab ── */}
+   {pageTab==='duplicates'&&<>
+   {duplicateGroups.length===0&&<div className="p-8 text-center text-sm text-slate-400">No duplicate names found. All student names are unique.</div>}
+   {duplicateGroups.length>0&&<>
+   <div className="border-b bg-amber-50 px-5 py-3 text-sm text-amber-800"><b>{duplicateGroups.length} duplicate name group{duplicateGroups.length!==1?'s':''} found.</b> Review each group and edit or remove the incorrect record.</div>
+   <div className="divide-y">
+   {duplicateGroups.map((group,gi)=>(
+     <div key={gi} className="p-5">
+       <div className="mb-2 text-xs font-black uppercase tracking-wide text-amber-700">⚠ Duplicate — {group.length} records with same name</div>
+       <div className="overflow-x-auto"><table className="w-full text-left text-sm">
+         <thead className="text-xs text-slate-400 uppercase"><tr><th className="pb-2">Student</th><th>Section</th><th>Class</th><th>Year</th><th></th></tr></thead>
+         <tbody>{group.map(s=>(
+           <tr key={s.id} className="border-t">
+             <td className="py-3 pr-4"><div className="flex items-center gap-3">{s.photoUrl?<img src={s.photoUrl} alt={s.name} className="h-9 w-9 rounded-full object-cover"/>:<div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 font-black text-amber-700">{s.name.slice(0,1)}</div>}<div><b>{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo}</div></div></div></td>
+             <td><SectionBadge section={s.section}/></td>
+             <td className="text-xs">{s.className??'Unassigned'}</td>
+             <td className="text-xs">{s.year}</td>
+             <td><div className="flex gap-2">
+               <button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button>
+               <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('withdrawn');setRemoveReason('Duplicate record');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove duplicate</button>
+             </div></td>
+           </tr>
+         ))}</tbody>
+       </table></div>
+     </div>
+   ))}
+   </div>
+   </>}
+   </>}
+
   </div>
  </div>
 
@@ -177,6 +304,7 @@ export default function Students(){
    <div className="flex flex-wrap gap-2 border-t p-4">
      <button onClick={()=>printStudentId(selected)} className="btn bg-amber-50 text-amber-900">Print ID card</button>
      <button onClick={()=>{openEdit(selected);setSelected(null);}} className="btn btn-primary">Edit profile</button>
+     <button onClick={()=>{setRemoveTarget(selected);setRemoveStatus('suspended');setRemoveReason('');setRemoveNotes('');setSelected(null);}} className="btn bg-rose-50 text-rose-700">Remove student</button>
      <button onClick={()=>setSelected(null)} className="btn bg-slate-100">Close</button>
    </div>
  </div></div>}
@@ -254,6 +382,36 @@ export default function Students(){
      <button className="btn btn-primary" disabled={saving} onClick={saveStudent}>{saving?'Saving...':'Save changes'}</button>
    </div>
  </div></div>}
+
+ {/* REMOVE STUDENT MODAL */}
+ {removeTarget&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+   <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+     <div className="flex items-center justify-between border-b p-5">
+       <div><h2 className="text-xl font-black text-rose-700">Remove Student</h2><p className="text-sm text-slate-500">{removeTarget.name} · {removeTarget.admissionNo}</p></div>
+       <button onClick={()=>setRemoveTarget(null)} className="rounded-xl bg-slate-100 p-2">✕</button>
+     </div>
+     <div className="space-y-4 p-5">
+       <div className="rounded-xl bg-rose-50 p-3 text-xs text-rose-700 font-semibold">The student's full record will be preserved. You can reinstate them at any time from the Removed tab.</div>
+       <label className="block text-sm font-semibold">Status
+         <select className="input mt-1 w-full" value={removeStatus} onChange={e=>setRemoveStatus(e.target.value as any)}>
+           <option value="suspended">Suspended — temporary, pending review</option>
+           <option value="expelled">Expelled — permanent dismissal</option>
+           <option value="withdrawn">Withdrawn — left voluntarily / family decision</option>
+         </select>
+       </label>
+       <label className="block text-sm font-semibold">Reason <span className="text-rose-600">*</span>
+         <input className="input mt-1 w-full" placeholder="e.g. Serious disciplinary violation" value={removeReason} onChange={e=>setRemoveReason(e.target.value)}/>
+       </label>
+       <label className="block text-sm font-semibold">Additional notes <span className="text-xs font-normal text-slate-400">(optional)</span>
+         <textarea className="input mt-1 w-full resize-none" rows={3} placeholder="Any extra context for the record…" value={removeNotes} onChange={e=>setRemoveNotes(e.target.value)}/>
+       </label>
+     </div>
+     <div className="flex justify-end gap-2 border-t p-4">
+       <button className="btn bg-slate-100" onClick={()=>setRemoveTarget(null)}>Cancel</button>
+       <button className="btn bg-rose-600 text-white hover:bg-rose-700" disabled={removeBusy||!removeReason.trim()} onClick={confirmRemove}>{removeBusy?'Removing…':`Confirm — ${removeStatus}`}</button>
+     </div>
+   </div>
+ </div>}
 
  {/* CREATE MODAL */}
  {showCreate&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">

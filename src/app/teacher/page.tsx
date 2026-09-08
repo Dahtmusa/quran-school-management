@@ -2,10 +2,11 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature } from '@/lib/live-store';
+import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string; };
 
@@ -30,12 +31,19 @@ export default function TeacherDashboard() {
   const [expandedEval, setExpandedEval] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, EvalForm>>({});
   const [studentSearch, setStudentSearch] = useState('');
+  const [mySig, setMySig] = useState<any|null>(null);
+  const [sigBusy, setSigBusy] = useState(false);
+  const [sigMsg, setSigMsg] = useState('');
+  const sigPadRef = useRef<SignaturePadRef|null>(null);
 
   const refresh = async () => {
     const [s, e] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
     setStudents(s); setEvaluations(e);
   };
   useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
+  useEffect(() => {
+    getMySignature().then(s => setMySig(s.signature_data ? s : null));
+  }, []);
 
   useEffect(() => {
     const active = evaluations.filter(e => e.status === 'draft' || e.status === 'returned');
@@ -411,7 +419,28 @@ export default function TeacherDashboard() {
         <label className="btn bg-slate-100">Change photo<input hidden type="file" accept="image/*" onChange={e => uploadPhoto(e.target.files?.[0] || null)} /></label>
       </div>
       <label className="mt-5 block text-sm font-semibold">Phone number<input className="input mt-1 w-full" placeholder="+234 xxx xxx xxxx" value={me?.phone || ''} onChange={e => setMe((x: any) => ({ ...x, phone: e.target.value }))} /></label>
-      <button disabled={busy} onClick={async () => { setBusy(true); try { await updateOwnProfile({ phone: me?.phone || null }); setMessage('Phone updated.'); setProfileOpen(false); } catch (e: any) { setMessage(e?.message || 'Unable to update phone'); } finally { setBusy(false); } }} className="btn btn-primary mt-4 w-full">Save</button>
+      <button disabled={busy} onClick={async () => { setBusy(true); try { await updateOwnProfile({ phone: me?.phone || null }); setMessage('Phone updated.'); } catch (e: any) { setMessage(e?.message || 'Unable to update phone'); } finally { setBusy(false); } }} className="btn btn-primary mt-4 w-full">Save Profile</button>
+      <div className="mt-6 border-t pt-5">
+        <div className="text-sm font-black text-slate-700">Add Signature</div>
+        <p className="mt-1 text-xs text-slate-400">Appears on the report cards of all students in your class.</p>
+        {sigMsg && <div className="mt-2 rounded-lg bg-teal-50 p-2 text-xs font-semibold text-teal-800">{sigMsg}</div>}
+        {mySig && <div className="mt-3"><div className="text-xs font-bold text-emerald-700 mb-1">✓ Signature on file</div><img src={(mySig as any).signature_data} alt="signature" className="h-14 w-full rounded-xl border border-slate-200 bg-white object-contain p-1"/><p className="mt-2 text-xs text-slate-400">Draw below to replace:</p></div>}
+        {!mySig && <p className="mt-3 text-xs text-slate-400">No signature yet. Draw below to add one:</p>}
+        <div className="mt-2"><SignaturePad ref={el => { sigPadRef.current = el; }} height={110}/></div>
+        <button className="btn btn-primary mt-3 w-full" disabled={sigBusy} onClick={async () => {
+          const pad = sigPadRef.current;
+          if (!pad || pad.isEmpty()) { setSigMsg('Please draw your signature first.'); return; }
+          const data = pad.getDataURL(); if (!data) return;
+          setSigBusy(true);
+          try {
+            await saveMySignature(data);
+            const s = await getMySignature();
+            setMySig(s.signature_data ? s : null);
+            pad.clear(); setSigMsg('Signature saved.');
+          } catch (err: any) { setSigMsg(err?.message || 'Failed to save.'); }
+          finally { setSigBusy(false); }
+        }}>{sigBusy ? 'Saving…' : 'Save Signature'}</button>
+      </div>
     </Modal>}
   </div></AdminShell>;
 }

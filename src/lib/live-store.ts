@@ -450,3 +450,77 @@ export async function bulkImportHistoricalEvals(
   if (error) throw error;
   return { imported: (data as any)?.imported ?? 0 };
 }
+
+// ── Centralized staff signature system ────────────────────────────────────────
+
+export async function saveMySignature(signatureData: string): Promise<void> {
+  const { error } = await supabase().rpc('save_my_signature', { p_signature_data: signatureData });
+  if (error) throw error;
+}
+
+export async function getMySignature(): Promise<{ signature_data: string | null; signature_updated_at: string | null }> {
+  const { data, error } = await supabase().rpc('get_my_signature');
+  if (error || !data || !(data as any[]).length) return { signature_data: null, signature_updated_at: null };
+  return (data as any[])[0];
+}
+
+export type StaffSignatureRow = {
+  staff_id: string; full_name: string; role: string;
+  job_title: string | null; department: string | null; staff_id_no: string | null;
+  has_signature: boolean; signature_data: string | null; signature_updated_at: string | null;
+};
+
+export async function loadStaffSignaturesAdmin(): Promise<StaffSignatureRow[]> {
+  const { data, error } = await supabase().rpc('load_staff_signatures_admin');
+  if (error || !data) return [];
+  return data as StaffSignatureRow[];
+}
+
+export async function adminClearStaffSignature(staffId: string): Promise<void> {
+  const { error } = await supabase().rpc('admin_clear_staff_signature', { p_staff_id: staffId });
+  if (error) throw error;
+}
+
+export type ReportCardSig = { signer_name: string; signature_data: string };
+export type ReportCardSignatures = {
+  teachers: Record<string, ReportCardSig>;
+  supervisor: ReportCardSig | null;
+  director: ReportCardSig | null;
+};
+
+export async function loadSignaturesForReportCards(): Promise<ReportCardSignatures> {
+  const { data, error } = await supabase().rpc('load_signatures_for_report_cards');
+  if (error || !data) return { teachers: {}, supervisor: null, director: null };
+  return data as ReportCardSignatures;
+}
+
+// ── Student removal system ─────────────────────────────────────────────────
+
+export type RemovedStudent = {
+  id: string; admission_no: string; full_name: string; photo_url: string | null;
+  gender: string | null; section: string; program_year: string;
+  class_name: string | null; status: string;
+  removal_reason: string | null; removal_notes: string | null;
+  removed_at: string | null; removed_by_name: string | null;
+};
+
+export async function loadRemovedStudents(): Promise<RemovedStudent[]> {
+  const { data, error } = await supabase().rpc('admin_get_removed_students');
+  if (error || !data) return [];
+  return data as RemovedStudent[];
+}
+
+export async function removeStudent(
+  studentId: string, status: 'suspended' | 'expelled' | 'withdrawn',
+  reason: string, notes?: string
+): Promise<void> {
+  const { error } = await supabase().rpc('admin_remove_student', {
+    p_student_id: studentId, p_status: status, p_reason: reason, p_notes: notes ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function reinstateStudent(studentId: string): Promise<void> {
+  const { error } = await supabase().rpc('admin_reinstate_student', { p_student_id: studentId });
+  if (error) throw error;
+}

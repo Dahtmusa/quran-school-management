@@ -3,12 +3,12 @@ import { loadCMSSettings } from '@/lib/cms-live-store';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm, loadSignaturesForReportCards, type ReportCardSignatures } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
-function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any) {
+function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, signatures: ReportCardSignatures = { teachers: {}, supervisor: null, director: null }) {
   const readyStudents = students.filter(s => s.ready);
   if (!readyStudents.length) { alert('No students have all 3 evaluations approved yet.'); return; }
   const termLabel = `${term?.academic_years?.name || ''} · ${term?.name || ''}`;
@@ -78,6 +78,23 @@ function bulkPrintReportCards(students: any[], term: any, terms: any[], settings
           <div class="hifz-stat"><span class="hs-val">Hizb ${hizb}</span><span class="hs-lbl">Current Hizb</span></div>
         </div>
       </div>
+      ${(() => {
+        const classSig = s.classId ? signatures.teachers[s.classId] : null;
+        const supSig = signatures.supervisor;
+        const dirSig = signatures.director;
+        const sigBoxes = [
+          { label: 'Class Teacher', sig: classSig },
+          { label: 'School Supervisor', sig: supSig },
+          { label: 'School Director', sig: dirSig },
+        ];
+        return `<div class="sig-row">
+          ${sigBoxes.map(({ label: lbl, sig }) => `<div class="sig-box">
+            <div class="sig-area">${sig?.signature_data ? `<img src="${sig.signature_data}" class="sig-img"/>` : ''}</div>
+            <div class="sig-name">${sig?.signer_name || ''}</div>
+            <div class="sig-label">${lbl}</div>
+          </div>`).join('')}
+        </div>`;
+      })()}
     </div>`;
   });
 
@@ -113,6 +130,12 @@ function bulkPrintReportCards(students: any[], term: any, terms: any[], settings
     .hifz-stat{background:rgba(255,255,255,.08);border-radius:8px;padding:8px;text-align:center}
     .hs-val{display:block;font-size:15px;font-weight:900;color:#fff}
     .hs-lbl{display:block;font-size:9px;color:#a7f3d0;margin-top:2px;text-transform:uppercase;letter-spacing:.08em}
+    .sig-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+    .sig-box{text-align:center}
+    .sig-area{height:64px;border-bottom:1.5px solid #cbd5e1;display:flex;align-items:flex-end;justify-content:center;margin-bottom:4px}
+    .sig-img{max-height:60px;max-width:100%;object-fit:contain}
+    .sig-name{font-size:9px;font-weight:700;color:#062d2a}
+    .sig-label{font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:20px 24px;gap:12px}}
   </style>
   </head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
@@ -131,6 +154,7 @@ export default function Reports(){
  const [selected,setSelected]=useState<any|null>(null);
  const [role,setRole]=useState('');
  const [classFilter,setClassFilter]=useState('');
+ const [signatures,setSignatures]=useState<ReportCardSignatures>({teachers:{},supervisor:null,director:null});
 
  const refresh=async()=>{
    const p=await getCurrentProfile();
@@ -139,6 +163,7 @@ export default function Reports(){
    if(!termId)setTermId(cur?.term_id||t[0]?.id||'');
  };
  useEffect(()=>{refresh()},[]);
+ useEffect(()=>{loadSignaturesForReportCards().then(setSignatures);},[]);
 
  const term=terms.find(t=>t.id===termId);
  const termName=term?.name||'Term';
@@ -175,7 +200,7 @@ export default function Reports(){
     <div className="flex flex-wrap gap-2 items-center">
       <span className={`pill ${isComplete?'bg-emerald-50 text-emerald-700':'bg-amber-50 text-amber-800'}`}>{isComplete?'Term completed':'Term in progress'}</span>
       {role!=='parent'&&<button className="btn btn-primary" disabled={!termId||busy||isComplete} onClick={markComplete}>{isComplete?'Completed':'Mark term complete'}</button>}
-      {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings)}>Print all reports ({ready.length})</button>}
+      {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings,signatures)}>Print all reports ({ready.length})</button>}
     </div>
   </div></section>
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={filtered.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,filtered.length-ready.length)}/><Kpi label="Approved evaluations" value={filtered.reduce((n,s)=>n+s.approved,0)}/></div>

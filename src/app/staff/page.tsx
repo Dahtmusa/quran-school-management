@@ -1,7 +1,7 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
-import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPassword, loadClasses, uploadProfileImage, type LiveClass } from '@/lib/live-store';
+import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPassword, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
@@ -13,7 +13,7 @@ const STATUS_OPTS=['active','inactive','suspended','left'];
 const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0,qualifications:'',experience:'',subjects:''};
 
 export default function StaffPage(){
- const [tab,setTab]=useState<'teaching'|'leadership'|'accounts'>('teaching');
+ const [tab,setTab]=useState<'teaching'|'leadership'|'accounts'|'signatures'>('teaching');
  const [staff,setStaff]=useState<StaffProfile[]>([]);
  const [classes,setClasses]=useState<LiveClass[]>([]);
  const [team,setTeam]=useState<TeamProfile[]>([]);
@@ -40,6 +40,11 @@ export default function StaffPage(){
  /* ── account role edit ── */
  const [editA,setEditA]=useState<StaffProfile|null>(null);
  const [showGrantAdmin,setShowGrantAdmin]=useState(false);
+
+ /* ── signatures tab ── */
+ const [sigRows,setSigRows]=useState<StaffSignatureRow[]>([]);
+ const [sigBusy,setSigBusy]=useState<string|null>(null); // staff_id being acted on
+ const [sigPreview,setSigPreview]=useState<StaffSignatureRow|null>(null);
 
  const refresh=async()=>{
    const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
@@ -145,7 +150,7 @@ export default function StaffPage(){
 
    {/* Tabs */}
    <div className="flex gap-1 rounded-2xl border bg-slate-50 p-1">
-     {(['teaching','leadership','accounts'] as const).map(t=><button key={t} onClick={()=>setTab(t)} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':'Accounts & Access'}</button>)}
+     {(['teaching','leadership','accounts','signatures'] as const).map(t=><button key={t} onClick={()=>{setTab(t);if(t==='signatures')loadStaffSignaturesAdmin().then(setSigRows);}} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':t==='accounts'?'Accounts & Access':'Signatures'}</button>)}
    </div>
 
    {/* ── TEACHING STAFF ── */}
@@ -295,6 +300,58 @@ export default function StaffPage(){
      </>;
    })()}
 
+  {/* ── SIGNATURES TAB ── */}
+  {tab==='signatures'&&<div className="space-y-4">
+    <div className="card overflow-hidden">
+      <div className="border-b p-5 flex items-center justify-between">
+        <div>
+          <h2 className="font-black text-slate-900">Staff Signature Status</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Staff add their own signatures from Edit Profile in their account. Admin can view and clear them here.</p>
+        </div>
+        <button className="btn bg-slate-100 text-sm" onClick={()=>loadStaffSignaturesAdmin().then(setSigRows)}>Refresh</button>
+      </div>
+      {sigRows.length===0&&<div className="p-8 text-center text-sm text-slate-400">Loading signatures…</div>}
+      {sigRows.length>0&&<div className="divide-y">
+        {sigRows.map(r=><div key={r.staff_id} className="flex items-center gap-4 px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="font-black text-sm text-slate-900 truncate">{r.full_name}</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {r.role.replace('_',' ')}
+              {r.job_title?` · ${r.job_title}`:''}
+              {r.staff_id_no?` · ${r.staff_id_no}`:''}
+            </div>
+          </div>
+          {r.has_signature
+            ?<span className="pill bg-emerald-50 text-emerald-700 text-[10px] font-black shrink-0">✓ Signed</span>
+            :<span className="pill bg-amber-50 text-amber-700 text-[10px] font-black shrink-0">⚠ No signature</span>}
+          {r.has_signature&&r.signature_data&&<button
+            className="btn bg-slate-100 text-xs py-1 px-3 shrink-0"
+            onClick={()=>setSigPreview(r)}>Preview</button>}
+          {r.has_signature&&<button
+            className="btn text-xs py-1 px-3 bg-rose-50 text-rose-700 shrink-0"
+            disabled={sigBusy===r.staff_id}
+            onClick={async()=>{
+              if(!confirm(`Remove ${r.full_name}'s signature? They will need to re-add it.`))return;
+              setSigBusy(r.staff_id);
+              try{await adminClearStaffSignature(r.staff_id);setSigRows(prev=>prev.map(x=>x.staff_id===r.staff_id?{...x,has_signature:false,signature_data:null,signature_updated_at:null}:x));}
+              catch(e:any){setMessage(e?.message||'Failed to remove signature.');}
+              finally{setSigBusy(null);}
+            }}>{sigBusy===r.staff_id?'Removing…':'Remove'}</button>}
+        </div>)}
+      </div>}
+    </div>
+  </div>}
+
+  {/* ── SIGNATURE PREVIEW MODAL ── */}
+  {sigPreview&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+    <div className="flex items-center justify-between mb-4"><h3 className="font-black">{sigPreview.full_name}</h3><button className="btn bg-slate-100" onClick={()=>setSigPreview(null)}>Close</button></div>
+    <p className="text-xs text-slate-500 mb-3">{sigPreview.role.replace('_',' ')}{sigPreview.job_title?` · ${sigPreview.job_title}`:''}</p>
+    <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-4 flex items-center justify-center min-h-[100px]">
+      {sigPreview.signature_data&&<img src={sigPreview.signature_data} alt="signature" className="max-h-24 max-w-full object-contain"/>}
+    </div>
+    {sigPreview.signature_updated_at&&<p className="mt-3 text-xs text-slate-400 text-center">Added {new Date(sigPreview.signature_updated_at).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</p>}
+  </div></div>}
+
   </div>
 
   {/* ── EDIT TEACHER MODAL ── */}
@@ -406,6 +463,11 @@ export default function StaffPage(){
            )}
          </div>);
        })()}
+     </div>
+     <div className="p-5 rounded-xl bg-slate-50 mx-5 mb-2 text-xs text-slate-500">
+       <span className="font-bold text-slate-700">Signature: </span>
+       Staff members add their own signature by logging into their account and opening <strong>Edit Profile</strong>.
+       Admin can view and manage all signatures in the <strong>Signatures</strong> tab.
      </div>
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Visibility</div>
