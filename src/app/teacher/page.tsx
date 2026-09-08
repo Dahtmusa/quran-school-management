@@ -139,22 +139,27 @@ export default function TeacherDashboard() {
     });
   }, [histOpen]);
 
-  // Initialise entry state when students or selected term changes
+  // Initialise entry state when students, term, or evaluations change
+  // Always syncs from existing DB eval3 data so teacher sees same records as admin
   useEffect(() => {
     if (!histTermId || !students.length) return;
-    setHistEntries(prev => {
+    setHistEntries(() => {
       const next: Record<string, HistEntry> = {};
       for (const s of students) {
-        next[s.id] = prev[s.id] ?? {
-          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
-          startAyah:  s.start?.ayah  || 1,
-          endSurah: 0, endAyah: 0,
+        const ex = (evaluations as any[]).find(
+          (e: any) => e.student_id === s.id && e.term_id === histTermId && e.evaluation_number === 3
+        );
+        next[s.id] = {
+          startSurah: ex ? Number(ex.from_surah) : (s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114)),
+          startAyah:  ex ? Number(ex.from_ayah)  : (s.start?.ayah  || 1),
+          endSurah:   ex ? Number(ex.to_surah)   : 0,
+          endAyah:    ex ? Number(ex.to_ayah)    : 0,
           direction: s.direction || 'Baqarah-to-Nas',
         };
       }
       return next;
     });
-  }, [histTermId, students.length]);
+  }, [histTermId, students.length, evaluations]);
 
   const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
 

@@ -383,7 +383,11 @@ export default function Eval3ImportPage() {
                       {/* Status */}
                       <td className="px-3 py-2 text-center">
                         {alreadySaved ? (
-                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-100">Saved ✓</span>
+                          existingEval3Map[student.id]?.status === 'Approved' ? (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-100">✓ Approved</span>
+                          ) : (
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">⏳ Pending Review</span>
+                          )
                         ) : (
                           <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-400">Not saved</span>
                         )}
