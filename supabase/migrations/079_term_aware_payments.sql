@@ -151,7 +151,7 @@ BEGIN
     'bank',         COALESCE((SELECT value FROM public.site_settings WHERE key = 'school_payment'), '{}'::jsonb),
     'currency',     COALESCE((SELECT value->>'symbol' FROM public.site_settings WHERE key = 'currency'), '₦'),
     'school_name',  COALESCE((SELECT value->>'value'  FROM public.site_settings WHERE key = 'school_name'),    'AMQM'),
-    'school_address', COALESCE((SELECT value->>'value' FROM public.site_settings WHERE key = 'school_address'), '')
+    'school_address', COALESCE((SELECT value->>'address' FROM public.site_settings WHERE key = 'contact'), '')
   );
 END $$;
 
