@@ -3,9 +3,10 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadStudents, loadEvaluations, getCurrentProfile } from '@/lib/live-store';
-import { loadFinanceSummary } from '@/lib/admin-management-store';
+import { loadStudents, loadEvaluations, getCurrentProfile, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { loadParentFeeSummary } from '@/lib/admin-management-store';
 import { loadChildAttendance, AttendanceRecord } from '@/lib/attendance-store';
+import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -16,14 +17,13 @@ export default function ParentPortal() {
   const [selectedChild, setSelectedChild] = useState<string | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [expandedEval, setExpandedEval] = useState<string | null>(null);
-  const [payments, setPayments] = useState<any[]>([]);
-  const [fees, setFees] = useState<any[]>([]);
+  const [feeSummary, setFeeSummary] = useState<any>(null);
+  const [currentTermId, setCurrentTermId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadStudents(), loadEvaluations(), getCurrentProfile(), loadFinanceSummary()]).then(([s, e, profile, finance]) => {
+    Promise.all([loadStudents(), loadEvaluations(), getCurrentProfile(), loadCurrentAcademicTerm()]).then(([s, e, profile, term]) => {
       setStudents(s); setEvals(e); setMe(profile);
-      setPayments(finance?.payments || []);
-      setFees(finance?.fees || []);
+      if (term?.term_id) setCurrentTermId(term.term_id);
       if (s.length > 0) setSelectedChild(s[0].id);
     });
   }, []);
@@ -31,6 +31,21 @@ export default function ParentPortal() {
   useEffect(() => {
     if (!selectedChild) return;
     loadChildAttendance(selectedChild, 30).then(setAttendanceRecords);
+    loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
+  }, [selectedChild]);
+
+  // Real-time: refresh fee summary when payments or student_fees change
+  useEffect(() => {
+    if (!selectedChild) return;
+    const ch = createClient().channel('parent-fees-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
+        loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, () => {
+        loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
+      })
+      .subscribe();
+    return () => { createClient().removeChannel(ch); };
   }, [selectedChild]);
 
   const child = useMemo(() => students.find(s => s.id === selectedChild) || students[0], [students, selectedChild]);
@@ -47,6 +62,10 @@ export default function ParentPortal() {
 
   function printReceipt(payment: any, student: Student | undefined) {
     if (!student) return;
+    const bank = feeSummary?.bank || {};
+    const currency = feeSummary?.currency || '₦';
+    const schoolName = feeSummary?.school_name || 'AMQM';
+    const schoolAddress = feeSummary?.school_address || '';
     const w = window.open('', '_blank', 'width=520,height=700');
     if (!w) return;
     const date = new Date(payment.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -54,13 +73,14 @@ export default function ParentPortal() {
     w.document.write(`<!DOCTYPE html><html><head><title>Receipt</title>
     <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:32px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:20px;border-bottom:3px solid #062d2a;margin-bottom:20px}.school{font-size:15px;font-weight:800;color:#062d2a}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;background:#062d2a;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:10px}.amount-box{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:16px;margin:20px 0}.amount-label{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.amount-value{font-size:28px;font-weight:900;color:#062d2a;margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:16px}td{padding:7px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:45%}td:last-child{font-weight:600}.section-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:16px 0 6px}.footer{margin-top:20px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:14px}</style>
     </head><body>
-    <div class="top"><div class="school">AMQM</div><div class="sub">Aliyu and Maimuna Center for Qur'anic Memorization</div><div class="badge">PAYMENT RECEIPT</div></div>
-    <div class="amount-box"><div class="amount-label">Amount Paid</div><div class="amount-value">₦${Number(payment.amount || 0).toLocaleString()}</div></div>
+    <div class="top"><div class="school">${schoolName}</div>${schoolAddress ? `<div class="sub">${schoolAddress}</div>` : ''}<div class="badge">PAYMENT RECEIPT</div></div>
+    <div class="amount-box"><div class="amount-label">Amount Paid</div><div class="amount-value">${currency} ${Number(payment.amount || 0).toLocaleString()}</div></div>
     <div class="section-title">Receipt details</div>
     <table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${payment.method || 'Cash'}</td></tr>${payment.reference ? `<tr><td>Reference</td><td>${payment.reference}</td></tr>` : ''}</table>
     <div class="section-title">Student</div>
     <table><tr><td>Name</td><td>${student.name}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo || '—'}</td></tr><tr><td>Class</td><td>${student.className || '—'}</td></tr></table>
-    <div class="footer"><div>Official AMQM payment receipt</div><div style="margin-top:4px">Printed on ${new Date().toLocaleDateString('en-NG')}</div></div>
+    ${bank.bank_name ? `<div class="section-title">School bank account</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name || '—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number || '—'}</td></tr></table>` : ''}
+    <div class="footer"><div>Official ${schoolName} payment receipt</div><div style="margin-top:4px">Printed on ${new Date().toLocaleDateString('en-NG')}</div></div>
     <script>window.onload=()=>window.print();<\/script></body></html>`);
     w.document.close();
   }
@@ -175,39 +195,130 @@ export default function ParentPortal() {
     </div>
 
     {/* Fees & Payments */}
-    {(() => {
-      const childPayments = payments.filter(p => p.student_id === child?.id);
-      const childFees = fees.filter(f => f.student_id === child?.id);
-      const totalDue = childFees.reduce((s, f) => s + Number(f.amount_due || 0), 0);
-      const totalPaid = childFees.reduce((s, f) => s + Number(f.amount_paid || 0), 0);
-      const balance = Math.max(0, totalDue - totalPaid);
+    {feeSummary && (() => {
+      const currency = feeSummary.currency || '₦';
+      const bank = feeSummary.bank || {};
+      const schoolName = feeSummary.school_name || 'AMQM';
+      const schoolAddress = feeSummary.school_address || '';
+
+      // Current-term fees
+      const termFees: any[] = (feeSummary.fees || []).filter((f: any) =>
+        f.term_id === currentTermId || (!f.term_id && f.year_is_current)
+      );
+      const currentDue = termFees.reduce((s: number, f: any) => s + Number(f.amount_due || 0), 0);
+      const currentPaid = termFees.reduce((s: number, f: any) => s + Number(f.amount_paid || 0), 0);
+      const currentBalance = Math.max(0, currentDue - currentPaid);
+
+      // Outstanding from previous terms
+      const prevFees: any[] = (feeSummary.fees || []).filter((f: any) =>
+        f.term_id !== currentTermId && !(f.term_id === null && f.year_is_current)
+      );
+      const prevBalance = prevFees.reduce((s: number, f: any) => s + Math.max(0, Number(f.amount_due || 0) - Number(f.amount_paid || 0)), 0);
+
+      // Next term fees (find fee structure for next term_number)
+      const currentTermNum = termFees[0]?.term_number || null;
+      const feeStructures: any[] = feeSummary.fee_structures || [];
+      const nextTermFee = currentTermNum
+        ? feeStructures.find((fs: any) => fs.year_is_current && fs.term_number === currentTermNum + 1)
+          || feeStructures.find((fs: any) => !fs.year_is_current && fs.term_number === 1)
+        : null;
+
+      const childPayments: any[] = feeSummary.payments || [];
+
+      const tLabel = (num: number) => num === 1 ? 'First Term' : num === 2 ? 'Second Term' : num === 3 ? 'Third Term' : `Term ${num}`;
+
       return (
-        <section className="card overflow-hidden">
-          <div className="border-b p-5">
-            <h2 className="text-lg font-black">Fees & Payments</h2>
-            {totalDue > 0 && (
-              <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                <div><span className="text-slate-400 text-xs">Due:</span> <span className="font-bold">₦{totalDue.toLocaleString()}</span></div>
-                <div><span className="text-slate-400 text-xs">Paid:</span> <span className="font-bold text-emerald-700">₦{totalPaid.toLocaleString()}</span></div>
-                {balance > 0 && <div><span className="text-slate-400 text-xs">Balance:</span> <span className="font-bold text-rose-600">₦{balance.toLocaleString()}</span></div>}
-              </div>
-            )}
-          </div>
-          <div className="divide-y">
-            {childPayments.length === 0 && (
-              <div className="p-8 text-center text-sm text-slate-400">No payment records on file yet.</div>
-            )}
-            {childPayments.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between gap-4 p-4">
-                <div>
-                  <div className="font-semibold">₦{Number(p.amount).toLocaleString()}</div>
-                  <div className="mt-0.5 text-xs text-slate-400">{new Date(p.paid_on).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })} · {p.method || 'Cash'}{p.reference ? ` · ${p.reference}` : ''}</div>
+        <>
+          {/* Current term fee overview */}
+          <section className="card overflow-hidden">
+            <div className="border-b p-5">
+              <h2 className="text-lg font-black">School Fees</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {termFees.length > 0
+                  ? `${tLabel(currentTermNum)} · ${termFees[0]?.year_name || ''}`
+                  : 'Current term fees'}
+              </p>
+            </div>
+            {currentDue > 0 ? (
+              <div className="grid grid-cols-3 divide-x border-b">
+                <div className="p-4 text-center">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Total Due</div>
+                  <div className="mt-1 text-xl font-black">{currency} {currentDue.toLocaleString()}</div>
                 </div>
-                <button onClick={() => printReceipt(p, child)} className="btn bg-emerald-50 text-emerald-800 text-xs py-1.5 px-3 shrink-0">Print receipt</button>
+                <div className="p-4 text-center">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Paid</div>
+                  <div className="mt-1 text-xl font-black text-emerald-700">{currency} {currentPaid.toLocaleString()}</div>
+                </div>
+                <div className="p-4 text-center">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Balance</div>
+                  <div className={`mt-1 text-xl font-black ${currentBalance > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                    {currentBalance > 0 ? `${currency} ${currentBalance.toLocaleString()}` : 'Cleared'}
+                  </div>
+                </div>
               </div>
-            ))}
-          </div>
-        </section>
+            ) : (
+              <div className="p-6 text-center text-sm text-slate-400">No fee allocation for the current term yet.</div>
+            )}
+
+            {/* Outstanding from previous terms */}
+            {prevBalance > 0 && (
+              <div className="border-b bg-rose-50 px-5 py-3 flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-rose-800">Outstanding from previous terms</div>
+                <div className="font-black text-rose-700">{currency} {prevBalance.toLocaleString()}</div>
+              </div>
+            )}
+
+            {/* Bank details for payment */}
+            {bank.bank_name && (
+              <div className="border-b bg-slate-50 p-5">
+                <div className="mb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Pay to this account</div>
+                <div className="space-y-1 text-sm">
+                  <div className="flex gap-3"><span className="w-28 text-slate-400">Bank</span><span className="font-semibold">{bank.bank_name}</span></div>
+                  {bank.account_name && <div className="flex gap-3"><span className="w-28 text-slate-400">Account name</span><span className="font-semibold">{bank.account_name}</span></div>}
+                  {bank.account_number && <div className="flex gap-3"><span className="w-28 text-slate-400">Account No.</span><span className="font-black font-mono text-[#062d2a]">{bank.account_number}</span></div>}
+                  {bank.reference_instruction && <div className="mt-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">{bank.reference_instruction}</div>}
+                </div>
+              </div>
+            )}
+
+            {/* Next term fees */}
+            {nextTermFee && (
+              <div className="border-b bg-amber-50 px-5 py-4 flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-wider text-amber-700">Next Term Fee</div>
+                  <div className="text-sm font-semibold text-amber-900">{tLabel(nextTermFee.term_number)} {nextTermFee.year_name}</div>
+                  {nextTermFee.due_date && <div className="text-xs text-amber-700 mt-0.5">Due: {new Date(nextTermFee.due_date).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' })}</div>}
+                </div>
+                <div className="text-xl font-black text-amber-800">{currency} {Number(nextTermFee.amount).toLocaleString()}</div>
+              </div>
+            )}
+
+            {/* Payment history */}
+            <div className="border-t">
+              <div className="px-5 pt-4 pb-2 text-[10px] font-black uppercase tracking-wider text-slate-400">Payment history</div>
+              {childPayments.length === 0 && (
+                <div className="p-6 text-center text-sm text-slate-400">No payment records on file yet.</div>
+              )}
+              <div className="divide-y">
+                {childPayments.map((p: any) => (
+                  <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-3">
+                    <div>
+                      <div className="font-semibold">{currency} {Number(p.amount).toLocaleString()}</div>
+                      <div className="mt-0.5 text-xs text-slate-400">
+                        {new Date(p.paid_on).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {' · '}{p.method || 'Cash'}
+                        {p.reference ? ` · ${p.reference}` : ''}
+                      </div>
+                    </div>
+                    <button onClick={() => printReceipt(p, child)} className="btn bg-emerald-50 text-emerald-800 text-xs py-1.5 px-3 shrink-0 border border-emerald-100">
+                      Print receipt
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
       );
     })()}
     {/* Attendance section */}

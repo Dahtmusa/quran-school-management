@@ -94,28 +94,34 @@ export async function createFeeStructure(input: { academicYearId: string; termId
   return data;
 }
 
-export async function recordPayment(input: { studentId: string; amount: number; method?: string; reference?: string; notes?: string }) {
+export async function recordPayment(input: { studentId: string; termId: string; amount: number; method?: string; reference?: string; notes?: string }) {
   const client = db();
-  const { data, error } = await client.from('payments').insert({
-    student_id: input.studentId,
-    amount: input.amount,
-    method: input.method || null,
-    reference: input.reference || null,
-    notes: input.notes || null,
-  }).select().single();
+  const { data: paymentId, error } = await client.rpc('admin_record_payment', {
+    p_student_id: input.studentId,
+    p_term_id: input.termId,
+    p_amount: input.amount,
+    p_method: input.method || 'Cash',
+    p_reference: input.reference || null,
+    p_notes: input.notes || null,
+  });
   if (error) throw error;
-  const { data: feeRows } = await client.from('student_fees').select('id,amount_due,amount_paid').eq('student_id', input.studentId);
-  let remaining = input.amount;
-  for (const fee of feeRows || []) {
-    if (remaining <= 0) break;
-    const balance = Math.max(0, Number(fee.amount_due) - Number(fee.amount_paid));
-    const applied = Math.min(balance, remaining);
-    if (applied > 0) {
-      await client.from('student_fees').update({ amount_paid: Number(fee.amount_paid) + applied }).eq('id', fee.id);
-      remaining -= applied;
-    }
-  }
-  return data;
+  const { data: payment, error: fetchError } = await client.from('payments').select('*').eq('id', paymentId).single();
+  if (fetchError) throw fetchError;
+  return payment;
+}
+
+export async function loadParentFeeSummary(studentId: string) {
+  const { data, error } = await db().rpc('parent_get_fee_summary', { p_student_id: studentId });
+  if (error) throw error;
+  return data as {
+    fees: any[];
+    payments: any[];
+    fee_structures: any[];
+    bank: any;
+    currency: string;
+    school_name: string;
+    school_address: string;
+  };
 }
 
 export async function loadProgramSetup() {

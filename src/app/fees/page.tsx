@@ -203,15 +203,27 @@ export default function Fees() {
   }
 
   async function submitPay() {
-    if (!payTarget || !payAmount) return;
+    if (!payTarget || !payAmount || !selectedTermId) return;
     setPaying(true);
     try {
-      const payment = await recordPayment({ studentId: payTarget.id, amount: Number(payAmount), method: payMethod, reference: payRef || undefined });
+      const payment = await recordPayment({ studentId: payTarget.id, termId: selectedTermId, amount: Number(payAmount), method: payMethod, reference: payRef || undefined });
       await refresh();
       setPayTarget(null);
       printReceipt(payTarget, payment, bank, currency, schoolName);
     } catch (e: any) { setMessage(e?.message || 'Payment failed'); }
     finally { setPaying(false); }
+  }
+
+  async function markFullyPaid(s: Student) {
+    const v = byStudent.get(s.id) || { due: 0, paid: 0 };
+    const bal = Math.max(0, v.due - v.paid);
+    if (bal <= 0 || !selectedTermId) return;
+    if (!confirm(`Mark ${s.name} as fully paid?\nAmount: ${currency} ${bal.toLocaleString()}`)) return;
+    try {
+      const payment = await recordPayment({ studentId: s.id, termId: selectedTermId, amount: bal, method: 'Cash' });
+      await refresh();
+      printReceipt(s, payment, bank, currency, schoolName);
+    } catch (e: any) { setMessage(e?.message || 'Failed to record payment'); }
   }
 
   const hasPaid = (s: Student) => summary.payments.some((p: any) => p.student_id === s.id);
@@ -406,6 +418,11 @@ export default function Fees() {
                       <td><span className={`pill ${pillCls(st)}`}>{pillLabel(st)}</span></td>
                       <td className="pr-3">
                         <div className="flex justify-end gap-1.5 flex-wrap">
+                          {st !== 'full' && bal > 0 && (
+                            <button onClick={() => markFullyPaid(s)} className="btn bg-emerald-600 text-white text-xs py-1.5 px-3 hover:bg-emerald-700">
+                              ✓ Mark Paid
+                            </button>
+                          )}
                           <button onClick={() => openPay(s)} className="btn btn-primary text-xs py-1.5 px-3">
                             {st === 'full' ? '+ Pay' : 'Pay'}
                           </button>
