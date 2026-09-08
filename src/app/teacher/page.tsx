@@ -249,6 +249,159 @@ export default function TeacherDashboard() {
       <StatCard label={activeEvals.length ? `${doneCount}/${activeEvals.length} done` : 'No active eval'} value={returnedCount>0?`${returnedCount} returned`:(activeEvals.length?`${Math.round((doneCount/activeEvals.length)*100)}%`:'—')} color={returnedCount>0?'rose':'amber'} label2={returnedCount>0?'Returned evals':activeEvals.length?'Progress':'Evaluations'}/>
     </div>
 
+    {/* ── Historical Records — pinned near the top so it's easy to find ── */}
+    <section className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-sm">
+      <button
+        onClick={() => setHistOpen(o => !o)}
+        className="flex w-full items-center justify-between bg-amber-50 p-5 text-left hover:bg-amber-100 transition-colors"
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-base font-black text-amber-900">📋 Historical Records — First Term Setup</span>
+            <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800">Temporary</span>
+          </div>
+          <p className="mt-1 text-xs text-amber-700/80">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
+        </div>
+        <span className="ml-4 shrink-0 text-amber-500 font-bold text-sm">{histOpen ? '▲ Hide' : '▼ Open'}</span>
+      </button>
+
+      {histOpen && <>
+        {/* Controls */}
+        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-xs font-semibold text-slate-600">Term
+              <select value={histTermId} onChange={e => setHistTermId(e.target.value)}
+                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">Select term…</option>
+                {histTerms.map((t: any) => (
+                  <option key={t.id} value={t.id}>{t.name}{t.academic_years?.is_current ? ' (current)' : ''}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
+              <input type="number" min={1} max={200} value={histTargetPages}
+                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
+                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            </label>
+            {histTermId && histReadyCount > 0 && (
+              <button onClick={submitAllHist} disabled={histSubmitting.size > 0}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">
+                {histSubmitting.size > 0 ? 'Submitting…' : `Submit all ${histReadyCount} ready`}
+              </button>
+            )}
+          </div>
+          {histMsg && <div className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
+        </div>
+
+        {/* Student table */}
+        {!histTermId && <div className="p-8 text-center text-sm text-slate-400">Select a term above to begin.</div>}
+        {histTermId && students.length === 0 && <div className="p-8 text-center text-sm text-slate-400">No students are assigned to your account.</div>}
+        {histTermId && students.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-t border-amber-100 bg-amber-50 text-xs uppercase text-amber-700">
+                <tr>
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Student</th>
+                  <th className="px-3 py-3 text-center">Direction</th>
+                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
+                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
+                  <th className="px-3 py-3 text-center">Score</th>
+                  <th className="px-3 py-3 text-center">Status</th>
+                  <th className="px-3 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s, idx) => {
+                  const e = histEntries[s.id];
+                  if (!e) return null;
+                  const m = computeHistMetrics(e, histTargetPages);
+                  const existing = getHistEval3(s.id);
+                  const isBusy = histSubmitting.has(s.id);
+                  const maxEndAyah = surahMap[e.endSurah]?.ayahs ?? 286;
+                  const maxStartAyah = surahMap[e.startSurah]?.ayahs ?? 286;
+
+                  return (
+                    <tr key={s.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
+                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-8 w-8 rounded-full object-cover"/> : <div className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-xs font-black text-emerald-700">{s.name?.charAt(0)}</div>}
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{s.name}</div>
+                            <div className="text-[10px] text-slate-400">{s.admissionNo}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
+                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
+                          <option value="Baqarah-to-Nas">↓ B→N</option>
+                          <option value="Nas-to-Baqarah">↑ N→B</option>
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          <option value={0}>— Surah —</option>
+                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <input type="number" min={1} max={maxStartAyah} value={e.startAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Math.max(1, Math.min(maxStartAyah, Number(ev.target.value))) } }))}
+                          placeholder="Ayah"
+                          className="w-14 text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                      </td>
+                      <td className="px-1 py-2.5 bg-teal-50/20">
+                        <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
+                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-teal-400">
+                          <option value={0}>— Surah —</option>
+                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-teal-50/20">
+                        <input type="number" min={1} max={maxEndAyah} value={e.endAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Math.max(1, Math.min(maxEndAyah, Number(ev.target.value))) } }))}
+                          placeholder="Ayah"
+                          className="w-14 text-xs border border-teal-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-teal-400" />
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {m ? (
+                          <div>
+                            <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
+                            <div className="text-[10px] text-slate-400">{m.ayahs} ayahs · {m.pages}pp</div>
+                          </div>
+                        ) : <span className="text-[10px] text-slate-300">—</span>}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {existing ? (
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${existing.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : existing.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                            {existing.status === 'approved' ? '✓ Approved' : existing.status === 'pending_approval' ? '⏳ Pending' : '↩ Returned'}
+                          </span>
+                        ) : (
+                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-400">Not submitted</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5">
+                        <button
+                          onClick={() => submitHistStudent(s.id)}
+                          disabled={!m || isBusy || existing?.status === 'approved'}
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {isBusy ? '…' : existing?.status === 'approved' ? 'Done' : existing ? 'Resubmit' : 'Submit'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>}
+    </section>
+
     {/* Campaign evaluation sections */}
     {byCampaign.map(({ campaign, evals: campEvals }) => {
       const allDone = campEvals.every(ev => hasMoved(ev));
@@ -380,7 +533,7 @@ export default function TeacherDashboard() {
       <p className="mt-2 text-sm text-slate-400">When Admin opens an evaluation for your class, it will appear here.</p>
     </section>}
 
-    {/* My students */}
+    {/* My students — proper table */}
     <section className="card overflow-hidden">
       <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -389,7 +542,31 @@ export default function TeacherDashboard() {
         </div>
         <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-52" />
       </div>
-      <div className="grid gap-4 p-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[700px] text-left text-sm">
+          <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th className="px-5 py-3">Student</th>
+              <th className="px-3 py-3">Section</th>
+              <th className="px-3 py-3">Year</th>
+              <th className="px-3 py-3">Direction</th>
+              <th className="px-3 py-3">Started at</th>
+              <th className="px-3 py-3">Current position</th>
+              <th className="px-3 py-3">Progress</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+        {filteredStudents.map(s => {
+          const sBtoN = s.direction === 'Baqarah-to-Nas';
+          const startSurahId = s.start?.surah || (sBtoN ? 2 : 114);
+          const currSurahId  = s.current?.surah || startSurahId;
+          const startName = SURAHS.find(x => x.id === startSurahId)?.name ?? `Surah ${startSurahId}`;
+          const currName  = SURAHS.find(x => x.id === currSurahId)?.name  ?? `Surah ${currSurahId}`;
+          const sTot = sBtoN ? Math.max(1, 114 - startSurahId) : Math.max(1, startSurahId - 2);
+          const sDone = sBtoN ? Math.max(0, currSurahId - startSurahId) : Math.max(0, startSurahId - currSurahId);
+          const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
+
         {filteredStudents.map(s => {
           const sBtoN = s.direction === 'Baqarah-to-Nas';
           const startSurahId = s.start?.surah || (sBtoN ? 2 : 114);
@@ -401,249 +578,49 @@ export default function TeacherDashboard() {
           const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
 
           return (
-            <article key={s.id} className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all duration-200">
-
-              {/* Student identity */}
-              <div className="flex items-center gap-3 p-4">
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-                  {s.photoUrl
-                    ? <img src={s.photoUrl} alt={s.name} className="h-full w-full object-cover" />
-                    : <div className="grid h-full place-items-center text-xl font-black text-slate-300">{s.name?.charAt(0)}</div>
-                  }
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-black text-slate-900">{s.name}</h3>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                    <span className={`inline-block rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${s.section === 'Boarding' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{s.section}</span>
-                    <span className="text-[10px] font-semibold text-slate-400">{s.year}</span>
-                    <span className="text-[10px] text-slate-300">·</span>
-                    <span className="text-[10px] text-slate-400">{s.admissionNo}</span>
+            <tr key={s.id} className="border-t hover:bg-slate-50/60 transition-colors">
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-xl bg-slate-100 flex items-center justify-center">
+                    {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-full w-full object-cover" /> : <span className="text-xs font-black text-slate-400">{s.name?.charAt(0)}</span>}
                   </div>
-                  <div className="mt-0.5 text-[10px] font-semibold text-emerald-700">{sBtoN ? 'Baqarah → Nas' : 'Nas → Baqarah'}</div>
-                </div>
-              </div>
-
-              {/* Journey progress */}
-              <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50 to-white px-4 py-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Quran Journey</span>
-                  <span className="text-[10px] font-bold text-emerald-700">{sPct}% complete</span>
-                </div>
-                <div className="mb-1.5 h-2.5 overflow-hidden rounded-full bg-slate-200">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400 transition-all duration-500"
-                    style={{ width: `${sPct}%` }}
-                  />
-                </div>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Started</div>
-                    <div className="mt-0.5 truncate text-xs font-black text-slate-600">{startName}</div>
-                    <div className="text-[10px] text-slate-400">Ayah {s.start?.ayah || 1}</div>
-                  </div>
-                  <div className="min-w-0 text-right">
-                    <div className="text-[9px] font-bold uppercase tracking-wide text-emerald-600">Now at</div>
-                    <div className="mt-0.5 truncate text-xs font-black text-emerald-700">{currName}</div>
-                    <div className="text-[10px] text-emerald-600">Ayah {s.current?.ayah || 1}</div>
+                  <div>
+                    <div className="font-semibold leading-tight">{s.name}</div>
+                    <div className="text-xs text-slate-400">{s.admissionNo}</div>
                   </div>
                 </div>
-              </div>
-
-              {/* Actions */}
-              <div className="mt-auto border-t border-slate-100 p-3">
+              </td>
+              <td className="px-3 py-3">
+                <span className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold uppercase ${s.section === 'Boarding' ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700'}`}>{s.section}</span>
+              </td>
+              <td className="px-3 py-3 text-xs text-slate-500">{s.year || '—'}</td>
+              <td className="px-3 py-3 text-xs font-semibold text-emerald-700">{sBtoN ? 'B → N' : 'N → B'}</td>
+              <td className="px-3 py-3 text-xs text-slate-600">{startName} <span className="text-slate-400">:{s.start?.ayah || 1}</span></td>
+              <td className="px-3 py-3 text-xs font-semibold text-emerald-700">{currName} <span className="text-emerald-500 font-normal">:{s.current?.ayah || 1}</span></td>
+              <td className="px-3 py-3">
                 <div className="flex items-center gap-2">
-                  <button
-                    className="flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors"
-                    onClick={() => setSelected(s)}
-                  >
-                    Profile
-                  </button>
-                  <div className="flex gap-1">
-                    {([['P', 'present', 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200', 'Present'],
-                       ['L', 'late',    'bg-amber-100 text-amber-700 hover:bg-amber-200',   'Late'],
-                       ['A', 'absent',  'bg-rose-100 text-rose-700 hover:bg-rose-200',     'Absent'],
-                       ['E', 'excused', 'bg-slate-100 text-slate-600 hover:bg-slate-200',  'Excused'],
-                    ] as [string, string, string, string][]).map(([lbl, val, cls, title]) => (
-                      <button
-                        key={val}
-                        disabled={busy}
-                        title={title}
-                        onClick={() => mark(s.id, val)}
-                        className={`rounded-lg px-2.5 py-2 text-[10px] font-black transition-colors disabled:opacity-50 ${cls}`}
-                      >
-                        {lbl}
-                      </button>
-                    ))}
+                  <div className="w-24 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400" style={{ width: `${sPct}%` }} />
                   </div>
+                  <span className="text-[10px] font-bold text-slate-500">{sPct}%</span>
                 </div>
-              </div>
-            </article>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => setSelected(s)}>
+                  Profile
+                </button>
+              </td>
+            </tr>
           );
         })}
         {!filteredStudents.length && (
-          <div className="col-span-full py-12 text-center text-sm text-slate-400">
+          <tr><td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-400">
             {studentSearch ? 'No students match your search.' : 'No students are assigned to your account.'}
-          </div>
+          </td></tr>
         )}
+          </tbody>
+        </table>
       </div>
-    </section>
-
-    {/* ── Historical Records Section ─────────────────────────────────── */}
-    <section className="overflow-hidden rounded-2xl border-2 border-amber-200 bg-white shadow-sm">
-      <button
-        onClick={() => setHistOpen(o => !o)}
-        className="flex w-full items-center justify-between p-5 text-left hover:bg-amber-50 transition-colors"
-      >
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-black text-amber-800">📋 Historical Records — First Term Setup</span>
-            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">Temporary</span>
-          </div>
-          <p className="mt-1 text-xs text-amber-700/70">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
-        </div>
-        <span className="ml-4 shrink-0 text-amber-400 text-xl">{histOpen ? '▲' : '▼'}</span>
-      </button>
-
-      {histOpen && <>
-        {/* Controls */}
-        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="text-xs font-semibold text-slate-600">Term
-              <select value={histTermId} onChange={e => setHistTermId(e.target.value)}
-                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-                <option value="">Select term…</option>
-                {histTerms.map((t: any) => (
-                  <option key={t.id} value={t.id}>{t.name}{t.academic_years?.is_current ? ' (current)' : ''}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
-              <input type="number" min={1} max={200} value={histTargetPages}
-                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
-                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-            </label>
-            {histTermId && histReadyCount > 0 && (
-              <button onClick={submitAllHist} disabled={histSubmitting.size > 0}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">
-                {histSubmitting.size > 0 ? 'Submitting…' : `Submit all ${histReadyCount} ready`}
-              </button>
-            )}
-          </div>
-          {histMsg && <div className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
-        </div>
-
-        {/* Student table */}
-        {!histTermId && <div className="p-8 text-center text-sm text-slate-400">Select a term above to begin.</div>}
-        {histTermId && students.length === 0 && <div className="p-8 text-center text-sm text-slate-400">No students are assigned to your account.</div>}
-        {histTermId && students.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-t border-amber-100 bg-amber-50 text-xs uppercase text-amber-700">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Student</th>
-                  <th className="px-3 py-3 text-center">Direction</th>
-                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
-                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
-                  <th className="px-3 py-3 text-center">Score</th>
-                  <th className="px-3 py-3 text-center">Status</th>
-                  <th className="px-3 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s, idx) => {
-                  const e = histEntries[s.id];
-                  if (!e) return null;
-                  const m = computeHistMetrics(e, histTargetPages);
-                  const existing = getHistEval3(s.id);
-                  const isBusy = histSubmitting.has(s.id);
-                  const maxEndAyah = surahMap[e.endSurah]?.ayahs ?? 286;
-                  const maxStartAyah = surahMap[e.startSurah]?.ayahs ?? 286;
-
-                  return (
-                    <tr key={s.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
-                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-8 w-8 rounded-full object-cover"/> : <div className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-xs font-black text-emerald-700">{s.name?.charAt(0)}</div>}
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{s.name}</div>
-                            <div className="text-[10px] text-slate-400">{s.admissionNo}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
-                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
-                          <option value="Baqarah-to-Nas">↓ B→N</option>
-                          <option value="Nas-to-Baqarah">↑ N→B</option>
-                        </select>
-                      </td>
-                      {/* Start */}
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                          <option value={0}>— Surah —</option>
-                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <input type="number" min={1} max={maxStartAyah} value={e.startAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Math.max(1, Math.min(maxStartAyah, Number(ev.target.value))) } }))}
-                          placeholder="Ayah"
-                          className="w-14 text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-400" />
-                      </td>
-                      {/* End */}
-                      <td className="px-1 py-2.5 bg-teal-50/20">
-                        <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
-                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-teal-400">
-                          <option value={0}>— Surah —</option>
-                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-teal-50/20">
-                        <input type="number" min={1} max={maxEndAyah} value={e.endAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Math.max(1, Math.min(maxEndAyah, Number(ev.target.value))) } }))}
-                          placeholder="Ayah"
-                          className="w-14 text-xs border border-teal-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-teal-400" />
-                      </td>
-                      {/* Score */}
-                      <td className="px-3 py-2.5 text-center">
-                        {m ? (
-                          <div>
-                            <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
-                            <div className="text-[10px] text-slate-400">{m.ayahs} ayahs · {m.pages}pp</div>
-                          </div>
-                        ) : <span className="text-[10px] text-slate-300">—</span>}
-                      </td>
-                      {/* Status */}
-                      <td className="px-3 py-2.5 text-center">
-                        {existing ? (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${existing.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : existing.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                            {existing.status === 'approved' ? '✓ Approved' : existing.status === 'pending_approval' ? '⏳ Pending' : '↩ Returned'}
-                          </span>
-                        ) : (
-                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-400">Not submitted</span>
-                        )}
-                      </td>
-                      {/* Action */}
-                      <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => submitHistStudent(s.id)}
-                          disabled={!m || isBusy || existing?.status === 'approved'}
-                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {isBusy ? '…' : existing?.status === 'approved' ? 'Done' : existing ? 'Resubmit' : 'Submit'}
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </>}
     </section>
 
     {/* Student profile modal */}
