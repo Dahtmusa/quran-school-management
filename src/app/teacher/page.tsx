@@ -572,16 +572,6 @@ export default function TeacherDashboard() {
           const sDone = sBtoN ? Math.max(0, currSurahId - startSurahId) : Math.max(0, startSurahId - currSurahId);
           const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
 
-        {filteredStudents.map(s => {
-          const sBtoN = s.direction === 'Baqarah-to-Nas';
-          const startSurahId = s.start?.surah || (sBtoN ? 2 : 114);
-          const currSurahId  = s.current?.surah || startSurahId;
-          const startName = SURAHS.find(x => x.id === startSurahId)?.name ?? `Surah ${startSurahId}`;
-          const currName  = SURAHS.find(x => x.id === currSurahId)?.name  ?? `Surah ${currSurahId}`;
-          const sTot = sBtoN ? Math.max(1, 114 - startSurahId) : Math.max(1, startSurahId - 2);
-          const sDone = sBtoN ? Math.max(0, currSurahId - startSurahId) : Math.max(0, startSurahId - currSurahId);
-          const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
-
           return (
             <tr key={s.id} className="border-t hover:bg-slate-50/60 transition-colors">
               <td className="px-5 py-3">
