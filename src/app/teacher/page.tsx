@@ -2,9 +2,9 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3 } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
-import { SURAHS, label, calculateEvaluation } from '@/lib/quran';
+import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -35,6 +35,16 @@ export default function TeacherDashboard() {
   const [sigBusy, setSigBusy] = useState(false);
   const [sigMsg, setSigMsg] = useState('');
   const sigPadRef = useRef<SignaturePadRef|null>(null);
+
+  /* ── Historical records section ── */
+  type HistEntry = { startSurah: number; startAyah: number; endSurah: number; endAyah: number; direction: string; };
+  const [histOpen, setHistOpen] = useState(false);
+  const [histTerms, setHistTerms] = useState<any[]>([]);
+  const [histTermId, setHistTermId] = useState('');
+  const [histTargetPages, setHistTargetPages] = useState(30);
+  const [histEntries, setHistEntries] = useState<Record<string, HistEntry>>({});
+  const [histSubmitting, setHistSubmitting] = useState<Set<string>>(new Set());
+  const [histMsg, setHistMsg] = useState('');
 
   const refresh = async () => {
     const [s, e] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
@@ -117,6 +127,93 @@ export default function TeacherDashboard() {
   function mark(_studentId: string, _status: string) {
     setMessage('Attendance is now handled by Security staff at the gate. Contact admin if a correction is needed.');
   }
+
+  // Load terms when historical section is opened
+  useEffect(() => {
+    if (!histOpen || histTerms.length) return;
+    loadOperationalTerms().then(t => {
+      const sorted = [...t].sort((a: any, b: any) => (a.starts_on || '').localeCompare(b.starts_on || ''));
+      setHistTerms(sorted);
+      const current = sorted.find((x: any) => x.academic_years?.is_current && x.term_number === 1);
+      if (current) setHistTermId(current.id);
+    });
+  }, [histOpen]);
+
+  // Initialise entry state when students or selected term changes
+  useEffect(() => {
+    if (!histTermId || !students.length) return;
+    setHistEntries(prev => {
+      const next: Record<string, HistEntry> = {};
+      for (const s of students) {
+        next[s.id] = prev[s.id] ?? {
+          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
+          startAyah:  s.start?.ayah  || 1,
+          endSurah: 0, endAyah: 0,
+          direction: s.direction || 'Baqarah-to-Nas',
+        };
+      }
+      return next;
+    });
+  }, [histTermId, students.length]);
+
+  const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
+
+  function computeHistMetrics(e: HistEntry, targetPages: number) {
+    if (!e.endSurah || !e.endAyah) return null;
+    const from = { surah: e.startSurah, ayah: e.startAyah };
+    const to   = { surah: e.endSurah,   ayah: e.endAyah };
+    const dir  = e.direction as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
+    const fromOrd = positionOrdinal(from), toOrd = positionOrdinal(to);
+    if (fromOrd === toOrd) return null;
+    const forward = dir === 'Baqarah-to-Nas' ? toOrd > fromOrd : fromOrd > toOrd;
+    if (!forward) return null;
+    const prog  = progressBetween(from, to, dir);
+    const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
+    const rubric = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 45 ? 2 : 1;
+    const grade  = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 45 ? 'D' : 'F';
+    return { ...prog, score, rubric, grade };
+  }
+
+  function getHistEval3(studentId: string) {
+    return (evaluations as any[]).find(
+      (e: any) => e.student_id === studentId && e.term_id === histTermId && e.evaluation_number === 3
+    );
+  }
+
+  async function submitHistStudent(studentId: string) {
+    const e = histEntries[studentId];
+    const m = computeHistMetrics(e, histTargetPages);
+    if (!m || !histTermId) return;
+    setHistSubmitting(prev => new Set(prev).add(studentId));
+    try {
+      await teacherSubmitHistoricalEval3({
+        studentId, termId: histTermId,
+        startSurah: e.startSurah, startAyah: e.startAyah,
+        endSurah: e.endSurah, endAyah: e.endAyah,
+        score: m.score, rubric: m.rubric, grade: m.grade,
+        ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
+      });
+      await refresh();
+      setHistMsg('Submitted — Admin will review and approve.');
+    } catch (err: any) {
+      setHistMsg(err?.message || 'Submission failed.');
+    } finally {
+      setHistSubmitting(prev => { const n = new Set(prev); n.delete(studentId); return n; });
+    }
+  }
+
+  async function submitAllHist() {
+    const ready = students.filter(s => {
+      const e = histEntries[s.id];
+      return e && computeHistMetrics(e, histTargetPages) !== null;
+    });
+    for (const s of ready) await submitHistStudent(s.id);
+  }
+
+  const histReadyCount = students.filter(s => {
+    const e = histEntries[s.id];
+    return e && computeHistMetrics(e, histTargetPages) !== null;
+  }).length;
 
   const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;
   const returnedCount = activeEvals.filter(ev => ev.status === 'returned').length;
@@ -389,6 +486,164 @@ export default function TeacherDashboard() {
           </div>
         )}
       </div>
+    </section>
+
+    {/* ── Historical Records Section ─────────────────────────────────── */}
+    <section className="overflow-hidden rounded-2xl border-2 border-amber-200 bg-white shadow-sm">
+      <button
+        onClick={() => setHistOpen(o => !o)}
+        className="flex w-full items-center justify-between p-5 text-left hover:bg-amber-50 transition-colors"
+      >
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-black text-amber-800">📋 Historical Records — First Term Setup</span>
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700">Temporary</span>
+          </div>
+          <p className="mt-1 text-xs text-amber-700/70">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
+        </div>
+        <span className="ml-4 shrink-0 text-amber-400 text-xl">{histOpen ? '▲' : '▼'}</span>
+      </button>
+
+      {histOpen && <>
+        {/* Controls */}
+        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <label className="text-xs font-semibold text-slate-600">Term
+              <select value={histTermId} onChange={e => setHistTermId(e.target.value)}
+                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <option value="">Select term…</option>
+                {histTerms.map((t: any) => (
+                  <option key={t.id} value={t.id}>{t.name}{t.academic_years?.is_current ? ' (current)' : ''}</option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
+              <input type="number" min={1} max={200} value={histTargetPages}
+                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
+                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            </label>
+            {histTermId && histReadyCount > 0 && (
+              <button onClick={submitAllHist} disabled={histSubmitting.size > 0}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">
+                {histSubmitting.size > 0 ? 'Submitting…' : `Submit all ${histReadyCount} ready`}
+              </button>
+            )}
+          </div>
+          {histMsg && <div className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
+        </div>
+
+        {/* Student table */}
+        {!histTermId && <div className="p-8 text-center text-sm text-slate-400">Select a term above to begin.</div>}
+        {histTermId && students.length === 0 && <div className="p-8 text-center text-sm text-slate-400">No students are assigned to your account.</div>}
+        {histTermId && students.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead className="border-t border-amber-100 bg-amber-50 text-xs uppercase text-amber-700">
+                <tr>
+                  <th className="px-4 py-3">#</th>
+                  <th className="px-4 py-3">Student</th>
+                  <th className="px-3 py-3 text-center">Direction</th>
+                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
+                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
+                  <th className="px-3 py-3 text-center">Score</th>
+                  <th className="px-3 py-3 text-center">Status</th>
+                  <th className="px-3 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {students.map((s, idx) => {
+                  const e = histEntries[s.id];
+                  if (!e) return null;
+                  const m = computeHistMetrics(e, histTargetPages);
+                  const existing = getHistEval3(s.id);
+                  const isBusy = histSubmitting.has(s.id);
+                  const maxEndAyah = surahMap[e.endSurah]?.ayahs ?? 286;
+                  const maxStartAyah = surahMap[e.startSurah]?.ayahs ?? 286;
+
+                  return (
+                    <tr key={s.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
+                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex items-center gap-2">
+                          {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-8 w-8 rounded-full object-cover"/> : <div className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-xs font-black text-emerald-700">{s.name?.charAt(0)}</div>}
+                          <div>
+                            <div className="text-xs font-bold text-slate-900">{s.name}</div>
+                            <div className="text-[10px] text-slate-400">{s.admissionNo}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
+                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
+                          <option value="Baqarah-to-Nas">↓ B→N</option>
+                          <option value="Nas-to-Baqarah">↑ N→B</option>
+                        </select>
+                      </td>
+                      {/* Start */}
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          <option value={0}>— Surah —</option>
+                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <input type="number" min={1} max={maxStartAyah} value={e.startAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Math.max(1, Math.min(maxStartAyah, Number(ev.target.value))) } }))}
+                          placeholder="Ayah"
+                          className="w-14 text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                      </td>
+                      {/* End */}
+                      <td className="px-1 py-2.5 bg-teal-50/20">
+                        <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
+                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-teal-400">
+                          <option value={0}>— Surah —</option>
+                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-teal-50/20">
+                        <input type="number" min={1} max={maxEndAyah} value={e.endAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Math.max(1, Math.min(maxEndAyah, Number(ev.target.value))) } }))}
+                          placeholder="Ayah"
+                          className="w-14 text-xs border border-teal-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-teal-400" />
+                      </td>
+                      {/* Score */}
+                      <td className="px-3 py-2.5 text-center">
+                        {m ? (
+                          <div>
+                            <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
+                            <div className="text-[10px] text-slate-400">{m.ayahs} ayahs · {m.pages}pp</div>
+                          </div>
+                        ) : <span className="text-[10px] text-slate-300">—</span>}
+                      </td>
+                      {/* Status */}
+                      <td className="px-3 py-2.5 text-center">
+                        {existing ? (
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${existing.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : existing.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
+                            {existing.status === 'approved' ? '✓ Approved' : existing.status === 'pending_approval' ? '⏳ Pending' : '↩ Returned'}
+                          </span>
+                        ) : (
+                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-400">Not submitted</span>
+                        )}
+                      </td>
+                      {/* Action */}
+                      <td className="px-3 py-2.5">
+                        <button
+                          onClick={() => submitHistStudent(s.id)}
+                          disabled={!m || isBusy || existing?.status === 'approved'}
+                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {isBusy ? '…' : existing?.status === 'approved' ? 'Done' : existing ? 'Resubmit' : 'Submit'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </>}
     </section>
 
     {/* Student profile modal */}

@@ -524,3 +524,27 @@ export async function reinstateStudent(studentId: string): Promise<void> {
   const { error } = await supabase().rpc('admin_reinstate_student', { p_student_id: studentId });
   if (error) throw error;
 }
+
+export async function teacherSubmitHistoricalEval3(p: {
+  studentId: string; termId: string;
+  startSurah: number; startAyah: number;
+  endSurah: number; endAyah: number;
+  score: number; rubric: number; grade: string;
+  ayahs: number; pages: number; hizbs: number;
+}): Promise<void> {
+  const { error } = await supabase().rpc('teacher_submit_historical_eval3', {
+    p_student_id:  p.studentId,
+    p_term_id:     p.termId,
+    p_start_surah: p.startSurah,
+    p_start_ayah:  p.startAyah,
+    p_end_surah:   p.endSurah,
+    p_end_ayah:    p.endAyah,
+    p_score:       p.score,
+    p_rubric:      p.rubric,
+    p_grade:       p.grade,
+    p_ayahs:       p.ayahs,
+    p_pages:       p.pages,
+    p_hizbs:       p.hizbs,
+  });
+  if (error) throw error;
+}
