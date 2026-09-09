@@ -367,15 +367,9 @@ export default function TeacherDashboard() {
                     {histIncompleteCount > 0 && <span className="ml-2 font-normal text-amber-700">— {histIncompleteCount} still need end position</span>}
                   </div>
                 )}
-                <div className="mt-0.5 text-xs text-slate-500">Submitting sends all entries to Admin for review. You can update individual records any time.</div>
+                <div className="mt-0.5 text-xs text-slate-500">All students must be complete before you can submit. Admin will review and approve the entire class.</div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                {histReadyCount > 0 && !histAllReady && (
-                  <button onClick={submitClassBatch} disabled={histSubmitting.size > 0}
-                    className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
-                    {histSubmitting.size > 0 ? 'Submitting…' : `Submit ${histReadyCount} ready`}
-                  </button>
-                )}
                 <button onClick={submitClassBatch} disabled={!histAllReady || histSubmitting.size > 0}
                   className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${histAllReady ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}>
                   {histSubmitting.size > 0 ? 'Submitting class…' : `Submit class (${students.length})`}
@@ -402,7 +396,6 @@ export default function TeacherDashboard() {
                   <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
                   <th className="px-3 py-3 text-center">Score</th>
                   <th className="px-3 py-3 text-center">Status</th>
-                  <th className="px-3 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -478,15 +471,6 @@ export default function TeacherDashboard() {
                         ) : (
                           <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-400">Not submitted</span>
                         )}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <button
-                          onClick={() => submitHistStudent(s.id)}
-                          disabled={!m || isBusy}
-                          className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          {isBusy ? '…' : existing ? 'Update' : 'Submit'}
-                        </button>
                       </td>
                     </tr>
                   );

@@ -549,3 +549,12 @@ export async function teacherSubmitHistoricalEval3(p: {
   });
   if (error) throw error;
 }
+
+export async function adminApproveClassHistoricalEvals(termId: string, classId: string): Promise<number> {
+  const { data, error } = await supabase().rpc('admin_approve_class_historical_evals', {
+    p_term_id:  termId,
+    p_class_id: classId,
+  });
+  if (error) throw error;
+  return data as number;
+}
