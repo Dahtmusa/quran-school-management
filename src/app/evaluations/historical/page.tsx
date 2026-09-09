@@ -58,11 +58,15 @@ function SurahSelect({ value, onChange }: { value: number; onChange: (v: number)
 }
 
 function AyahInput({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+  const count = max || 286;
   return (
-    <input type="number" min={1} max={max || 286} value={value || ''}
-      onChange={e => onChange(Math.max(1, Math.min(max || 286, Number(e.target.value))))}
-      placeholder="Ayah"
-      className="w-14 text-xs border border-neutral-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 text-center" />
+    <select value={value || ''} onChange={e => onChange(Number(e.target.value))}
+      className="text-xs border border-neutral-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 max-w-[72px]">
+      <option value="">Ayah</option>
+      {Array.from({ length: count }, (_, i) => i + 1).map(n => (
+        <option key={n} value={n}>{n}</option>
+      ))}
+    </select>
   );
 }
 

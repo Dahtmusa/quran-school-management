@@ -575,7 +575,11 @@ export default function TeacherDashboard() {
                     </select>
                   </label>
                   <label className="text-xs font-black uppercase tracking-wide text-slate-500">Stopping Ayah
-                    <input className="input mt-1 w-full" type="number" min={1} max={maxAyah} value={f.toAyah} onChange={e => updateForm(ev.id, { toAyah: Math.min(maxAyah, Math.max(1, Number(e.target.value) || 1)) })} />
+                    <select className="input mt-1 w-full" value={f.toAyah} onChange={e => updateForm(ev.id, { toAyah: Number(e.target.value) })}>
+                      {Array.from({ length: maxAyah }, (_, i) => i + 1).map(n => (
+                        <option key={n} value={n}>{n}</option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 {!done && <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm font-semibold text-rose-800">The stopping position must move {isBtoN ? 'forward (higher surah/ayah)' : 'backward (lower surah/ayah)'} from {label(start)}.</div>}
