@@ -8,138 +8,157 @@ import { useEffect, useMemo, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
+function buildReportCardHTML(s: any, settings: any, termLabel: string, signatures: ReportCardSignatures) {
+  const schoolName = settings.school_name?.value || 'AMQM';
+  const shortName = settings.short_name?.value || 'AMQM';
+  const address = settings.contact?.address || '';
+  const approved = s.es.filter((e: any) => e.status === 'Approved');
+  const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
+  const status = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
+  const absP = absoluteProgress(s.current, s.direction);
+  const rem = remainingFrom(s.current, s.direction);
+  const juz = juzForPosition(s.current);
+  const hizb = hizbForPosition(s.current);
+  const mushafPg = pageForPosition(s.current);
+  const evals = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
+  const classSig = s.classId ? signatures.teachers[s.classId] : null;
+  const sigBoxes = [
+    { lbl: 'Class Teacher', sig: classSig },
+    { lbl: 'School Supervisor', sig: signatures.supervisor },
+    { lbl: 'School Director', sig: signatures.director },
+  ];
+  const statusBg = avg && avg >= 90 ? '#d1fae5' : avg && avg >= 75 ? '#dbeafe' : avg && avg >= 60 ? '#fef3c7' : '#ffe4e6';
+  const statusColor = avg && avg >= 90 ? '#065f46' : avg && avg >= 75 ? '#1e40af' : avg && avg >= 60 ? '#92400e' : '#be123c';
+
+  return `<div class="page">
+    <div class="header">
+      <div class="header-left">
+        <div class="short-name">${shortName}</div>
+        <div class="school-name">${schoolName}</div>
+        <div class="school-addr">${address}</div>
+      </div>
+      <div class="header-right">
+        <div class="rc-badge">TERM REPORT CARD</div>
+      </div>
+    </div>
+    <div class="student-row">
+      <div>
+        <div class="student-name">${s.name}</div>
+        <div class="student-meta"><b>Admission:</b> ${s.admissionNo?.toUpperCase() || '—'} &nbsp;|&nbsp; <b>Class:</b> ${s.className || '—'} &nbsp;|&nbsp; <b>Section:</b> ${s.section || '—'}</div>
+        <div class="student-meta"><b>Term:</b> ${termLabel} &nbsp;|&nbsp; <b>Year:</b> ${s.year || '—'} &nbsp;|&nbsp; <b>Teacher:</b> ${s.teacher || '—'}</div>
+      </div>
+      <div class="status-chip" style="background:${statusBg};color:${statusColor}">${status}${avg !== null ? ' · ' + avg + '%' : ''}</div>
+    </div>
+    <div class="section-title">Term Evaluations</div>
+    <div class="eval-row">
+      ${evals.map((e, i) => e ? `<div class="eval-card">
+        <div class="eval-num">Evaluation ${i + 1}</div>
+        <div class="eval-score">${e.score}%</div>
+        <div class="eval-grade">${e.grade || '—'}</div>
+        <div class="eval-range">${e.memorizedAyahs || 0} ayahs · ${Number(e.memorizedPages || 0).toFixed(1)} pages</div>
+        <div class="rubric-row">
+          ${[['Mem', e.memorization], ['Acc', e.accuracy], ['Flu', e.fluency], ['Taj', e.tajweed], ['Ret', e.retention]].map(([l, v]) => `<div class="rubric-cell"><div class="rubric-lbl">${l}</div><div class="rubric-val">${v}/5</div></div>`).join('')}
+        </div>
+      </div>` : `<div class="eval-card eval-missing"><div class="eval-num">Evaluation ${i + 1}</div><div class="missing-lbl">Not recorded</div></div>`).join('')}
+      <div class="eval-card eval-avg">
+        <div class="eval-num">Average</div>
+        <div class="eval-score" style="color:#062d2a">${avg !== null ? avg + '%' : '—'}</div>
+        <div class="eval-grade" style="color:#065f46">${status}</div>
+      </div>
+    </div>
+    <div class="section-title">Hifz Journey</div>
+    <div class="hifz-box">
+      <div class="hifz-top">
+        <div>
+          <div class="hifz-pos">${label(s.current)}</div>
+          <div class="hifz-sub">Started at ${label(s.start)} · ${s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah'}</div>
+        </div>
+        <div class="hifz-pct">${absP.percent.toFixed(1)}% complete</div>
+      </div>
+      <div class="hifz-stats">
+        ${[
+          ['Ayahs Memorized', absP.ayahs.toLocaleString()],
+          ['Pages Memorized', String(absP.pages)],
+          ['Hizb Memorized', `${absP.hizbs} / 60`],
+          ['Mushaf Page', `${mushafPg} / 604`],
+          ['Ayahs Remaining', rem.ayahs.toLocaleString()],
+          ['Pages Remaining', String(rem.pages)],
+          ['Current Juz', String(juz)],
+          ['Current Hizb', String(hizb)],
+        ].map(([l, v]) => `<div class="hifz-stat"><div class="hs-lbl">${l}</div><div class="hs-val">${v}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="sig-row">
+      ${sigBoxes.map(({ lbl, sig }) => `<div class="sig-box">
+        <div class="sig-area">${sig?.signature_data ? `<img src="${sig.signature_data}" class="sig-img"/>` : ''}</div>
+        <div class="sig-name">${sig?.signer_name || ''}</div>
+        <div class="sig-label">${lbl}</div>
+      </div>`).join('')}
+    </div>
+    <div class="footer">Only approved evaluations are official. Printed ${new Date().toLocaleDateString('en-NG')}.</div>
+  </div>`;
+}
+
+const PRINT_CSS = `
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#1a1a1a;background:#fff}
+  @page{size:A4 portrait;margin:12mm 14mm}
+  .page{page-break-after:always;page-break-inside:avoid;display:flex;flex-direction:column;gap:10px}
+  .header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:10px;border-bottom:2.5px solid #062d2a}
+  .short-name{font-size:9px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
+  .school-name{font-size:14px;font-weight:900;color:#062d2a;margin-top:1px}
+  .school-addr{font-size:9px;color:#6b7280;margin-top:1px}
+  .rc-badge{background:#062d2a;color:#fff;padding:4px 12px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:.06em;white-space:nowrap}
+  .student-row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:#f8fafc;border-radius:10px;padding:10px}
+  .student-name{font-size:15px;font-weight:900;color:#062d2a}
+  .student-meta{font-size:9.5px;color:#6b7280;margin-top:2px}
+  .status-chip{padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;align-self:flex-start}
+  .section-title{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:#9ca3af;margin-top:2px}
+  .eval-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .eval-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;text-align:center}
+  .eval-missing{opacity:.5}
+  .eval-avg{background:#ecfdf5;border-color:#a7f3d0}
+  .eval-num{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#9ca3af}
+  .eval-score{font-size:20px;font-weight:900;margin-top:3px;color:#062d2a}
+  .eval-grade{font-size:10px;font-weight:700;color:#6b7280;margin-top:1px}
+  .eval-range{font-size:8px;color:#9ca3af;margin-top:2px}
+  .rubric-row{display:flex;gap:3px;margin-top:5px;justify-content:center}
+  .rubric-cell{background:#fff;border:1px solid #e2e8f0;border-radius:4px;padding:2px 4px;text-align:center;flex:1}
+  .rubric-lbl{font-size:7px;color:#9ca3af}
+  .rubric-val{font-size:9px;font-weight:700;color:#065f46}
+  .missing-lbl{font-size:9px;color:#9ca3af;margin-top:6px}
+  .hifz-box{background:#062d2a;color:#fff;border-radius:10px;padding:10px}
+  .hifz-top{display:flex;justify-content:space-between;align-items:flex-start}
+  .hifz-pos{font-size:14px;font-weight:900}
+  .hifz-sub{font-size:9px;color:#a7f3d0;margin-top:1px}
+  .hifz-pct{font-size:11px;font-weight:700;color:#a7f3d0;text-align:right}
+  .hifz-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:8px}
+  .hifz-stat{background:rgba(255,255,255,.08);border-radius:6px;padding:5px;text-align:center}
+  .hs-val{display:block;font-size:12px;font-weight:900;color:#fff}
+  .hs-lbl{display:block;font-size:7px;color:#a7f3d0;margin-top:1px;text-transform:uppercase;letter-spacing:.06em}
+  .sig-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px}
+  .sig-box{text-align:center}
+  .sig-area{height:50px;border-bottom:1px solid #cbd5e1;display:flex;align-items:flex-end;justify-content:center;margin-bottom:3px}
+  .sig-img{max-height:46px;max-width:100%;object-fit:contain}
+  .sig-name{font-size:8px;font-weight:700;color:#062d2a}
+  .sig-label{font-size:7px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em}
+  .footer{font-size:8px;color:#d1d5db;text-align:center;margin-top:2px;border-top:1px solid #f1f5f9;padding-top:4px}
+  @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+`;
+
+function openPrintWindow(title: string, bodyHTML: string) {
+  const w = window.open('', '_blank');
+  if (!w) return;
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  w.document.close();
+}
+
 function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, signatures: ReportCardSignatures = { teachers: {}, supervisor: null, director: null }) {
   const readyStudents = students.filter(s => s.ready);
   if (!readyStudents.length) { alert('No students have all 3 evaluations approved yet.'); return; }
   const termLabel = `${term?.academic_years?.name || ''} · ${term?.name || ''}`;
-  const schoolName = settings.school_name?.value || 'AMQM';
-  const shortName = settings.short_name?.value || 'AMQM';
-  const address = settings.contact?.address || '';
-
-  function gradeColor(g: string | null) {
-    if (!g) return '#6b7280';
-    if (g === 'A+' || g === 'A') return '#065f46';
-    if (g.startsWith('B')) return '#1e40af';
-    if (g.startsWith('C')) return '#92400e';
-    return '#be123c';
-  }
-
-  const pages = readyStudents.map(s => {
-    const approved = s.es.filter((e: any) => e.status === 'Approved');
-    const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
-    const status = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
-    const absP = absoluteProgress(s.current, s.direction);
-    const rem = remainingFrom(s.current, s.direction);
-    const juz = juzForPosition(s.current);
-    const hizb = hizbForPosition(s.current);
-    const evals = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
-
-    return `<div class="page">
-      <div class="header">
-        <div>
-          <div class="short-name">${shortName}</div>
-          <div class="school-name">${schoolName}</div>
-          <div class="school-addr">${address}</div>
-        </div>
-        <div class="rc-badge">TERM REPORT CARD</div>
-      </div>
-      <div class="student-row">
-        <div class="student-main">
-          <div class="student-name">${s.name}</div>
-          <div class="student-meta">${s.admissionNo?.toUpperCase() || '—'} · ${s.className || '—'} · ${s.section || '—'}</div>
-          <div class="student-meta">${termLabel}</div>
-        </div>
-        <div class="status-chip" style="background:${avg && avg >= 90 ? '#d1fae5' : avg && avg >= 75 ? '#dbeafe' : avg && avg >= 60 ? '#fef3c7' : '#ffe4e6'};color:${avg && avg >= 90 ? '#065f46' : avg && avg >= 75 ? '#1e40af' : avg && avg >= 60 ? '#92400e' : '#be123c'}">${status}</div>
-      </div>
-      <div class="section-title">Evaluations</div>
-      <div class="eval-row">
-        ${evals.map((e, i) => e ? `<div class="eval-card">
-          <div class="eval-num">Eval ${i + 1}</div>
-          <div class="eval-score" style="color:${gradeColor(e.grade)}">${e.score}%</div>
-          <div class="eval-grade">${e.grade || '—'}</div>
-          <div class="eval-ayahs">${e.memorizedAyahs || 0} ayahs · ${Number(e.memorizedPages || 0).toFixed(1)}pp</div>
-        </div>` : `<div class="eval-card eval-missing"><div class="eval-num">Eval ${i + 1}</div><div style="color:#9ca3af;font-size:10px;margin-top:4px">Not recorded</div></div>`).join('')}
-        <div class="eval-card eval-avg">
-          <div class="eval-num">Average</div>
-          <div class="eval-score" style="color:#062d2a">${avg !== null ? avg + '%' : '—'}</div>
-          <div class="eval-grade">${status}</div>
-        </div>
-      </div>
-      <div class="section-title">Hifz Journey</div>
-      <div class="hifz-box">
-        <div class="hifz-pos">${label(s.current)}</div>
-        <div class="hifz-sub">From ${label(s.start)} · ${s.direction === 'baqarah_to_nas' ? 'Baqarah → Nas' : 'Nas → Baqarah'}</div>
-        <div class="hifz-stats">
-          <div class="hifz-stat"><span class="hs-val">${absP.ayahs.toLocaleString()}</span><span class="hs-lbl">Ayahs memorized</span></div>
-          <div class="hifz-stat"><span class="hs-val">${Number(absP.pages).toFixed(1)}</span><span class="hs-lbl">Pages</span></div>
-          <div class="hifz-stat"><span class="hs-val">${Number(absP.hizbs).toFixed(2)}</span><span class="hs-lbl">Hizbs</span></div>
-          <div class="hifz-stat"><span class="hs-val">${rem.ayahs.toLocaleString()}</span><span class="hs-lbl">Ayahs remaining</span></div>
-          <div class="hifz-stat"><span class="hs-val">Juz ${juz}</span><span class="hs-lbl">Current Juz</span></div>
-          <div class="hifz-stat"><span class="hs-val">Hizb ${hizb}</span><span class="hs-lbl">Current Hizb</span></div>
-        </div>
-      </div>
-      ${(() => {
-        const classSig = s.classId ? signatures.teachers[s.classId] : null;
-        const supSig = signatures.supervisor;
-        const dirSig = signatures.director;
-        const sigBoxes = [
-          { label: 'Class Teacher', sig: classSig },
-          { label: 'School Supervisor', sig: supSig },
-          { label: 'School Director', sig: dirSig },
-        ];
-        return `<div class="sig-row">
-          ${sigBoxes.map(({ label: lbl, sig }) => `<div class="sig-box">
-            <div class="sig-area">${sig?.signature_data ? `<img src="${sig.signature_data}" class="sig-img"/>` : ''}</div>
-            <div class="sig-name">${sig?.signer_name || ''}</div>
-            <div class="sig-label">${lbl}</div>
-          </div>`).join('')}
-        </div>`;
-      })()}
-    </div>`;
-  });
-
-  const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Report Cards · ${termLabel}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff}
-    .page{padding:28px 32px;page-break-after:always;min-height:100vh;display:flex;flex-direction:column;gap:16px}
-    .header{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #062d2a}
-    .short-name{font-size:10px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
-    .school-name{font-size:16px;font-weight:900;color:#062d2a;margin-top:2px}
-    .school-addr{font-size:10px;color:#6b7280;margin-top:2px}
-    .rc-badge{background:#062d2a;color:#fff;padding:5px 14px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;align-self:flex-start}
-    .student-row{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-    .student-name{font-size:17px;font-weight:900;color:#062d2a}
-    .student-meta{font-size:11px;color:#6b7280;margin-top:3px}
-    .status-chip{padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;align-self:flex-start;white-space:nowrap}
-    .section-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.16em;color:#9ca3af}
-    .eval-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-    .eval-card{background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:10px;text-align:center}
-    .eval-missing{opacity:.5}
-    .eval-avg{background:#ecfdf5;border-color:#a7f3d0}
-    .eval-num{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#9ca3af}
-    .eval-score{font-size:22px;font-weight:900;margin-top:4px}
-    .eval-grade{font-size:10px;font-weight:700;color:#6b7280;margin-top:1px}
-    .eval-ayahs{font-size:9px;color:#9ca3af;margin-top:3px}
-    .hifz-box{background:#062d2a;color:#fff;border-radius:14px;padding:14px}
-    .hifz-pos{font-size:16px;font-weight:900}
-    .hifz-sub{font-size:10px;color:#a7f3d0;margin-top:2px}
-    .hifz-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
-    .hifz-stat{background:rgba(255,255,255,.08);border-radius:8px;padding:8px;text-align:center}
-    .hs-val{display:block;font-size:15px;font-weight:900;color:#fff}
-    .hs-lbl{display:block;font-size:9px;color:#a7f3d0;margin-top:2px;text-transform:uppercase;letter-spacing:.08em}
-    .sig-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
-    .sig-box{text-align:center}
-    .sig-area{height:64px;border-bottom:1.5px solid #cbd5e1;display:flex;align-items:flex-end;justify-content:center;margin-bottom:4px}
-    .sig-img{max-height:60px;max-width:100%;object-fit:contain}
-    .sig-name{font-size:9px;font-weight:700;color:#062d2a}
-    .sig-label{font-size:8px;color:#9ca3af;text-transform:uppercase;letter-spacing:.1em}
-    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}.page{padding:20px 24px;gap:12px}}
-  </style>
-  </head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
-  w.document.close();
+  const pages = readyStudents.map(s => buildReportCardHTML(s, settings, termLabel, signatures));
+  openPrintWindow(`Bulk Report Cards · ${termLabel}`, pages.join(''));
 }
 
 export default function Reports(){
@@ -221,14 +240,14 @@ export default function Reports(){
       </tr>)}</tbody>
     </table></div>
   </section>
-  {selected&&<ReportPreview student={selected} term={term} settings={settings} close={()=>setSelected(null)}/>}
+  {selected&&<ReportPreview student={selected} term={term} settings={settings} close={()=>setSelected(null)} signatures={signatures}/>}
  </div></AdminShell>
 }
 
 function Kpi({label,value}:{label:string,value:number}){return <div className="card p-5"><div className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
 function Status({status,score}:{status:string;score?:number}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}{score!=null?` · ${score}%`:''}</span>}
 
-function ReportPreview({student,term,settings,close}:{student:any;term:any;settings:any;close:()=>void}){
+function ReportPreview({student,term,settings,close,signatures}:{student:any;term:any;settings:any;close:()=>void;signatures:ReportCardSignatures}){
   const approved=student.es.filter((e:any)=>e.status==='Approved');
   const avgScore=approved.length>0?Math.round(approved.reduce((s:number,e:any)=>s+e.score,0)/approved.length):null;
   const finalStatus=avgScore===null?null:avgScore>=90?'Excellent':avgScore>=75?'Very Good':avgScore>=60?'Satisfactory':'Needs Improvement';
@@ -255,7 +274,7 @@ function ReportPreview({student,term,settings,close}:{student:any;term:any;setti
         <div><div className="text-xs font-black uppercase tracking-wider text-emerald-700">Official report card</div><h2 className="text-xl font-black">{student.name}</h2></div>
         <div className="flex gap-2">
           <button className="btn bg-slate-100" onClick={close}>Close</button>
-          <button className="btn btn-primary" onClick={()=>window.print()}>Print report</button>
+          <button className="btn btn-primary" onClick={()=>openPrintWindow(`Report Card · ${student.name}`,buildReportCardHTML(student,settings,termLabel,signatures))}>Print report</button>
         </div>
       </div>
 
