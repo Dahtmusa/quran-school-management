@@ -139,27 +139,58 @@ export default function TeacherDashboard() {
     });
   }, [histOpen]);
 
-  // Initialise entry state when students, term, or evaluations change
-  // Always syncs from existing DB eval3 data so teacher sees same records as admin
+  // Effect 1: fresh init when term or student list changes — resets to defaults
+  // Does NOT depend on evaluations, so it never triggers on refresh
   useEffect(() => {
     if (!histTermId || !students.length) return;
     setHistEntries(() => {
       const next: Record<string, HistEntry> = {};
       for (const s of students) {
-        const ex = (evaluations as any[]).find(
-          (e: any) => e.student_id === s.id && e.term_id === histTermId && e.evaluation_number === 3
-        );
         next[s.id] = {
-          startSurah: ex ? Number(ex.from_surah) : (s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114)),
-          startAyah:  ex ? Number(ex.from_ayah)  : (s.start?.ayah  || 1),
-          endSurah:   ex ? Number(ex.to_surah)   : 0,
-          endAyah:    ex ? Number(ex.to_ayah)    : 0,
+          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
+          startAyah:  s.start?.ayah  || 1,
+          endSurah: 0, endAyah: 0,
           direction: s.direction || 'Baqarah-to-Nas',
         };
       }
       return next;
     });
-  }, [histTermId, students.length, evaluations]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [histTermId, students.length]);
+
+  // Effect 2: merge DB records into form when evaluations refresh
+  // ONLY overwrites a student's entry when a DB record exists for them.
+  // Students with no DB record keep whatever the teacher already typed.
+  useEffect(() => {
+    if (!histTermId || !students.length) return;
+    setHistEntries(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const s of students) {
+        const ex = (evaluations as any[]).find(
+          (e: any) => e.student_id === s.id && e.term_id === histTermId && e.evaluation_number === 3
+        );
+        if (ex) {
+          const fromDB: HistEntry = {
+            startSurah: Number(ex.from_surah),
+            startAyah:  Number(ex.from_ayah),
+            endSurah:   Number(ex.to_surah),
+            endAyah:    Number(ex.to_ayah),
+            direction:  prev[s.id]?.direction || s.direction || 'Baqarah-to-Nas',
+          };
+          // Only update if something actually changed
+          const cur = prev[s.id];
+          if (!cur || cur.startSurah !== fromDB.startSurah || cur.startAyah !== fromDB.startAyah || cur.endSurah !== fromDB.endSurah || cur.endAyah !== fromDB.endAyah) {
+            next[s.id] = fromDB;
+            changed = true;
+          }
+        }
+        // No DB record → leave prev[s.id] untouched (preserves teacher's input)
+      }
+      return changed ? next : prev;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [evaluations]);
 
   const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
 
@@ -189,14 +220,36 @@ export default function TeacherDashboard() {
     const e = histEntries[studentId];
     const m = computeHistMetrics(e, histTargetPages);
     if (!m || !histTermId) return;
+    const termId = histTermId;
     setHistSubmitting(prev => new Set(prev).add(studentId));
     try {
       await teacherSubmitHistoricalEval3({
-        studentId, termId: histTermId,
+        studentId, termId,
         startSurah: e.startSurah, startAyah: e.startAyah,
         endSurah: e.endSurah, endAyah: e.endAyah,
         score: m.score, rubric: m.rubric, grade: m.grade,
         ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
+      });
+      // Optimistic update: add/update eval3 in local state immediately so
+      // the status badge flips to Pending without waiting for the full refresh
+      setEvaluations((prev: any[]) => {
+        const idx = prev.findIndex(ev =>
+          ev.student_id === studentId && ev.term_id === termId && ev.evaluation_number === 3
+        );
+        const optimistic = {
+          student_id: studentId, term_id: termId, evaluation_number: 3,
+          status: 'pending_approval',
+          from_surah: e.startSurah, from_ayah: e.startAyah,
+          to_surah: e.endSurah, to_ayah: e.endAyah,
+          memorized_ayahs: m.ayahs, memorized_pages: m.pages, memorized_hizbs: m.hizbs,
+          score: m.score, grade: m.grade,
+        };
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = { ...prev[idx], ...optimistic };
+          return next;
+        }
+        return [...prev, optimistic];
       });
       if (!skipRefresh) {
         await refresh();
