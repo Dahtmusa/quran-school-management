@@ -26,10 +26,21 @@ type ComputedMetrics = {
 function scoreToRubric(s: number) { return s >= 90 ? 5 : s >= 75 ? 4 : s >= 60 ? 3 : s >= 45 ? 2 : 1; }
 function scoreToGrade(s: number) { return s >= 90 ? 'A' : s >= 75 ? 'B' : s >= 60 ? 'C' : s >= 45 ? 'D' : 'F'; }
 
+function autoDetectDirection(
+  from: { surah: number; ayah: number },
+  to: { surah: number; ayah: number }
+): 'Baqarah-to-Nas' | 'Nas-to-Baqarah' {
+  return positionOrdinal(to) >= positionOrdinal(from) ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
+}
+
+function canonicalStart(direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah'): { surah: number; ayah: number } {
+  return direction === 'Baqarah-to-Nas' ? { surah: 2, ayah: 1 } : { surah: 114, ayah: 1 };
+}
+
 function computeEval3(
   from: { surah: number; ayah: number },
   to: { surah: number; ayah: number },
-  direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
+  _direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
   targetPages: number
 ): ComputedMetrics {
   const blank = { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
@@ -37,12 +48,9 @@ function computeEval3(
   const fromOrd = positionOrdinal(from);
   const toOrd = positionOrdinal(to);
   if (fromOrd === toOrd) return { ...blank, error: 'End is same as start.' };
-  const forward = direction === 'Baqarah-to-Nas' ? toOrd > fromOrd : fromOrd > toOrd;
-  if (!forward) {
-    const expected = direction === 'Baqarah-to-Nas' ? 'a later surah' : 'an earlier surah';
-    return { ...blank, error: `Wrong direction — pick ${expected}.` };
-  }
-  const prog = progressBetween(from, to, direction);
+  // Auto-detect direction from ordinals — ignore the user-entered direction
+  const detectedDir = autoDetectDirection(from, to);
+  const prog = progressBetween(from, to, detectedDir);
   const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
   return { ayahs: prog.ayahs, pages: prog.pages, hizbs: prog.hizbs, score, rubric: scoreToRubric(score), grade: scoreToGrade(score), valid: true };
 }
@@ -194,16 +202,19 @@ export default function Eval3ImportPage() {
       if (!e) continue;
       const m = getMetrics(student, e);
       if (!m.valid) continue;
-      const dir = (e.direction || student.direction) as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
-      const start = { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah };
+      // Auto-detect direction from ordinals; use canonical Quran start (Baqarah 1 or Nas 1)
+      const detectedDir = autoDetectDirection(
+        { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah },
+        { surah: e.eval3Surah, ayah: e.eval3Ayah }
+      );
+      const canonical = canonicalStart(detectedDir);
 
-      // SQL derives eval1/eval2 from eval3 — send only start + eval3 data
       batch.push({
         studentId: student.id,
-        startSurah: start.surah, startAyah: start.ayah,
+        startSurah: canonical.surah, startAyah: canonical.ayah,
         eval3Surah: e.eval3Surah, eval3Ayah: e.eval3Ayah,
         eval3: { ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs, score: m.score, rubric: m.rubric, grade: m.grade },
-        direction: e.direction || student.direction,
+        direction: detectedDir,
       });
     }
 

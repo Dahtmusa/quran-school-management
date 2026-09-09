@@ -37,7 +37,13 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
         <div class="es2">${e.score}%</div>
         <div class="eg">${e.grade || '—'}</div>
         <div class="er">${e.memorizedAyahs || 0} ayahs · ${Number(e.memorizedPages || 0).toFixed(1)} pages</div>
-        <div class="erb">Mem ${e.memorization}/5 &nbsp; Acc ${e.accuracy}/5 &nbsp; Flu ${e.fluency}/5 &nbsp; Taj ${e.tajweed}/5 &nbsp; Ret ${e.retention}/5</div>
+        <div class="rub">
+          <div><span class="rl">Mem</span><span class="rv">${e.memorization}/5</span></div>
+          <div><span class="rl">Acc</span><span class="rv">${e.accuracy}/5</span></div>
+          <div><span class="rl">Flu</span><span class="rv">${e.fluency}/5</span></div>
+          <div><span class="rl">Taj</span><span class="rv">${e.tajweed}/5</span></div>
+          <div><span class="rl">Ret</span><span class="rv">${e.retention}/5</span></div>
+        </div>
        </div>`
     : `<div class="ec ec-miss"><div class="en">Evaluation ${i + 1}</div><div class="emiss">Not recorded</div></div>`
   ).join('');
@@ -123,7 +129,10 @@ const PRINT_CSS = `
   .es2{font-size:22px;font-weight:900;color:#062d2a;margin-top:2px}
   .eg{font-size:10px;font-weight:700;color:#475569}
   .er{font-size:7.5px;color:#94a3b8;margin-top:2px}
-  .erb{font-size:7.5px;color:#065f46;font-weight:600;margin-top:4px;background:#f0fdf4;border-radius:4px;padding:3px 4px}
+  .rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:4px}
+  .rub div{background:#f0fdf4;border-radius:3px;text-align:center;padding:2px 1px}
+  .rl{display:block;font-size:5.5px;color:#9ca3af;letter-spacing:.04em;text-transform:uppercase}
+  .rv{display:block;font-size:8px;font-weight:700;color:#065f46}
   .emiss{font-size:8px;color:#9ca3af;margin-top:8px}
   /* ── Hifz box ── */
   .hbox{background:#062d2a;color:#fff;border-radius:9px;padding:9px 11px}
