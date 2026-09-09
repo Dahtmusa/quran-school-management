@@ -289,12 +289,16 @@ export default function Eval3ImportPage() {
                 </div>
                 {pendingCount > 0 && (
                   <button onClick={handleApproveClass} disabled={approving}
-                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors">
-                    {approving ? 'Approving…' : `✓ Approve class (${pendingCount})`}
+                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl px-5 py-3 shadow-md shadow-emerald-200 transition-all">
+                    {approving ? (
+                      <><span className="animate-spin">⏳</span> Approving…</>
+                    ) : (
+                      <><span className="text-base">✅</span> Approve all for this class <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{pendingCount}</span></>
+                    )}
                   </button>
                 )}
                 <button onClick={handleImport} disabled={importing || readyCount === 0}
-                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors">
+                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
                   {importing ? 'Saving…' : `Save ${readyCount} Student${readyCount !== 1 ? 's' : ''}`}
                 </button>
               </div>
@@ -453,12 +457,16 @@ export default function Eval3ImportPage() {
               <div className="flex items-center gap-2">
                 {pendingCount > 0 && (
                   <button onClick={handleApproveClass} disabled={approving}
-                    className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg px-4 py-2 transition-colors">
-                    {approving ? 'Approving…' : `✓ Approve class (${pendingCount})`}
+                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl px-5 py-2.5 shadow-md shadow-emerald-200 transition-all">
+                    {approving ? (
+                      <><span className="animate-spin inline-block">⏳</span> Approving…</>
+                    ) : (
+                      <><span>✅</span> Approve all <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{pendingCount}</span></>
+                    )}
                   </button>
                 )}
                 <button onClick={handleImport} disabled={importing || readyCount === 0}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg px-6 py-2 transition-colors">
+                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl px-6 py-2.5 transition-colors">
                   {importing ? 'Saving…' : `Save ${readyCount} Student${readyCount !== 1 ? 's' : ''}`}
                 </button>
               </div>
