@@ -105,8 +105,8 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
 const PRINT_CSS = `
   *{box-sizing:border-box;margin:0;padding:0;line-height:1.3}
   body{font-family:'Segoe UI',Arial,sans-serif;font-size:10px;color:#1a1a1a;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  @page{size:A4 portrait;margin:10mm 12mm}
-  .page{height:277mm;overflow:hidden;display:flex;flex-direction:column;gap:7px;page-break-after:always;break-after:page}
+  @page{size:A4 portrait;margin:0}
+  .page{width:210mm;height:297mm;padding:10mm 12mm;box-sizing:border-box;overflow:hidden;display:flex;flex-direction:column;gap:6px;page-break-after:always;break-after:page}
   /* ── Header ── */
   .hd{display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:7px;border-bottom:2px solid #062d2a}
   .sn2{font-size:8px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
@@ -157,9 +157,10 @@ const PRINT_CSS = `
 
 function openPrintWindow(title: string, bodyHTML: string) {
   const w = window.open('', '_blank');
-  if (!w) return;
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  if (!w) { alert('Allow pop-ups for this site to print report cards.'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}<script>window.onload=function(){window.focus();setTimeout(function(){window.print();},400);};<\/script></body></html>`);
   w.document.close();
+  w.focus();
 }
 
 function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, signatures: ReportCardSignatures = { teachers: {}, supervisor: null, director: null }) {
