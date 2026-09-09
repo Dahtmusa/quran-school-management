@@ -3,7 +3,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3 } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -47,6 +47,19 @@ export default function TeacherDashboard() {
   const [histEntries, setHistEntries] = useState<Record<string, HistEntry>>({});
   const [histSubmitting, setHistSubmitting] = useState<Set<string>>(new Set());
   const [histMsg, setHistMsg] = useState('');
+
+  /* ── Section edit ── */
+  const [editSectionTarget, setEditSectionTarget] = useState<any | null>(null);
+  const [editSectionValue, setEditSectionValue] = useState<'day' | 'boarding'>('day');
+  const [editSectionBusy, setEditSectionBusy] = useState(false);
+  const [editSectionMsg, setEditSectionMsg] = useState('');
+
+  /* ── Add missing student ── */
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [unassigned, setUnassigned] = useState<any[]>([]);
+  const [addSearch, setAddSearch] = useState('');
+  const [addBusy, setAddBusy] = useState<string | null>(null);
+  const [addMsg, setAddMsg] = useState('');
 
   const refresh = async () => {
     const [s, e] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
@@ -292,6 +305,37 @@ export default function TeacherDashboard() {
   const dayCount = students.filter(s => s.section === 'Day').length;
   const boardingCount = students.filter(s => s.section === 'Boarding').length;
   const filteredStudents = useMemo(() => students.filter(s => s.name?.toLowerCase().includes(studentSearch.toLowerCase())), [students, studentSearch]);
+
+  async function handleSaveSection() {
+    if (!editSectionTarget) return;
+    setEditSectionBusy(true); setEditSectionMsg('');
+    try {
+      await teacherUpdateStudentSection(editSectionTarget.id, editSectionValue);
+      await refresh();
+      setEditSectionTarget(null);
+    } catch (e: any) {
+      setEditSectionMsg(e?.message || 'Failed to update section');
+    } finally { setEditSectionBusy(false); }
+  }
+
+  async function openAddStudent() {
+    setAddMsg(''); setAddSearch('');
+    const list = await getUnassignedStudents();
+    setUnassigned(list);
+    setAddStudentOpen(true);
+  }
+
+  async function handleAssign(studentId: string) {
+    setAddBusy(studentId); setAddMsg('');
+    try {
+      await teacherAssignStudentToClass(studentId);
+      await refresh();
+      setUnassigned(prev => prev.filter(s => s.student_id !== studentId));
+      setAddMsg('Student added to your class.');
+    } catch (e: any) {
+      setAddMsg(e?.message || 'Failed to assign student');
+    } finally { setAddBusy(null); }
+  }
 
   return <AdminShell title="Teacher Workspace"><div className="space-y-5">
 
@@ -630,7 +674,10 @@ export default function TeacherDashboard() {
           <h2 className="text-lg font-black">My students</h2>
           <p className="text-xs text-slate-500">{students.length} student{students.length !== 1 ? 's' : ''} assigned to your account</p>
         </div>
-        <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-52" />
+        <div className="flex items-center gap-2 flex-wrap">
+          <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-44" />
+          <button onClick={openAddStudent} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors whitespace-nowrap">+ Add student</button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[700px] text-left text-sm">
@@ -686,9 +733,14 @@ export default function TeacherDashboard() {
                 </div>
               </td>
               <td className="px-4 py-3 text-right">
-                <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>
-                  Profile
-                </button>
+                <div className="flex items-center justify-end gap-2">
+                  <button className="rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-black text-teal-700 hover:bg-teal-100 transition-colors" onClick={() => { setEditSectionTarget(s); setEditSectionValue(s.section === 'Boarding' ? 'boarding' : 'day'); setEditSectionMsg(''); }}>
+                    Edit section
+                  </button>
+                  <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>
+                    Profile
+                  </button>
+                </div>
               </td>
             </tr>
           );
@@ -760,6 +812,68 @@ export default function TeacherDashboard() {
         </div>
       </div>
     </div>}
+
+    {/* Edit section modal */}
+    {editSectionTarget && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+          <h3 className="text-lg font-black">Edit section — {editSectionTarget.name}</h3>
+          <p className="mt-1 text-xs text-slate-500">Change whether this student is a day or boarding student.</p>
+          <div className="mt-4">
+            <label className="text-xs font-semibold text-slate-700">Section
+              <select value={editSectionValue} onChange={e => setEditSectionValue(e.target.value as 'day' | 'boarding')}
+                className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400">
+                <option value="day">Day</option>
+                <option value="boarding">Boarding</option>
+              </select>
+            </label>
+          </div>
+          {editSectionMsg && <p className="mt-3 rounded-lg bg-rose-50 p-2 text-xs font-semibold text-rose-700">{editSectionMsg}</p>}
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setEditSectionTarget(null)} className="btn bg-slate-100">Cancel</button>
+            <button onClick={handleSaveSection} disabled={editSectionBusy} className="btn btn-primary">{editSectionBusy ? 'Saving…' : 'Save'}</button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Add missing student modal */}
+    {addStudentOpen && (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-4">
+        <div className="mx-auto mt-10 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b p-5">
+            <div>
+              <h3 className="text-lg font-black">Add missing student</h3>
+              <p className="text-xs text-slate-500">These students have no class assigned. Add them to your class.</p>
+            </div>
+            <button onClick={() => setAddStudentOpen(false)} className="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200">✕</button>
+          </div>
+          <div className="p-5">
+            <input value={addSearch} onChange={e => setAddSearch(e.target.value)} placeholder="Search by name or admission no…" className="w-full rounded-xl border px-3 py-2 text-sm" />
+            {addMsg && <p className="mt-3 rounded-lg bg-emerald-50 p-2 text-xs font-semibold text-emerald-700">{addMsg}</p>}
+            <div className="mt-4 max-h-80 overflow-y-auto space-y-2">
+              {unassigned.filter(s => !addSearch || s.full_name?.toLowerCase().includes(addSearch.toLowerCase()) || s.admission_no?.toLowerCase().includes(addSearch.toLowerCase())).map(s => (
+                <div key={s.student_id} className="flex items-center justify-between rounded-xl border bg-slate-50 px-4 py-3">
+                  <div>
+                    <div className="font-semibold text-sm">{s.full_name}</div>
+                    <div className="text-[11px] text-slate-400">{s.admission_no} · {s.section === 'boarding' ? 'Boarding' : 'Day'} · {s.program_year === 'year_2' ? 'Year 2' : 'Year 1'}</div>
+                  </div>
+                  <button onClick={() => handleAssign(s.student_id)} disabled={addBusy === s.student_id} className="rounded-xl bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                    {addBusy === s.student_id ? 'Adding…' : 'Add'}
+                  </button>
+                </div>
+              ))}
+              {unassigned.filter(s => !addSearch || s.full_name?.toLowerCase().includes(addSearch.toLowerCase()) || s.admission_no?.toLowerCase().includes(addSearch.toLowerCase())).length === 0 && (
+                <p className="text-center text-sm text-slate-400 py-8">{addSearch ? 'No unassigned students match your search.' : 'No unassigned students found.'}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end border-t p-4">
+            <button onClick={() => setAddStudentOpen(false)} className="btn bg-slate-100">Close</button>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Profile modal */}
     {profileOpen && <Modal title="My profile" close={() => setProfileOpen(false)}>

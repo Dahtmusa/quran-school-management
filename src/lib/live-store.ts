@@ -315,6 +315,27 @@ export async function loadTeacherDirectory() {
   }));
 }
 
+export async function teacherUpdateStudentSection(studentId: string, section: 'day' | 'boarding') {
+  const { error } = await supabase().rpc('teacher_update_student_section', {
+    p_student_id: studentId,
+    p_section: section,
+  });
+  if (error) throw error;
+}
+
+export async function teacherAssignStudentToClass(studentId: string) {
+  const { error } = await supabase().rpc('teacher_assign_student_to_class', {
+    p_student_id: studentId,
+  });
+  if (error) throw error;
+}
+
+export async function getUnassignedStudents() {
+  const { data, error } = await supabase().rpc('get_unassigned_students');
+  if (error || !data) return [];
+  return data as { student_id: string; full_name: string; admission_no: string; section: string; program_year: string }[];
+}
+
 export async function loadTeacherEvaluations() {
   const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb,memorization_direction),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false});
   if (error || !data) return [];
