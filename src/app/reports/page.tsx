@@ -156,11 +156,12 @@ const PRINT_CSS = `
 `;
 
 function openPrintWindow(title: string, bodyHTML: string) {
-  const w = window.open('', '_blank');
-  if (!w) { alert('Allow pop-ups for this site to print report cards.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}<script>window.onload=function(){window.focus();setTimeout(function(){window.print();},400);};<\/script></body></html>`);
-  w.document.close();
-  w.focus();
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}<script>window.onload=function(){window.focus();setTimeout(function(){window.print();},600);};<\/script></body></html>`;
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, '_blank');
+  if (!w) { alert('Allow pop-ups for this site to print report cards.'); URL.revokeObjectURL(url); return; }
+  w.addEventListener('afterprint', () => URL.revokeObjectURL(url));
 }
 
 function bulkPrintReportCards(students: any[], term: any, terms: any[], settings: any, signatures: ReportCardSignatures = { teachers: {}, supervisor: null, director: null }) {
