@@ -2,6 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
+import QuranProgress from '@/components/QuranProgress';
 import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3 } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
@@ -25,6 +26,7 @@ export default function TeacherDashboard() {
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [me, setMe] = useState<any>(null);
   const [selected, setSelected] = useState<any>(null);
+  const [selectedTab, setSelectedTab] = useState<'academic'|'personal'|'contacts'>('academic');
   const [profileOpen, setProfileOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -676,7 +678,7 @@ export default function TeacherDashboard() {
                 </div>
               </td>
               <td className="px-4 py-3 text-right">
-                <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => setSelected(s)}>
+                <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>
                   Profile
                 </button>
               </td>
@@ -693,26 +695,63 @@ export default function TeacherDashboard() {
       </div>
     </section>
 
-    {/* Student profile modal */}
-    {selected && <Modal title="Student profile" close={() => setSelected(null)}>
-      <div className="flex items-start gap-4 mb-4">
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">{selected.photoUrl?<img src={selected.photoUrl} className="h-full w-full object-cover" alt=""/>:<div className="grid h-full place-items-center text-xl font-black text-slate-300">{selected.name?.charAt(0)}</div>}</div>
-        <div><h3 className="text-lg font-black">{selected.name}</h3><div className="mt-1 flex flex-wrap gap-1"><MemorizationBadge direction={selected.direction} /><SectionBadge section={selected.section} /></div></div>
+    {/* Student profile modal — rich view matching admin students page */}
+    {selected && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-4" onClick={e => e.target === e.currentTarget && setSelected(null)}>
+      <div className="mx-auto mt-6 w-full max-w-4xl rounded-3xl bg-white shadow-2xl">
+        {/* Header */}
+        <div className="flex items-start gap-4 border-b p-6">
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+            {selected.photoUrl ? <img src={selected.photoUrl} alt={selected.name} className="h-full w-full object-cover"/> : <div className="grid h-full place-items-center text-2xl font-black text-slate-300">{selected.name?.charAt(0)}</div>}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-black uppercase tracking-wider text-slate-400">{selected.admissionNo}</div>
+            <h2 className="mt-0.5 text-2xl font-black">{selected.name}</h2>
+            <div className="mt-1 flex flex-wrap gap-2"><SectionBadge section={selected.section}/><MemorizationBadge direction={selected.direction}/><span className="pill bg-slate-100 text-slate-600">{selected.year}</span></div>
+            <div className="mt-1 text-xs text-slate-500">{selected.className || '—'}</div>
+          </div>
+          <button onClick={() => setSelected(null)} className="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200">✕</button>
+        </div>
+        {/* Tabs */}
+        <div className="flex border-b">
+          {(['academic','personal','contacts'] as const).map(t => (
+            <button key={t} onClick={() => setSelectedTab(t)}
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-colors ${selectedTab===t ? 'border-b-2 border-emerald-600 text-emerald-700' : 'text-slate-400 hover:text-slate-700'}`}>
+              {t === 'academic' ? 'Academic' : t === 'personal' ? 'Personal & Medical' : 'Contacts'}
+            </button>
+          ))}
+        </div>
+        {/* Tab content */}
+        <div className="p-6">
+          {selectedTab === 'academic' && <>
+            <QuranProgress student={selected} />
+            <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 text-sm">
+              <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Start</div><div className="mt-1 text-base font-black text-slate-900">{label(selected.start)}</div></div>
+              <div className="rounded-2xl border bg-emerald-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Current</div><div className="mt-1 text-base font-black text-emerald-900">{label(selected.current)}</div></div>
+              <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Class</div><div className="mt-1 text-base font-black text-slate-900">{selected.className || '—'}</div></div>
+            </div>
+          </>}
+          {selectedTab === 'personal' && <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Date of birth</div><div className="mt-1 font-black text-slate-900">{selected.dateOfBirth || '—'}</div></div>
+            <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Gender</div><div className="mt-1 font-black text-slate-900">{selected.gender || '—'}</div></div>
+            <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Admission no.</div><div className="mt-1 font-black text-slate-900">{selected.admissionNo}</div></div>
+            <div className="rounded-2xl border bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Year</div><div className="mt-1 font-black text-slate-900">{selected.year}</div></div>
+          </div>}
+          {selectedTab === 'contacts' && <div className="space-y-4">
+            <div className="rounded-2xl border p-4">
+              <div className="text-xs font-black uppercase tracking-wider text-slate-400 mb-3">Parent / Guardian</div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Name</div><div className="mt-1 font-black text-slate-900">{selected.parent?.name || '—'}</div></div>
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Phone</div><div className="mt-1 font-black text-slate-900">{selected.parent?.phone || '—'}</div></div>
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Relationship</div><div className="mt-1 font-black text-slate-900">{selected.parent?.relationship || '—'}</div></div>
+              </div>
+            </div>
+          </div>}
+        </div>
+        <div className="flex justify-end border-t p-4">
+          <button onClick={() => setSelected(null)} className="btn bg-slate-100">Close</button>
+        </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Info k="Admission no." v={selected.admissionNo} />
-        <Info k="Class" v={selected.className || '—'} />
-        <Info k="Year" v={selected.year} />
-        <Info k="Date of birth" v={selected.dateOfBirth || '—'} />
-        <Info k="Gender" v={selected.gender || '—'} />
-        <Info k="Current page" v={String(selected.current?.page || '—')} />
-      </div>
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-400">Qur'an start</div><div className="mt-1 text-sm font-semibold">{selected.start?.surah}:{selected.start?.ayah}</div></div>
-        <div className="rounded-xl bg-emerald-50 p-3"><div className="text-xs text-emerald-600">Current position</div><div className="mt-1 text-sm font-semibold">{selected.current?.surah}:{selected.current?.ayah}</div></div>
-      </div>
-      {selected.parent?.name&&<div className="mt-3 rounded-2xl border p-4"><div className="text-xs font-black uppercase tracking-wider text-slate-400">Parent / guardian</div><div className="mt-2 font-black">{selected.parent.name}</div><div className="mt-1 text-sm text-slate-600">{selected.parent?.relationship||'—'} · {selected.parent?.phone||'No phone'}</div></div>}
-    </Modal>}
+    </div>}
 
     {/* Profile modal */}
     {profileOpen && <Modal title="My profile" close={() => setProfileOpen(false)}>

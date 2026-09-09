@@ -1,7 +1,7 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
-import { loadStaffProfiles, createStaffAccount, updateStaffProfile, resetStaffPassword, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
+import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
@@ -22,12 +22,15 @@ export default function StaffPage(){
 
  /* ── teaching edit ── */
  const [editT,setEditT]=useState<StaffProfile|null>(null);
+ const [editTOrigEmail,setEditTOrigEmail]=useState('');
  const [photoFile,setPhotoFile]=useState<File|null>(null);
  const [newPassword,setNewPassword]=useState('');
+ const [showPwEditT,setShowPwEditT]=useState(false);
 
  /* ── create teacher ── */
  const [showCreate,setShowCreate]=useState(false);
  const [cf,setCf]=useState({fullName:'',email:'',password:'',phone:'',jobTitle:"Qur'an Teacher",department:"Qur'an Memorization",joinedOn:'',username:''});
+ const [showPwCreate,setShowPwCreate]=useState(false);
 
  /* ── leadership edit ── */
  const [editL,setEditL]=useState<Partial<TeamProfile>|null>(null);
@@ -36,9 +39,12 @@ export default function StaffPage(){
  const [lAccPassword,setLAccPassword]=useState('');
  const [lAccRole,setLAccRole]=useState('admin');
  const [lAccUsername,setLAccUsername]=useState('');
+ const [showPwLeader,setShowPwLeader]=useState(false);
 
  /* ── account role edit ── */
  const [editA,setEditA]=useState<StaffProfile|null>(null);
+ const [editAOrigEmail,setEditAOrigEmail]=useState('');
+ const [showPwEditA,setShowPwEditA]=useState(false);
  const [showGrantAdmin,setShowGrantAdmin]=useState(false);
 
  /* ── signatures tab ── */
@@ -62,8 +68,13 @@ export default function StaffPage(){
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
      await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null,preferred_email:editT.preferred_email?.trim().toLowerCase()||null});
-     if(newPassword.trim().length>=8){await resetStaffPassword(editT.id,newPassword.trim());}
-     await refresh();setEditT(null);setPhotoFile(null);setNewPassword('');setMessage('Staff profile updated.');
+     const newEmail=(editT.email||'').trim().toLowerCase();
+     const emailChanged=newEmail&&newEmail!==editTOrigEmail;
+     const pwChanged=newPassword.trim().length>=8;
+     if(emailChanged||pwChanged){
+       await updateStaffCredentials(editT.id,{email:emailChanged?newEmail:undefined,password:pwChanged?newPassword.trim():undefined});
+     }
+     await refresh();setEditT(null);setPhotoFile(null);setNewPassword('');setShowPwEditT(false);setMessage('Staff profile updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
  }
 
@@ -118,8 +129,13 @@ export default function StaffPage(){
    if(!editA)return; setBusy(true);
    try{
      await updateStaffProfile(editA.id,{full_name:editA.full_name,phone:editA.phone,employment_status:editA.employment_status,role:editA.role,username:editA.username?.trim().toLowerCase()||null,preferred_email:editA.preferred_email?.trim().toLowerCase()||null});
-     if(newPassword.trim().length>=8){await resetStaffPassword(editA.id,newPassword.trim());}
-     await refresh();setEditA(null);setNewPassword('');setMessage('Account updated.');
+     const newEmail=(editA.email||'').trim().toLowerCase();
+     const emailChanged=newEmail&&newEmail!==editAOrigEmail;
+     const pwChanged=newPassword.trim().length>=8;
+     if(emailChanged||pwChanged){
+       await updateStaffCredentials(editA.id,{email:emailChanged?newEmail:undefined,password:pwChanged?newPassword.trim():undefined});
+     }
+     await refresh();setEditA(null);setNewPassword('');setShowPwEditA(false);setMessage('Account updated.');
    }catch(e:any){setMessage(e?.message??'Update failed.')}finally{setBusy(false)}
  }
 
@@ -180,7 +196,7 @@ export default function StaffPage(){
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
-           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setPhotoFile(null);setNewPassword('')}}>Edit</button>
+           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
          </div>
        </article>)}
        {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet. Click "Create teacher" to add the first one.</div>}
@@ -269,7 +285,7 @@ export default function StaffPage(){
                </div>
              </div>
              <div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
-               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>setEditA({...a})}>Edit / Set credentials</button>
+               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit / Set credentials</button>
              </div>
            </article>)}
          </div>
@@ -292,7 +308,7 @@ export default function StaffPage(){
              </div>
              <div className="flex items-center gap-2 border-t px-5 py-3">
                <button className="btn bg-indigo-50 text-indigo-700 text-sm py-1.5 font-black" onClick={async()=>{if(!confirm(`Grant Administrator access to ${a.full_name}? This gives full system access.`))return;setBusy(true);try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>Grant Admin ↑</button>
-               <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>setEditA({...a})}>Change role</button>
+               <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Change role</button>
              </div>
            </article>)}
          </div>
@@ -358,7 +374,7 @@ export default function StaffPage(){
 
   {/* ── EDIT TEACHER MODAL ── */}
   {editT&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
-   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Edit teacher</h2><p className="text-sm text-slate-500">{editT.full_name} · {editT.staff_id||'Staff ID pending'}</p></div><button onClick={()=>{setEditT(null);setNewPassword('')}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Edit teacher</h2><p className="text-sm text-slate-500">{editT.full_name} · {editT.staff_id||'Staff ID pending'}</p></div><button onClick={()=>{setEditT(null);setNewPassword('');setShowPwEditT(false);}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
    <div className="divide-y overflow-y-auto max-h-[75vh]">
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Profile</div>
@@ -368,10 +384,10 @@ export default function StaffPage(){
          <label className="text-xs font-bold">Employment status<select className="input mt-1 w-full" value={editT.employment_status} onChange={e=>setEditT({...editT,employment_status:e.target.value})}>{STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Department<input className="input mt-1 w-full" value={editT.department||''} onChange={e=>setEditT({...editT,department:e.target.value||null})}/></label>
-         <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(set at account creation — used for login)</span><input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editT.email||'—'}/></label>
+         <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(login email — changing this updates their login)</span><input type="email" className="input mt-1 w-full" placeholder="e.g. teacher@amqm.edu.ng" value={editT.email||''} onChange={e=>setEditT({...editT,email:e.target.value||null})}/>{editT.email&&editT.email.trim().toLowerCase()!==editTOrigEmail&&<p className="mt-1 text-[11px] text-amber-600 font-semibold">⚠ Email will be updated — teacher must use the new address to log in.</p>}</label>
          <label className="text-xs font-bold sm:col-span-2">Preferred email <span className="font-normal text-slate-400">(optional — staff can also login with this address)</span><input type="email" className="input mt-1 w-full" placeholder="e.g. teacher@gmail.com" value={editT.preferred_email||''} onChange={e=>setEditT({...editT,preferred_email:e.target.value||null})}/></label>
          <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(alternative login — teacher can use email, preferred email, OR username)</span><input className="input mt-1 w-full" placeholder="e.g. ustaz.auwal" value={editT.username||''} onChange={e=>setEditT({...editT,username:e.target.value||null})}/></label>
-         <label className="text-xs font-bold sm:col-span-2">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span><input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/></label>
+         <div className="sm:col-span-2"><label className="text-xs font-bold">New password <span className="font-normal text-slate-400">(leave blank to keep current password)</span></label><div className="relative mt-1"><input type={showPwEditT?'text':'password'} className="input w-full pr-10" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg" onClick={()=>setShowPwEditT(p=>!p)} tabIndex={-1}>{showPwEditT?'🙈':'👁'}</button></div></div>
        </div>
        <label className="text-xs font-bold">Bio (shown on website)<textarea className="input mt-1 w-full resize-none" rows={3} placeholder="A short bio about this teacher..." value={editT.bio||''} onChange={e=>setEditT({...editT,bio:e.target.value||null})}/></label>
        <label className="text-xs font-bold">Qualifications<textarea className="input mt-1 w-full resize-none" rows={2} placeholder="e.g. B.Ed Islamic Studies, Ijazah in Qur'an" value={editT.qualifications||''} onChange={e=>setEditT({...editT,qualifications:e.target.value||null})}/></label>
@@ -391,7 +407,7 @@ export default function StaffPage(){
      </div>
    </div>
    <div className="flex justify-end gap-2 border-t p-4">
-     <button className="btn bg-slate-100" onClick={()=>{setEditT(null);setNewPassword('')}}>Cancel</button>
+     <button className="btn bg-slate-100" onClick={()=>{setEditT(null);setNewPassword('');setShowPwEditT(false);}}>Cancel</button>
      <button className="btn btn-primary" disabled={busy} onClick={saveTeacher}>{busy?'Saving…':'Save changes'}</button>
    </div>
   </div></div>}
@@ -402,7 +418,7 @@ export default function StaffPage(){
    <form onSubmit={createTeacher} className="mt-5 grid gap-3 md:grid-cols-2">
      <input required className="input" placeholder="Full name" value={cf.fullName} onChange={e=>setCf({...cf,fullName:e.target.value})}/>
      <input required type="email" className="input" placeholder="Email address" value={cf.email} onChange={e=>setCf({...cf,email:e.target.value})}/>
-     <input required minLength={8} type="password" className="input" placeholder="Temporary password (8+ chars)" value={cf.password} onChange={e=>setCf({...cf,password:e.target.value})}/>
+     <div className="relative"><input required minLength={8} type={showPwCreate?'text':'password'} className="input w-full pr-10" placeholder="Temporary password (8+ chars)" value={cf.password} onChange={e=>setCf({...cf,password:e.target.value})}/><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg" onClick={()=>setShowPwCreate(p=>!p)} tabIndex={-1}>{showPwCreate?'🙈':'👁'}</button></div>
      <input className="input" placeholder="Login username (e.g. ustaz.auwal)" value={cf.username} onChange={e=>setCf({...cf,username:e.target.value})}/>
      <input className="input" placeholder="Phone" value={cf.phone} onChange={e=>setCf({...cf,phone:e.target.value})}/>
      <input className="input" placeholder="Job title" value={cf.jobTitle} onChange={e=>setCf({...cf,jobTitle:e.target.value})}/>
@@ -454,7 +470,7 @@ export default function StaffPage(){
            <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3 text-xs text-amber-800">No system account yet. Create login credentials below to let this person sign in and access the system.</div>
            <div className="grid gap-3 sm:grid-cols-2">
              <label className="text-xs font-bold sm:col-span-2">Email address <span className="font-normal text-slate-400">(used for login)</span><input type="email" className="input mt-1 w-full" placeholder="e.g. supervisor@amqm.edu.ng" value={lAccEmail} onChange={e=>setLAccEmail(e.target.value)}/></label>
-             <label className="text-xs font-bold">Temporary password<input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={lAccPassword} onChange={e=>setLAccPassword(e.target.value)}/></label>
+             <label className="text-xs font-bold">Temporary password<div className="relative mt-1"><input type={showPwLeader?'text':'password'} className="input w-full pr-10" placeholder="8+ characters" value={lAccPassword} onChange={e=>setLAccPassword(e.target.value)}/><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg" onClick={()=>setShowPwLeader(p=>!p)} tabIndex={-1}>{showPwLeader?'🙈':'👁'}</button></div></label>
              <label className="text-xs font-bold">System role<select className="input mt-1 w-full" value={lAccRole} onChange={e=>setLAccRole(e.target.value)}><option value="admin">Administrator</option><option value="principal">Principal</option><option value="finance">Finance</option><option value="admissions">Admissions</option><option value="security">Security</option></select></label>
              <label className="text-xs font-bold sm:col-span-2">Login username <span className="font-normal text-slate-400">(optional)</span><input className="input mt-1 w-full" placeholder="e.g. mubarak.supervisor" value={lAccUsername} onChange={e=>setLAccUsername(e.target.value)}/></label>
            </div>
@@ -538,7 +554,7 @@ export default function StaffPage(){
    const CHANGEABLE_ROLES=['admin','principal','finance','admissions','security'];
    const [aPass,setAPass]=[newPassword,setNewPassword];
    return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
-    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Account: {editA.full_name}</h2><p className="text-sm text-slate-500">{editA.staff_id||'No staff ID'}</p></div><button onClick={()=>{setEditA(null);setNewPassword('')}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
+    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Account: {editA.full_name}</h2><p className="text-sm text-slate-500">{editA.staff_id||'No staff ID'}</p></div><button onClick={()=>{setEditA(null);setNewPassword('');setShowPwEditA(false);}} className="rounded-xl bg-slate-100 p-2">✕</button></div>
     <div className="p-5 space-y-4">
      <label className="text-xs font-bold block">Access role
       <select className="input mt-1 w-full" value={editA.role} onChange={e=>setEditA({...editA,role:e.target.value})}>
@@ -546,8 +562,9 @@ export default function StaffPage(){
       </select>
       {editA.role==='admin'&&<p className="mt-1 text-xs text-amber-600">Administrator has full system access — only grant to trusted staff.</p>}
      </label>
-     <label className="text-xs font-bold block">Email address <span className="font-normal text-slate-400">(set at account creation)</span>
-      <input readOnly className="input mt-1 w-full bg-slate-50 text-slate-500 cursor-default" value={editA.email||'—'}/>
+     <label className="text-xs font-bold block">Email address <span className="font-normal text-slate-400">(login email — changing this updates their login)</span>
+      <input type="email" className="input mt-1 w-full" placeholder="e.g. staff@amqm.edu.ng" value={editA.email||''} onChange={e=>setEditA({...editA,email:e.target.value||null})}/>
+      {editA.email&&editA.email.trim().toLowerCase()!==editAOrigEmail&&<p className="mt-1 text-[11px] text-amber-600 font-semibold">⚠ Email will be updated — staff must use the new address to log in.</p>}
      </label>
      <label className="text-xs font-bold block">Preferred email <span className="font-normal text-slate-400">(optional — can also login with this address)</span>
       <input type="email" className="input mt-1 w-full" placeholder="e.g. staff@gmail.com" value={editA.preferred_email||''} onChange={e=>setEditA({...editA,preferred_email:e.target.value||null})}/>
@@ -556,11 +573,11 @@ export default function StaffPage(){
       <input className="input mt-1 w-full" placeholder="e.g. admin.mubarak" value={editA.username||''} onChange={e=>setEditA({...editA,username:e.target.value||null})}/>
      </label>
      <label className="text-xs font-bold block">New password <span className="font-normal text-slate-400">(leave blank to keep current)</span>
-      <input type="password" className="input mt-1 w-full" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/>
+      <div className="relative mt-1"><input type={showPwEditA?'text':'password'} className="input w-full pr-10" placeholder="8+ characters" value={newPassword} onChange={e=>setNewPassword(e.target.value)}/><button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg" onClick={()=>setShowPwEditA(p=>!p)} tabIndex={-1}>{showPwEditA?'🙈':'👁'}</button></div>
      </label>
     </div>
     <div className="flex justify-end gap-2 border-t p-4">
-     <button className="btn bg-slate-100" onClick={()=>{setEditA(null);setNewPassword('')}}>Cancel</button>
+     <button className="btn bg-slate-100" onClick={()=>{setEditA(null);setNewPassword('');setShowPwEditA(false);}}>Cancel</button>
      <button className="btn btn-primary" disabled={busy} onClick={saveAccountRole}>{busy?'Saving…':'Save changes'}</button>
     </div>
    </div></div>;

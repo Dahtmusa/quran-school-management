@@ -22,12 +22,22 @@ Deno.serve(async(req)=>{
     const{data:p}=await admin.from('profiles').select('role').eq('id',u.user.id).maybeSingle();
     if(!p||!['super_admin','admin','principal'].includes(p.role))throw new Error('Not authorised');
 
-    const{user_id,new_password}=await req.json();
-    if(!user_id||!new_password)throw new Error('user_id and new_password are required');
-    if(String(new_password).length<8)throw new Error('Password must be at least 8 characters');
+    const{user_id,new_password,new_email}=await req.json();
+    if(!user_id)throw new Error('user_id is required');
+    if(!new_password&&!new_email)throw new Error('new_password or new_email is required');
+    if(new_password&&String(new_password).length<8)throw new Error('Password must be at least 8 characters');
 
-    const{error:ue2}=await admin.auth.admin.updateUserById(user_id,{password:String(new_password)});
+    const update:Record<string,string>={};
+    if(new_password)update.password=String(new_password);
+    if(new_email)update.email=String(new_email);
+
+    const{error:ue2}=await admin.auth.admin.updateUserById(user_id,update);
     if(ue2)throw new Error(ue2.message);
+
+    // Keep profiles.email in sync when email changes
+    if(new_email){
+      await admin.from('profiles').update({email:String(new_email)}).eq('id',user_id);
+    }
 
     return new Response(JSON.stringify({success:true}),{
       headers:{...cors,'Content-Type':'application/json'},
