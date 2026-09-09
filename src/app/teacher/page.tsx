@@ -439,10 +439,12 @@ export default function TeacherDashboard() {
                         </select>
                       </td>
                       <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <input type="number" min={1} max={maxStartAyah} value={e.startAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Math.max(1, Math.min(maxStartAyah, Number(ev.target.value))) } }))}
-                          placeholder="Ayah"
-                          className="w-14 text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-emerald-400" />
+                        <select value={e.startAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Number(ev.target.value) } }))}
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          <option value="">Ayah</option>
+                          {Array.from({ length: maxStartAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
                       </td>
                       <td className="px-1 py-2.5 bg-teal-50/20">
                         <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
@@ -452,10 +454,12 @@ export default function TeacherDashboard() {
                         </select>
                       </td>
                       <td className="px-1 py-2.5 bg-teal-50/20">
-                        <input type="number" min={1} max={maxEndAyah} value={e.endAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Math.max(1, Math.min(maxEndAyah, Number(ev.target.value))) } }))}
-                          placeholder="Ayah"
-                          className="w-14 text-xs border border-teal-200 rounded-md bg-white px-1 py-1 text-center focus:outline-none focus:ring-1 focus:ring-teal-400" />
+                        <select value={e.endAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Number(ev.target.value) } }))}
+                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-teal-400">
+                          <option value="">Ayah</option>
+                          {Array.from({ length: maxEndAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         {m ? (
