@@ -185,7 +185,7 @@ export default function TeacherDashboard() {
     );
   }
 
-  async function submitHistStudent(studentId: string) {
+  async function submitHistStudent(studentId: string, skipRefresh = false) {
     const e = histEntries[studentId];
     const m = computeHistMetrics(e, histTargetPages);
     if (!m || !histTermId) return;
@@ -198,8 +198,10 @@ export default function TeacherDashboard() {
         score: m.score, rubric: m.rubric, grade: m.grade,
         ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
       });
-      await refresh();
-      setHistMsg('Submitted — Admin will review and approve.');
+      if (!skipRefresh) {
+        await refresh();
+        setHistMsg('Saved — Admin will review and approve.');
+      }
     } catch (err: any) {
       setHistMsg(err?.message || 'Submission failed.');
     } finally {
@@ -207,18 +209,28 @@ export default function TeacherDashboard() {
     }
   }
 
-  async function submitAllHist() {
+  async function submitClassBatch() {
     const ready = students.filter(s => {
       const e = histEntries[s.id];
       return e && computeHistMetrics(e, histTargetPages) !== null;
     });
-    for (const s of ready) await submitHistStudent(s.id);
+    if (!ready.length) return;
+    setHistMsg('');
+    // Submit all in parallel batches of 5 to avoid overwhelming the DB
+    for (let i = 0; i < ready.length; i += 5) {
+      const chunk = ready.slice(i, i + 5);
+      await Promise.all(chunk.map(s => submitHistStudent(s.id, true)));
+    }
+    await refresh();
+    setHistMsg(`Class submitted — ${ready.length} student${ready.length !== 1 ? 's' : ''} sent to Admin for review. They can edit individual records above if corrections are needed.`);
   }
 
   const histReadyCount = students.filter(s => {
     const e = histEntries[s.id];
     return e && computeHistMetrics(e, histTargetPages) !== null;
   }).length;
+  const histIncompleteCount = students.length - histReadyCount;
+  const histAllReady = histTermId && students.length > 0 && histIncompleteCount === 0;
 
   const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;
   const returnedCount = activeEvals.filter(ev => ev.status === 'returned').length;
@@ -272,7 +284,7 @@ export default function TeacherDashboard() {
 
       {histOpen && <>
         {/* Controls */}
-        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4">
+        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4 space-y-4">
           <div className="flex flex-wrap items-end gap-4">
             <label className="text-xs font-semibold text-slate-600">Term
               <select value={histTermId} onChange={e => setHistTermId(e.target.value)}
@@ -288,14 +300,38 @@ export default function TeacherDashboard() {
                 onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
                 className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
             </label>
-            {histTermId && histReadyCount > 0 && (
-              <button onClick={submitAllHist} disabled={histSubmitting.size > 0}
-                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50">
-                {histSubmitting.size > 0 ? 'Submitting…' : `Submit all ${histReadyCount} ready`}
-              </button>
-            )}
           </div>
-          {histMsg && <div className="mt-3 rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
+
+          {/* Batch submit panel */}
+          {histTermId && students.length > 0 && (
+            <div className={`flex flex-col gap-2 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${histAllReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+              <div>
+                {histAllReady ? (
+                  <div className="text-sm font-bold text-emerald-800">✓ All {students.length} students have positions filled in — ready to submit class</div>
+                ) : (
+                  <div className="text-sm font-bold text-amber-800">
+                    {histReadyCount}/{students.length} students ready
+                    {histIncompleteCount > 0 && <span className="ml-2 font-normal text-amber-700">— {histIncompleteCount} still need end position</span>}
+                  </div>
+                )}
+                <div className="mt-0.5 text-xs text-slate-500">Submitting sends all entries to Admin for review. You can update individual records any time.</div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {histReadyCount > 0 && !histAllReady && (
+                  <button onClick={submitClassBatch} disabled={histSubmitting.size > 0}
+                    className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+                    {histSubmitting.size > 0 ? 'Submitting…' : `Submit ${histReadyCount} ready`}
+                  </button>
+                )}
+                <button onClick={submitClassBatch} disabled={!histAllReady || histSubmitting.size > 0}
+                  className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${histAllReady ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}>
+                  {histSubmitting.size > 0 ? 'Submitting class…' : `Submit class (${students.length})`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {histMsg && <div className="rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
         </div>
 
         {/* Student table */}
@@ -326,8 +362,10 @@ export default function TeacherDashboard() {
                   const maxEndAyah = surahMap[e.endSurah]?.ayahs ?? 286;
                   const maxStartAyah = surahMap[e.startSurah]?.ayahs ?? 286;
 
+                  const rowIncomplete = !m;
+
                   return (
-                    <tr key={s.id} className={`border-t border-slate-100 ${idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
+                    <tr key={s.id} className={`border-t border-slate-100 ${rowIncomplete && !existing ? 'bg-rose-50/30' : idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
                       <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2">
@@ -377,7 +415,7 @@ export default function TeacherDashboard() {
                             <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
                             <div className="text-[10px] text-slate-400">{m.ayahs} ayahs · {m.pages}pp</div>
                           </div>
-                        ) : <span className="text-[10px] text-slate-300">—</span>}
+                        ) : <span className="text-[10px] text-rose-400 font-semibold">⚠ Incomplete</span>}
                       </td>
                       <td className="px-3 py-2.5 text-center">
                         {existing ? (
@@ -391,10 +429,10 @@ export default function TeacherDashboard() {
                       <td className="px-3 py-2.5">
                         <button
                           onClick={() => submitHistStudent(s.id)}
-                          disabled={!m || isBusy || existing?.status === 'approved'}
+                          disabled={!m || isBusy}
                           className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
-                          {isBusy ? '…' : existing?.status === 'approved' ? 'Done' : existing ? 'Resubmit' : 'Submit'}
+                          {isBusy ? '…' : existing ? 'Update' : 'Submit'}
                         </button>
                       </td>
                     </tr>
