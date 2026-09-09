@@ -6,11 +6,13 @@
 -- Fix: use a LATERAL subquery that orders by is_primary DESC so it prefers the primary
 -- teacher but falls back to any assigned teacher if none is flagged primary.
 
+DROP FUNCTION IF EXISTS public.admin_get_student_directory() CASCADE;
+
 CREATE OR REPLACE FUNCTION public.admin_get_student_directory()
 RETURNS TABLE (
-  id uuid, admission_no text, full_name text,
-  student_id_number text, id_expires_on date,
-  section text, program_year smallint, gender text, status text, photo_url text,
+  id uuid, admission_no text, full_name text, student_id_number text,
+  id_expires_on date, section public.section_type, program_year public.program_year,
+  gender text, status text, photo_url text,
   start_surah smallint, start_ayah smallint,
   current_surah smallint, current_ayah smallint,
   memorization_direction text,
@@ -34,11 +36,10 @@ BEGIN
     c.id AS class_id
   FROM public.students s
   LEFT JOIN public.classes c ON c.id = s.class_id
-  -- Prefer primary teacher, fall back to any assigned teacher
   LEFT JOIN LATERAL (
-    SELECT teacher_id FROM public.class_teachers
-    WHERE class_id = c.id
-    ORDER BY is_primary DESC NULLS LAST, assigned_at ASC
+    SELECT ct2.teacher_id FROM public.class_teachers ct2
+    WHERE ct2.class_id = c.id
+    ORDER BY ct2.is_primary DESC NULLS LAST, ct2.assigned_at ASC
     LIMIT 1
   ) ct ON true
   LEFT JOIN public.profiles p ON p.id = ct.teacher_id
@@ -56,9 +57,10 @@ BEGIN
   LEFT JOIN LATERAL (
     SELECT COALESCE(SUM(amount_due - amount_paid), 0) AS due
     FROM public.student_fees
-    WHERE student_id = s.id AND status NOT IN ('cancelled', 'waived')
+    WHERE student_id = s.id AND amount_paid < amount_due
   ) sf ON true
-  WHERE s.status = 'active';
+  WHERE s.status <> 'deleted'
+  ORDER BY s.full_name;
 END;
 $$;
 

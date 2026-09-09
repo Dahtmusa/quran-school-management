@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { loadStudents, loadCurrentAcademicTerm } from '@/lib/live-store';
-import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
+import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, voidPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
 import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
@@ -145,6 +145,9 @@ export default function Fees() {
   const [payRef, setPayRef] = useState('');
   const [paying, setPaying] = useState(false);
 
+  const [historyTarget, setHistoryTarget] = useState<Student | null>(null);
+  const [voiding, setVoiding] = useState<string | null>(null);
+
   const [showFeeConfig, setShowFeeConfig] = useState(true);
   const [showBankConfig, setShowBankConfig] = useState(true);
   // Simplified combined fee form: one row = both day + boarding amounts
@@ -248,7 +251,22 @@ export default function Fees() {
     } catch (e: any) { setMessage(e?.message || 'Failed to record payment'); }
   }
 
-  const hasPaid = (s: Student) => summary.payments.some((p: any) => p.student_id === s.id);
+  const termPayments = useMemo(() =>
+    summary.payments.filter((p: any) => p.term_id === selectedTermId),
+    [summary.payments, selectedTermId]
+  );
+  const hasPaid = (s: Student) => termPayments.some((p: any) => p.student_id === s.id);
+  const allPaymentsForStudent = (s: Student) => summary.payments.filter((p: any) => p.student_id === s.id);
+
+  async function handleVoid(paymentId: string) {
+    if (!confirm('Void this payment? The student\'s balance will be recalculated from remaining payments.')) return;
+    setVoiding(paymentId);
+    try {
+      await voidPayment(paymentId);
+      await refresh();
+    } catch (e: any) { setMessage(e?.message || 'Failed to void payment'); }
+    finally { setVoiding(null); }
+  }
 
   async function saveBank() { setBusy(true); try { await saveCMSSetting('school_payment', bank); setMessage('Bank account saved.'); } catch (e: any) { setMessage(e?.message || 'Failed'); } finally { setBusy(false); } }
 
@@ -461,8 +479,13 @@ export default function Fees() {
                             {st === 'full' ? '+ Pay' : 'Pay'}
                           </button>
                           {hasPaid(s) && (
-                            <button onClick={() => printReceipt(s, summary.payments.find((p: any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs py-1.5 px-3">
+                            <button onClick={() => printReceipt(s, termPayments.find((p: any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs py-1.5 px-3">
                               Receipt
+                            </button>
+                          )}
+                          {allPaymentsForStudent(s).length > 0 && (
+                            <button onClick={() => setHistoryTarget(s)} className="btn bg-slate-100 text-slate-700 text-xs py-1.5 px-3">
+                              History
                             </button>
                           )}
                           {nextTerm && <button onClick={() => printInvoice(s, nextTerm, structures, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
@@ -597,6 +620,69 @@ export default function Fees() {
           )}
         </section>
       </div>
+
+      {/* Payment history modal */}
+      {historyTarget && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-5" onClick={() => !voiding && setHistoryTarget(null)}>
+          <div className="w-full max-w-lg rounded-t-3xl bg-white p-6 sm:rounded-3xl shadow-2xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment history</div>
+                <div className="mt-0.5 text-xl font-black">{historyTarget.name}</div>
+                <div className="text-xs text-slate-500">{historyTarget.admissionNo} · {historyTarget.className}</div>
+              </div>
+              <button className="text-slate-400 hover:text-slate-700 text-2xl leading-none" onClick={() => setHistoryTarget(null)}>×</button>
+            </div>
+            <div className="overflow-y-auto flex-1 -mx-6 px-6">
+              {allPaymentsForStudent(historyTarget).length === 0 ? (
+                <p className="text-sm text-slate-400 py-4 text-center">No payments recorded.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="text-[10px] uppercase tracking-wide text-slate-400 border-b">
+                    <tr>
+                      <th className="pb-2 text-left font-bold">Date</th>
+                      <th className="pb-2 text-left font-bold">Method</th>
+                      <th className="pb-2 text-left font-bold">Reference</th>
+                      <th className="pb-2 text-right font-bold">Amount</th>
+                      <th className="pb-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allPaymentsForStudent(historyTarget).map((p: any) => (
+                      <tr key={p.id} className="border-b last:border-0">
+                        <td className="py-3 text-slate-600">{new Date(p.paid_on).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td className="py-3">{p.method || 'Cash'}</td>
+                        <td className="py-3 text-slate-400 font-mono text-xs">{p.reference || '—'}</td>
+                        <td className="py-3 text-right font-mono font-bold tabular-nums">{currency} {Number(p.amount).toLocaleString()}</td>
+                        <td className="py-3 pl-2">
+                          <div className="flex gap-1.5 justify-end">
+                            <button
+                              onClick={() => printReceipt(historyTarget, p, bank, currency, schoolName, logoUrl, schoolAddress)}
+                              className="btn bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs py-1 px-2"
+                            >
+                              Receipt
+                            </button>
+                            <button
+                              onClick={() => handleVoid(p.id)}
+                              disabled={voiding === p.id}
+                              className="btn bg-rose-50 text-rose-700 border border-rose-100 text-xs py-1 px-2 disabled:opacity-50"
+                            >
+                              {voiding === p.id ? '…' : 'Void'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <button className="btn bg-slate-100 w-full" onClick={() => setHistoryTarget(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payment modal */}
       {payTarget && (
