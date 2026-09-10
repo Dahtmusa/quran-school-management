@@ -1,19 +1,8 @@
-AMQM ID CARD — OPTION 3 FRONT + OPTION 2 BACK
+AMQM First Term Historical Evaluation - Partial Submission Fix
 
-Replace only:
-src/lib/id-card.ts
+Production database migration 097_allow_partial_historical_submissions has already been applied.
+Keep the migration in the repository for source/deployment history.
 
-This is a fresh ID-card layout for both STUDENT and STAFF cards.
-- Option 3 front styling
-- Option 2 back styling
-- QR only; barcode removed
-- Existing student/staff data preserved
-- Adaptive name sizing for long names
-- School logo from school settings
-- Director signature/name from existing data
-- School contact numbers preserved
-- Student: program year, section, class, admission number, ID
-- Staff: position, department, phone, staff ID
-- Same design language for student and staff
+The fix allows the existing teacher Historical Evaluation "Submit ready" flow to submit any completed student(s), instead of the database rejecting every submission unless the entire class was included.
 
-No SQL required.
+No frontend change is required for this fix because the current teacher page already submits only the completed students and keeps the rest in the saved draft.
