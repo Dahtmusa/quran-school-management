@@ -78,8 +78,8 @@ function printInvoice(student: any, nextTerm: any, structs: any[], allFees: any[
   </head><body>
   ${schoolHeader(logoUrl, schoolName, schoolAddress, 'SCHOOL FEES INVOICE', accent)}
   <div class="term-box">For: ${nextTermName}</div>
-  <div class="ab"><div class="al">Total Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div>
-  <div class="st">Fee breakdown</div><table><tr><td>Current term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${priorBalance>0?`<tr><td>Previous balance</td><td>${currency} ${priorBalance.toLocaleString()}</td></tr>`:''}<tr><td><b>Total payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr></table>
+  <div class="ab"><div class="al">Total Expected / Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div>
+  <div class="st">Fee breakdown</div><table><tr><td>Second Term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${priorBalance>0?`<tr><td>Balance carried forward from First Term</td><td>${currency} ${priorBalance.toLocaleString()}</td></tr>`:''}<tr><td><b>Total expected / payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr></table>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table>
   <div class="st">Invoice</div>
@@ -124,7 +124,7 @@ function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], 
     const prior = (allFees||[]).filter((f:any)=>f.student_id===s.id && f.fee_structures?.term_id && f.fee_structures.term_id!==nextTerm.id && f.fee_structures?.terms?.starts_on && f.fee_structures.terms.starts_on<nextTerm.starts_on).reduce((sum:number,f:any)=>sum+Math.max(0,Number(f.amount_due||0)-Number(f.amount_paid||0)),0);
     const total = feeAmount + prior;
     const invoiceNo = `INV-${String(s.admissionNo||'').toUpperCase()}-T${nextTerm.term_number||''}`;
-    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Total Payable</div><div class="av">${currency} ${total.toLocaleString()}</div></div><table><tr><td>Current term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${prior?`<tr><td>Previous balance</td><td>${currency} ${prior.toLocaleString()}</td></tr>`:''}<tr><td><b>Total payable</b></td><td><b>${currency} ${total.toLocaleString()}</b></td></tr></table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Due date</td><td>${feeRow?.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG') : '—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
+    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Total Expected / Payable</div><div class="av">${currency} ${total.toLocaleString()}</div></div><table><tr><td>Second Term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${prior?`<tr><td>Balance carried forward from First Term</td><td>${currency} ${prior.toLocaleString()}</td></tr>`:''}<tr><td><b>Total expected / payable</b></td><td><b>${currency} ${total.toLocaleString()}</b></td></tr></table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Due date</td><td>${feeRow?.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG') : '—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
   }).filter(Boolean);
   if (!pages.length) { w.close(); alert('No fee structures configured for the selected term yet.'); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;font-size:11px;color:#166534;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
@@ -192,6 +192,13 @@ export default function Fees() {
   useEffect(() => { if (selectedTermId) syncStudentFeeAllocations(selectedTermId).then(() => refresh()).catch(() => {}); }, [selectedTermId]);
 
   const currentTerm = useMemo(() => terms.find(t => t.id === selectedTermId) || null, [terms, selectedTermId]);
+  // While First Term is active, invoices are issued for the upcoming Second Term.
+  // Once Second Term is active, its invoice is the active invoice.
+  const invoiceTerm = useMemo(() => {
+    if (!currentTerm) return null;
+    if ((currentTerm.term_number || 0) === 1) return findNextTerm(currentTerm, terms);
+    return currentTerm;
+  }, [currentTerm, terms]);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
 
   const termFees = useMemo(() => summary.fees.filter((x: any) =>
@@ -234,7 +241,7 @@ export default function Fees() {
 
   const classNames = useMemo(() => [...new Set(students.map(s => s.className || 'Unassigned'))].sort(), [students]);
   const byClass = useMemo(() => classFilter ? students.filter(s => (s.className || 'Unassigned') === classFilter) : students, [students, classFilter]);
-  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudent]);
+  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudent, priorByStudent]);
 
   const expected = useMemo(() => byClass.reduce((t, s) => t + (byStudent.get(s.id)?.due || 0), 0), [byClass, byStudent]);
   const priorExpected = useMemo(() => byClass.reduce((t, s) => t + (priorByStudent.get(s.id) || 0), 0), [byClass, priorByStudent]);
@@ -301,8 +308,10 @@ export default function Fees() {
     if (!selectedTermId) return;
     setBusy(true); setMessage('');
     try {
-      const n = await syncTermInvoices(selectedTermId);
-      setMessage(`${n} invoice(s) are now synchronized for ${tLabel(currentTerm)}.`);
+      const targetTermId = invoiceTerm?.id;
+      if (!targetTermId) throw new Error('Could not determine the Second Term invoice term. Set up the school calendar first.');
+      const n = await syncTermInvoices(targetTermId);
+      setMessage(`${n} invoice(s) are now synchronized for ${tLabel(invoiceTerm)}.`);
       await refresh();
     } catch (e: any) { setMessage(e?.message || 'Failed to synchronize invoices'); }
     finally { setBusy(false); }
@@ -397,7 +406,7 @@ export default function Fees() {
                 {classNames.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            {nextTerm && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 self-end">Next term: {tLabel(nextTerm)}</div>}
+            {nextTerm && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 self-end">Next term: {tLabel(nextTerm)} · Any previous balance is carried forward</div>}
           </div>
         </section>
 
@@ -555,7 +564,7 @@ export default function Fees() {
                               History
                             </button>
                           )}
-                          {currentTerm && <button onClick={() => printInvoice(s, currentTerm, structures, summary.fees, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
+                          {invoiceTerm && <button onClick={() => printInvoice(s, invoiceTerm, structures, summary.fees, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
                             Invoice
                           </button>}
                         </div>
@@ -759,12 +768,24 @@ export default function Fees() {
               <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Record payment</div>
               <div className="mt-1 text-xl font-black">{payTarget.name}</div>
               <div className="text-xs text-slate-500">{payTarget.admissionNo} · {payTarget.className} · {payTarget.section}</div>
-              {(() => { const v = byStudent.get(payTarget.id) || { due: 0, paid: 0 }; const b = Math.max(0, v.due - v.paid); return b > 0 ? <div className="mt-1.5 inline-block rounded-lg bg-rose-50 px-2 py-1 text-sm font-bold text-rose-700">Balance: {currency} {b.toLocaleString()}</div> : null; })()}
+              {(() => {
+                const v = byStudent.get(payTarget.id) || { due: 0, paid: 0 };
+                const currentBalance = Math.max(0, v.due - v.paid);
+                const priorBalance = priorByStudent.get(payTarget.id) || 0;
+                const totalBalance = currentBalance + priorBalance;
+                return (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5"><div className="text-[10px] font-bold uppercase text-slate-400">Current fee</div><div className="mt-0.5 text-sm font-black">{currency} {v.due.toLocaleString()}</div></div>
+                    <div className="rounded-xl bg-rose-50 border border-rose-100 p-2.5"><div className="text-[10px] font-bold uppercase text-rose-500">Previous balance</div><div className="mt-0.5 text-sm font-black text-rose-700">{currency} {priorBalance.toLocaleString()}</div></div>
+                    <div className="rounded-xl bg-amber-50 border border-amber-100 p-2.5"><div className="text-[10px] font-bold uppercase text-amber-600">Total outstanding</div><div className="mt-0.5 text-sm font-black text-amber-800">{currency} {totalBalance.toLocaleString()}</div></div>
+                  </div>
+                );
+              })()}
             </div>
             <div className="space-y-3">
               <label className="block text-xs font-bold">
                 Amount ({currency})
-                <input className="input mt-1 w-full text-xl font-bold py-3" type="number" min="0" max={String(Math.max(0, (byStudent.get(payTarget.id)?.due || 0) - (byStudent.get(payTarget.id)?.paid || 0)))} value={payAmount} onChange={e => setPayAmount(e.target.value)} autoFocus placeholder="0" />
+                <input className="input mt-1 w-full text-xl font-bold py-3" type="number" min="0" max={String(Math.max(0, (byStudent.get(payTarget.id)?.due || 0) - (byStudent.get(payTarget.id)?.paid || 0) + (priorByStudent.get(payTarget.id) || 0)))} value={payAmount} onChange={e => setPayAmount(e.target.value)} autoFocus placeholder="0" />
               </label>
               <label className="block text-xs font-bold">
                 Payment method
