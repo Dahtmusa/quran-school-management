@@ -554,6 +554,21 @@ export async function reinstateStudent(studentId: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function teacherSubmitHistoricalClass(termId: string, classId: string, entries: Array<{ studentId: string; endSurah: number; endAyah: number; score: number }>): Promise<number> {
+  const { data, error } = await supabase().rpc('teacher_submit_historical_class', {
+    p_term_id: termId,
+    p_class_id: classId,
+    p_entries: entries.map(e => ({
+      student_id: e.studentId,
+      end_surah: e.endSurah,
+      end_ayah: e.endAyah,
+      score: e.score,
+    })),
+  });
+  if (error) throw error;
+  return Number(data ?? 0);
+}
+
 export async function teacherSubmitHistoricalEval3(p: {
   studentId: string; termId: string;
   startSurah: number; startAyah: number;

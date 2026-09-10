@@ -3,7 +3,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, teacherSubmitHistoricalClass, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -164,8 +164,8 @@ export default function TeacherDashboard() {
         next[s.id] = {
           startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
           startAyah:  s.start?.ayah  || 1,
-          endSurah: s.current?.surah || 0,
-          endAyah:  s.current?.ayah  || 0,
+          endSurah: 0,
+          endAyah: 0,
           direction: s.direction || 'Baqarah-to-Nas',
         };
       }
@@ -279,46 +279,29 @@ export default function TeacherDashboard() {
   }
 
   async function submitClassBatch() {
+    if (!histTermId || !students.length) return;
     const ready = students.filter(s => {
       const e = histEntries[s.id];
       return e && computeHistMetrics(e, histTargetPages) !== null;
     });
-    if (!ready.length) {
-      setHistMsg('⚠ No students are ready to submit. Fill in the Current Position (teal dropdowns) for each student first.');
+    if (ready.length !== students.length) {
+      setHistMsg(`⚠ Complete the End-of-Term position for all ${students.length} students before submitting the class.`);
       return;
     }
     setHistMsg('');
-    const failed: string[] = [];
-    for (let i = 0; i < ready.length; i += 5) {
-      const chunk = ready.slice(i, i + 5);
-      const results = await Promise.allSettled(chunk.map(async s => {
+    setHistSubmitting(new Set(students.map(s => s.id)));
+    try {
+      const count = await teacherSubmitHistoricalClass(histTermId, students[0]?.classId || '', ready.map(s => {
         const e = histEntries[s.id];
-        const m = computeHistMetrics(e, histTargetPages);
-        if (!m || !histTermId) throw new Error('Not ready');
-        const termId = histTermId;
-        setHistSubmitting(prev => new Set(prev).add(s.id));
-        try {
-          await teacherSubmitHistoricalEval3({
-            studentId: s.id, termId,
-            startSurah: e.startSurah, startAyah: e.startAyah,
-            endSurah: e.endSurah, endAyah: e.endAyah,
-            score: m.score, rubric: m.rubric, grade: m.grade,
-            ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
-          });
-        } finally {
-          setHistSubmitting(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-        }
-        return s.id;
+        const m = computeHistMetrics(e, histTargetPages)!;
+        return { studentId: s.id, endSurah: e.endSurah, endAyah: e.endAyah, score: m.score };
       }));
-      for (let j = 0; j < results.length; j++) {
-        if (results[j].status === 'rejected') failed.push(chunk[j].name);
-      }
-    }
-    await refresh();
-    if (failed.length === 0) {
-      setHistMsg(`✓ All ${ready.length} student${ready.length !== 1 ? 's' : ''} submitted — Admin will review and approve.`);
-    } else {
-      setHistMsg(`⚠ ${ready.length - failed.length} submitted successfully. Failed: ${failed.join(', ')}. Please try those again.`);
+      await refresh();
+      setHistMsg(`✓ Class submitted successfully — ${count} student${count !== 1 ? 's' : ''}. Eval 1 and Eval 2 were derived automatically. Admin can now review and approve the class.`);
+    } catch (err: any) {
+      setHistMsg(`⚠ Class was not submitted. Nothing was partially saved. ${err?.message || 'Please check the entries and try again.'}`);
+    } finally {
+      setHistSubmitting(new Set());
     }
   }
 
@@ -402,10 +385,10 @@ export default function TeacherDashboard() {
       >
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-base font-black text-amber-900">📋 Historical Records — First Term Setup</span>
+            <span className="text-base font-black text-amber-900">📋 First Term 2026/27 — Historical Evaluation</span>
             <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800">Temporary</span>
           </div>
-          <p className="mt-1 text-xs text-amber-700/80">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
+          <p className="mt-1 text-xs text-amber-700/80">Enter only each student's First Term ending Surah and Ayah. The historical start is fixed automatically and Eval 1–2 are derived from Eval 3.</p>
         </div>
         <span className="ml-4 shrink-0 text-amber-500 font-bold text-sm">{histOpen ? '▲ Hide' : '▼ Open'}</span>
       </button>
@@ -423,11 +406,9 @@ export default function TeacherDashboard() {
                 ))}
               </select>
             </label>
-            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
-              <input type="number" min={1} max={200} value={histTargetPages}
-                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
-                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-            </label>
+            <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
+              <span className="font-bold text-slate-800">How it works:</span> teacher enters the end position only. Eval 1 and Eval 2 are calculated automatically; Admin approves the whole class.
+            </div>
           </div>
 
           {/* Batch submit panel */}
@@ -467,8 +448,8 @@ export default function TeacherDashboard() {
                   <th className="px-4 py-3">#</th>
                   <th className="px-4 py-3">Student</th>
                   <th className="px-3 py-3 text-center">Direction</th>
-                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
-                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
+                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700">Historical Start</th>
+                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>End of First Term ✏️</th>
                   <th className="px-3 py-3 text-center">Score</th>
                   <th className="px-3 py-3 text-center">Status</th>
                 </tr>
@@ -498,26 +479,12 @@ export default function TeacherDashboard() {
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
-                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
-                          <option value="Baqarah-to-Nas">↓ B→N</option>
-                          <option value="Nas-to-Baqarah">↑ N→B</option>
-                        </select>
+                        <span className="text-[10px] font-bold text-slate-500">{e.direction === 'Nas-to-Baqarah' ? 'N → B' : 'B → N'}</span>
                       </td>
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                          <option value={0}>— Surah —</option>
-                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <select value={e.startAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Number(ev.target.value) } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                          <option value="">Ayah</option>
-                          {Array.from({ length: maxStartAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
+                      <td className="px-2 py-2.5 bg-emerald-50/20 text-center">
+                        <span className="inline-flex rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">
+                          {e.direction === 'Nas-to-Baqarah' ? 'An-Nās 114:1' : 'Al-Baqarah 2:1'}
+                        </span>
                       </td>
                       <td className="px-1 py-2.5 bg-teal-50/20">
                         <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}

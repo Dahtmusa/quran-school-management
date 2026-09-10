@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   loadStudents, loadClasses, loadOperationalTerms,
-  bulkImportHistoricalEvals, adminApproveClassHistoricalEvals,
+  adminApproveClassHistoricalEvals,
   getCurrentProfile, loadEvaluations,
   type HistoricalEvalEntry, type LiveClass,
 } from '@/lib/live-store';
@@ -92,7 +92,6 @@ export default function Eval3ImportPage() {
   const [targetPages, setTargetPages] = useState(30);
 
   const [entries, setEntries] = useState<Record<string, EntryState>>({});
-  const [importing, setImporting] = useState(false);
   const [approving, setApproving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -192,49 +191,6 @@ export default function Eval3ImportPage() {
     }
   }
 
-  async function handleImport() {
-    if (!selectedTermId) { setMessage({ type: 'error', text: 'Please select a term.' }); return; }
-    if (!selectedClassId) { setMessage({ type: 'error', text: 'Please select a class.' }); return; }
-
-    const batch: HistoricalEvalEntry[] = [];
-    for (const student of classStudents) {
-      const e = entries[student.id];
-      if (!e) continue;
-      const m = getMetrics(student, e);
-      if (!m.valid) continue;
-      // Auto-detect direction from ordinals; use canonical Quran start (Baqarah 1 or Nas 1)
-      const detectedDir = autoDetectDirection(
-        { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah },
-        { surah: e.eval3Surah, ayah: e.eval3Ayah }
-      );
-      const canonical = canonicalStart(detectedDir);
-
-      batch.push({
-        studentId: student.id,
-        startSurah: canonical.surah, startAyah: canonical.ayah,
-        eval3Surah: e.eval3Surah, eval3Ayah: e.eval3Ayah,
-        eval3: { ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs, score: m.score, rubric: m.rubric, grade: m.grade },
-        direction: detectedDir,
-      });
-    }
-
-    if (!batch.length) {
-      setMessage({ type: 'error', text: 'No complete entries. Fill in the Eval 3 end position (surah + ayah) for each student.' });
-      return;
-    }
-
-    setImporting(true); setMessage(null);
-    try {
-      const result = await bulkImportHistoricalEvals(batch, selectedTermId, 'capture_term');
-      // Refresh existing evals so edit indicators update
-      loadEvaluations().then(ev => setExistingEvals(ev)).catch(() => {});
-      setMessage({ type: 'success', text: `Saved all 3 evaluations for ${result.imported} student${result.imported !== 1 ? 's' : ''}. Their profiles are updated and report cards are ready.` });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err?.message ?? 'Import failed. Try again.' });
-    } finally {
-      setImporting(false);
-    }
-  }
 
   if (authorized === null || loading) {
     return <div className="flex items-center justify-center min-h-screen"><div className="w-6 h-6 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" /></div>;
@@ -251,7 +207,7 @@ export default function Eval3ImportPage() {
           <div>
             <h1 className="text-lg font-bold text-neutral-900">Historical Records — Student Positions</h1>
             <p className="text-xs text-neutral-500 mt-0.5">
-              Review teacher submissions and approve them, or enter positions directly. Approved records update student profiles, report cards, and the parents portal.
+              Teachers submit the whole class once. Review the pending Eval 3 records here, then approve the entire class in one action. The approved end position becomes the official current position and the next-term starting position.
             </p>
           </div>
           <button onClick={() => router.push('/evaluations')} className="inline-flex items-center gap-1.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg px-4 py-2 transition-colors">
@@ -293,25 +249,20 @@ export default function Eval3ImportPage() {
             {selectedClassId && (
               <div className="flex flex-col justify-end gap-2">
                 <div className="text-xs text-neutral-500">
-                  {readyCount} / {classStudents.length} students ready to save
-                  {pendingCount > 0 && (
-                    <span className="ml-2 font-semibold text-amber-600">· {pendingCount} pending approval</span>
-                  )}
+                  {classStudents.length} active students in this class
+                  {pendingCount > 0 && <span className="ml-2 font-semibold text-amber-600">· {pendingCount} awaiting approval</span>}
                 </div>
                 {pendingCount > 0 && (
-                  <button onClick={handleApproveClass} disabled={approving}
+                  <button onClick={handleApproveClass} disabled={approving || pendingCount !== classStudents.length}
+                    title={pendingCount !== classStudents.length ? 'Every active student must be submitted before the class can be approved.' : undefined}
                     className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl px-5 py-3 shadow-md shadow-emerald-200 transition-all">
                     {approving ? (
-                      <><span className="animate-spin">⏳</span> Approving…</>
+                      <><span className="animate-spin">⏳</span> Approving class…</>
                     ) : (
-                      <><span className="text-base">✅</span> Approve all for this class <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{pendingCount}</span></>
+                      <><span className="text-base">✅</span> Approve entire class <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{pendingCount}/{classStudents.length}</span></>
                     )}
                   </button>
                 )}
-                <button onClick={handleImport} disabled={importing || readyCount === 0}
-                  className="w-full bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl px-4 py-2.5 transition-colors">
-                  {importing ? 'Saving…' : `Save ${readyCount} Student${readyCount !== 1 ? 's' : ''}`}
-                </button>
               </div>
             )}
           </div>
@@ -335,7 +286,7 @@ export default function Eval3ImportPage() {
             <div className="text-4xl mb-3">📖</div>
             <h2 className="text-base font-semibold text-neutral-800 mb-1">Select a term and class to begin</h2>
             <p className="text-sm text-neutral-500 max-w-lg mx-auto">
-              Choose a term and class above. For each student enter where they started this term and where they are now. Already-saved students are pre-filled — correct and save again to update.
+              Choose a term and class above. Teacher-submitted First Term records appear here for class-level review. Admin approval is atomic: either the whole class is approved or nothing is changed.
             </p>
           </div>
         )}
@@ -460,27 +411,17 @@ export default function Eval3ImportPage() {
             </table>
 
             {/* Bottom action bar */}
-            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-neutral-100 bg-neutral-50">
               <span className="text-xs text-neutral-500">
-                {readyCount} of {classStudents.length} ready to save
-                {pendingCount > 0 && <span className="ml-2 font-semibold text-amber-600">· {pendingCount} pending approval</span>}
+                {readyCount} of {classStudents.length} records visible for review
+                {pendingCount > 0 && <span className="ml-2 font-semibold text-amber-600">· {pendingCount} awaiting approval</span>}
               </span>
-              <div className="flex items-center gap-2">
-                {pendingCount > 0 && (
-                  <button onClick={handleApproveClass} disabled={approving}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl px-5 py-2.5 shadow-md shadow-emerald-200 transition-all">
-                    {approving ? (
-                      <><span className="animate-spin inline-block">⏳</span> Approving…</>
-                    ) : (
-                      <><span>✅</span> Approve all <span className="ml-1 rounded-full bg-white/20 px-2 py-0.5 text-xs">{pendingCount}</span></>
-                    )}
-                  </button>
-                )}
-                <button onClick={handleImport} disabled={importing || readyCount === 0}
-                  className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl px-6 py-2.5 transition-colors">
-                  {importing ? 'Saving…' : `Save ${readyCount} Student${readyCount !== 1 ? 's' : ''}`}
+              {pendingCount > 0 && (
+                <button onClick={handleApproveClass} disabled={approving || pendingCount !== classStudents.length}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-black rounded-xl px-5 py-2.5 shadow-md shadow-emerald-200 transition-all">
+                  {approving ? 'Approving class…' : `Approve entire class (${pendingCount}/${classStudents.length})`}
                 </button>
-              </div>
+              )}
             </div>
           </div>
         )}
