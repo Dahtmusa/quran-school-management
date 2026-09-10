@@ -3,244 +3,173 @@ import { loadCMSSettings } from '@/lib/cms-live-store';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm, loadSignaturesForReportCards, type ReportCardSignatures } from '@/lib/live-store';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
 function buildReportCardHTML(s: any, settings: any, termLabel: string, signatures: ReportCardSignatures, qrDataUrl = '') {
-  const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const schoolName = settings.school_name?.value || 'ALIYU AND MAIMUNA CENTER FOR QUR\'ANIC MEMORIZATION';
   const shortName = settings.short_name?.value || 'AMQM';
-  const address = settings.contact?.address || '';
+  const address = settings.contact?.address || 'OPPOSITE NURUL ISLAM DEMSAWO, JIMETA-YOLA, ADAMAWA STATE, NIGERIA';
   const logoUrl = settings.logo_url?.value || '';
   const approved = s.es.filter((e: any) => e.status === 'Approved');
   const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
-  const status = avg === null ? 'Pending' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
+  const status = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
   const absP = absoluteProgress(s.current, s.direction);
   const rem = remainingFrom(s.current, s.direction);
   const juz = juzForPosition(s.current);
   const hizb = hizbForPosition(s.current);
   const mushafPg = pageForPosition(s.current);
-  const evals = [1, 2, 3].map(n => {
-    const e = s.es.find((x: any) => x.number === n);
-    return e && e.status === 'Approved' ? e : null;
-  });
+  const evals = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
   const classSig = s.classId ? signatures.teachers[s.classId] : null;
   const classTeacherName = classSig?.signer_name || s.teacher || null;
   const supervisor = signatures.supervisor;
   const director = signatures.director;
   const dir = s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';
-  const pct = Math.min(100, Math.max(0, Number(absP.percent) || 0));
+  const pct = Math.min(100, Math.max(0, absP.percent));
   const serial = `${(s.admissionNo || 'N/A').toUpperCase()}/${termLabel.replace(/[\s·]+/g, '-').toUpperCase()}`;
   const printed = new Date().toLocaleDateString('en-NG');
+  const academicYear = (termLabel.split(' · ')[0] || termLabel).trim();
+  const grade = (e: any) => e?.grade || '—';
+  const score = (e: any) => e ? `${e.score}%` : '—';
+  const rubric = (e: any, k: string) => e ? `${e[k] ?? 0}/5` : '—';
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" class="rc-logo" alt="AMQM logo"/>` : `<div class="rc-logo-fallback">AMQM</div>`;
+  const qrHtml = qrDataUrl ? `<div class="rc-qr-wrap"><img src="${qrDataUrl}" class="rc-qr" alt="QR"/><div class="rc-qr-label">SCAN TO VERIFY</div></div>` : '';
 
-  const gradeClass = avg !== null && avg >= 90 ? 'result-excellent' : avg !== null && avg >= 75 ? 'result-good' : avg !== null && avg >= 60 ? 'result-ok' : 'result-low';
+  const evalRows = evals.map((e, i) => `<tr>
+    <td><span class="rc-eval-no">0${i + 1}</span><strong>Evaluation ${i + 1}</strong></td>
+    <td>${e?.memorizedAyahs ? `${Number(e.memorizedAyahs).toLocaleString()} ayahs` : '—'}</td>
+    <td>${e ? Number(e.memorizedPages || 0).toFixed(1) : '—'}</td>
+    <td>${rubric(e, 'memorization')}</td><td>${rubric(e, 'accuracy')}</td><td>${rubric(e, 'fluency')}</td><td>${rubric(e, 'tajweed')}</td><td>${rubric(e, 'retention')}</td>
+    <td class="rc-score">${score(e)}</td><td class="rc-grade">${grade(e)}</td>
+  </tr>`).join('');
 
-  const evalRows = evals.map((e, i) => e ? `
-    <tr>
-      <td class="eval-name"><span>0${i + 1}</span> Evaluation ${i + 1}</td>
-      <td>${Number(e.memorizedAyahs || 0).toLocaleString()} ayahs</td>
-      <td>${Number(e.memorizedPages || 0).toFixed(1)}</td>
-      <td>${e.memorization ?? '—'}/5</td>
-      <td>${e.accuracy ?? '—'}/5</td>
-      <td>${e.fluency ?? '—'}/5</td>
-      <td>${e.tajweed ?? '—'}/5</td>
-      <td>${e.retention ?? '—'}/5</td>
-      <td class="score-cell">${e.score}%</td>
-      <td class="grade-cell">${esc(e.grade || '—')}</td>
-    </tr>` : `
-    <tr class="missing-row">
-      <td class="eval-name"><span>0${i + 1}</span> Evaluation ${i + 1}</td>
-      <td colspan="7">Not recorded</td><td>—</td><td>—</td>
-    </tr>`).join('');
-
-  const signatureBox = (sig: any, fallback: string | null, role: string) => {
-    const name = sig?.signer_name || fallback || '—';
-    return `<div class="signature-box">
-      <div class="signature-stage">${sig?.signature_data ? `<img src="${sig.signature_data}" class="signature-image" alt=""/>` : ''}</div>
-      <div class="signature-line"></div>
-      <div class="signature-name">${esc(name)}</div>
-      <div class="signature-role">${esc(role)}</div>
-      <div class="signature-date">Date: __________________</div>
-    </div>`;
-  };
-
-  const logoHtml = logoUrl ? `<img src="${logoUrl}" class="school-logo" alt="${esc(shortName)}"/>` : `<div class="school-logo-placeholder">AM<br/><span>QM</span></div>`;
-  const photoHtml = s.photoUrl
-    ? `<img src="${s.photoUrl}" class="student-photo" alt=""/>`
-    : `<div class="student-photo-placeholder">${esc((s.name || '?').charAt(0).toUpperCase())}</div>`;
-  const qrHtml = qrDataUrl ? `<div class="qr-wrap"><img src="${qrDataUrl}" class="qr" alt="Verification QR"/><div>SCAN TO VERIFY</div></div>` : '';
-  const ringCirc = 2 * Math.PI * 29;
-  const ringOffset = ringCirc * (1 - pct / 100);
+  const sigBox = (name: string | null, role: string, sig: any, extraClass = '') => `<div class="rc-sign ${extraClass}">
+    <div class="rc-sign-name">${name || '&nbsp;'}</div>
+    <div class="rc-sign-role">${role}</div>
+    <div class="rc-sign-line">${sig?.signature_data ? `<img src="${sig.signature_data}" class="rc-sign-img" alt=""/>` : ''}</div>
+    <div class="rc-sign-date">Date: __________________</div>
+  </div>`;
 
   return `<div class="page">
-    <header class="report-header">
-      <div class="header-rule"></div>
-      <div class="header-main">
+    <header class="rc-header">
+      <div class="rc-header-left">
         ${logoHtml}
-        <div class="school-heading">
-          <div class="school-acronym">${esc(shortName)}</div>
-          <div class="school-name">${esc(schoolName)}</div>
-          <div class="school-address">${esc(address)}</div>
-        </div>
-        <div class="header-verification">
-          <div class="report-badge">TERM REPORT CARD</div>
-          ${qrHtml}
-        </div>
+        <div class="rc-brand-caption"><b>AMQM</b><br/><span>Knowledge · Character · A Brighter Ummah</span></div>
       </div>
-      <div class="header-meta"><span>${esc(termLabel)}</span><span class="meta-dot">•</span><span>OFFICIAL ACADEMIC RECORD</span></div>
+      <div class="rc-header-center">
+        <div class="rc-acronym">A M Q M</div>
+        <div class="rc-school-name">${schoolName}</div>
+        <div class="rc-address">${address}</div>
+        <div class="rc-motto">Knowledge&nbsp;&nbsp;•&nbsp;&nbsp;Discipline&nbsp;&nbsp;•&nbsp;&nbsp;Qur’an for Life</div>
+      </div>
+      <div class="rc-header-right">
+        <div class="rc-quote-ar">وَلَقَدْ يَسَّرْنَا الْقُرْآنَ لِلذِّكْرِ<br/>فَهَلْ مِن مُّدَّكِرٍ</div>
+        <div class="rc-quote-en">“And We have certainly made the Qur’an easy for remembrance, so is there anyone who will remember?”</div>
+        <div class="rc-quote-ref">(Al-Qamar 54:17)</div>
+      </div>
     </header>
 
-    <section class="student-card">
-      <div class="student-identity">
-        ${photoHtml}
-        <div class="student-main">
-          <div class="field-label">STUDENT NAME</div>
-          <div class="student-name">${esc(s.name)}</div>
-          <div class="identity-line"><span>Admission No.</span><b>${esc(s.admissionNo?.toUpperCase() || '—')}</b></div>
+    <div class="rc-ribbon">
+      <div class="rc-ribbon-title">TERM REPORT CARD</div>
+      <div class="rc-ribbon-term">→&nbsp;&nbsp;${academicYear} ACADEMIC YEAR&nbsp;&nbsp;←</div>
+    </div>
+
+    <div class="rc-top-grid">
+      <section class="rc-student-card">
+        <div class="rc-student-main">
+          <div class="rc-label">Student Name</div>
+          <div class="rc-student-name">${s.name}</div>
+          <div class="rc-detail-grid">
+            <div><span>Admission No.</span><b>${s.admissionNo?.toUpperCase() || '—'}</b></div>
+            <div><span>Class</span><b>${s.className || '—'}</b></div>
+            <div><span>Section</span><b>${s.section || '—'}</b></div>
+            <div><span>Year</span><b>${s.year || '—'}</b></div>
+            <div><span>Term</span><b>${termLabel}</b></div>
+            <div><span>Class Teacher</span><b>${s.teacher || '—'}</b></div>
+          </div>
         </div>
-      </div>
-      <div class="student-fields">
-        <div><span>CLASS</span><b>${esc(s.className || '—')}</b></div>
-        <div><span>SECTION</span><b>${esc(s.section || '—')}</b></div>
-        <div><span>YEAR</span><b>${esc(s.year || '—')}</b></div>
-        <div><span>CLASS TEACHER</span><b>${esc(s.teacher || '—')}</b></div>
-        <div><span>TERM</span><b>${esc(termLabel)}</b></div>
-        <div><span>ATTENDANCE</span><b>${s.attendance != null ? `${esc(s.attendance)}%` : '—'}</b></div>
+      </section>
+      <section class="rc-attendance">
+        <div class="rc-att-title">Attendance</div>
+        <div class="rc-att-value">${s.attendance != null ? `${s.attendance}%` : '—'}</div>
+        <div class="rc-status">${status}</div>
+      </section>
+      ${qrHtml}
+    </div>
+
+    <section class="rc-section rc-academic">
+      <div class="rc-section-head"><span class="rc-section-icon">▣</span><span>ACADEMIC PERFORMANCE</span><em>Consistent Progress&nbsp;&nbsp;•&nbsp;&nbsp;Strong Foundations&nbsp;&nbsp;•&nbsp;&nbsp;Higher Goals</em></div>
+      <div class="rc-academic-body">
+        <table class="rc-table"><thead><tr>
+          <th>ASSESSMENT</th><th>AYAHS<br/>COVERED</th><th>PAGES</th><th>MEMORIZATION<br/>(5)</th><th>ACCURACY<br/>(5)</th><th>FLUENCY<br/>(5)</th><th>TAJWEED<br/>(5)</th><th>RETENTION<br/>(5)</th><th>SCORE</th><th>GRADE</th>
+        </tr></thead><tbody>${evalRows}</tbody></table>
+        <div class="rc-average"><div class="rc-average-title">TERM AVERAGE</div><div class="rc-average-score">${avg !== null ? `${avg}%` : '—'}</div><div class="rc-average-status">${status}</div><div class="rc-average-sub">${approved.length} of 3 evaluations</div></div>
       </div>
     </section>
 
-    <section class="section-block academic-block">
-      <div class="section-head"><span class="section-icon">01</span><span>ACADEMIC PERFORMANCE</span><em>Evaluation trail</em></div>
-      <div class="academic-body">
-        <table class="evaluation-table">
-          <thead><tr><th>ASSESSMENT</th><th>AYAHS</th><th>PAGES</th><th>MEM<br><small>/5</small></th><th>ACC<br><small>/5</small></th><th>FLU<br><small>/5</small></th><th>TAJ<br><small>/5</small></th><th>RET<br><small>/5</small></th><th>SCORE</th><th>GRADE</th></tr></thead>
-          <tbody>${evalRows}</tbody>
-        </table>
-        <aside class="average-card">
-          <div class="average-label">TERM AVERAGE</div>
-          <div class="average-score">${avg !== null ? `${avg}%` : '—'}</div>
-          <div class="average-status ${gradeClass}">${esc(status)}</div>
-          <div class="average-count">${approved.length} of 3 evaluations</div>
-        </aside>
+    <section class="rc-section rc-hifz">
+      <div class="rc-section-head"><span class="rc-section-icon">▥</span><span>QUR’AN MEMORIZATION JOURNEY</span><em>Step by Step&nbsp;&nbsp;•&nbsp;&nbsp;Page by Page&nbsp;&nbsp;•&nbsp;&nbsp;Closer to Allah</em></div>
+      <div class="rc-hifz-main">
+        <div class="rc-ring-wrap"><svg class="rc-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="ring-bg"/><circle cx="50" cy="50" r="42" class="ring-fill" stroke-dasharray="${(2*Math.PI*42).toFixed(2)}" stroke-dashoffset="${(2*Math.PI*42*(1-pct/100)).toFixed(2)}"/></svg><div class="rc-ring-center"><b>${pct.toFixed(1)}%</b><span>of Qur’an<br/>Completed</span></div></div>
+        <div class="rc-hifz-info"><div class="rc-small-cap">CURRENT POSITION</div><div class="rc-position">${label(s.current)}</div><div class="rc-hifz-sub">Started: ${label(s.start)}&nbsp;&nbsp;•&nbsp;&nbsp;${dir}</div><div class="rc-hifz-teacher">Teacher: <b>${s.teacher || '—'}</b></div><div class="rc-progress"><span style="width:${pct}%"></span></div><div class="rc-progress-meta"><b>${absP.hizbs} / 60 Hizb</b><span>${rem.ayahs.toLocaleString()} ayahs left</span></div></div>
+        <div class="rc-hifz-art"><div class="rc-book">▱</div><div>A Journey<br/><b>of a Lifetime</b></div></div>
+      </div>
+      <div class="rc-stats">
+        <div><span>AYahs<br/>Memorized</span><b>${absP.ayahs.toLocaleString()}</b></div>
+        <div><span>Pages<br/>Memorized</span><b>${absP.pages}</b></div>
+        <div><span>Hizb<br/>Memorized</span><b>${absP.hizbs}</b></div>
+        <div><span>Mushaf Page</span><b>${mushafPg}</b><small>/ 604</small></div>
+        <div class="remaining"><span>Ayahs<br/>Remaining</span><b>${rem.ayahs.toLocaleString()}</b></div>
+        <div class="remaining"><span>Pages<br/>Remaining</span><b>${rem.pages}</b></div>
+        <div class="remaining"><span>Hizbs<br/>Remaining</span><b>${rem.hizbs}</b></div>
+        <div class="remaining"><span>Current<br/>Juz / Hizb</span><b>${juz} / ${hizb}</b></div>
       </div>
     </section>
 
-    <section class="section-block hifz-block">
-      <div class="section-head dark"><span class="section-icon">02</span><span>QUR'AN MEMORIZATION JOURNEY</span><em>${esc(dir)}</em></div>
-      <div class="hifz-main">
-        <div class="progress-ring">
-          <svg viewBox="0 0 72 72" aria-hidden="true">
-            <circle cx="36" cy="36" r="29" fill="none" stroke="#dce9e3" stroke-width="6"/>
-            <circle cx="36" cy="36" r="29" fill="none" stroke="#16745f" stroke-width="6" stroke-linecap="round" stroke-dasharray="${ringCirc.toFixed(2)}" stroke-dashoffset="${ringOffset.toFixed(2)}" transform="rotate(-90 36 36)"/>
-          </svg>
-          <div class="ring-center"><strong>${pct.toFixed(1)}%</strong><span>QUR'AN<br/>COMPLETED</span></div>
-        </div>
-        <div class="journey-copy">
-          <div class="journey-kicker">CURRENT POSITION</div>
-          <div class="journey-position">${esc(label(s.current))}</div>
-          <div class="journey-details">Started: <b>${esc(label(s.start))}</b> &nbsp;·&nbsp; Direction: <b>${esc(dir)}</b></div>
-          <div class="journey-details">Teacher: <b>${esc(s.teacher || '—')}</b></div>
-          <div class="progress-track"><span style="width:${pct}%"></span></div>
-          <div class="progress-meta"><b>${absP.hizbs} / 60 Hizb</b><span>${rem.ayahs.toLocaleString()} ayahs remaining</span></div>
-        </div>
-        <div class="journey-highlight"><svg class="book-mark" viewBox="0 0 48 32" aria-hidden="true"><path d="M4 5c7-3 13-2 20 2v20c-7-4-13-5-20-2z"/><path d="M44 5c-7-3-13-2-20 2v20c7-4 13-5 20-2z"/><path d="M24 7v20"/></svg><div>HIFZ<br/>PROGRESS</div><strong>${absP.ayahs.toLocaleString()}</strong><span>ayahs memorized</span></div>
-      </div>
-      <div class="stats-grid">
-        <div class="stat memorized"><span>AYAHS MEMORIZED</span><strong>${absP.ayahs.toLocaleString()}</strong></div>
-        <div class="stat memorized"><span>PAGES MEMORIZED</span><strong>${absP.pages}</strong></div>
-        <div class="stat memorized"><span>HIZB MEMORIZED</span><strong>${absP.hizbs}<small>/ 60</small></strong></div>
-        <div class="stat memorized"><span>MUSHAF PAGE</span><strong>${mushafPg}<small>/ 604</small></strong></div>
-        <div class="stat remaining"><span>AYAHS REMAINING</span><strong>${rem.ayahs.toLocaleString()}</strong></div>
-        <div class="stat remaining"><span>PAGES REMAINING</span><strong>${rem.pages}</strong></div>
-        <div class="stat remaining"><span>HIZBS REMAINING</span><strong>${rem.hizbs}<small>/ 60</small></strong></div>
-        <div class="stat remaining"><span>CURRENT JUZ / HIZB</span><strong>${juz} / ${hizb}</strong></div>
+    <section class="rc-section rc-final">
+      <div class="rc-section-head rc-gold-head"><span class="rc-section-icon">♛</span><span>FINAL TERM RESULT</span><em>Discipline Today&nbsp;&nbsp;•&nbsp;&nbsp;Excellence Tomorrow</em></div>
+      <div class="rc-final-body">
+        <div class="rc-final-col"><div class="rc-final-label">Academic Standing</div><div class="rc-final-badge">${status}</div></div>
+        <div class="rc-final-score"><b>${avg !== null ? `${avg}%` : '—'}</b><span>Term Average</span></div>
+        <div class="rc-final-details"><div>☑&nbsp; ${approved.length} approved evaluations</div><div>▣&nbsp; ${termLabel}</div><div>◆&nbsp; ${s.year || '—'}</div><div>▥&nbsp; On track for continued progress</div></div><div class="rc-final-att"><span>ATTENDANCE</span><b>${s.attendance != null ? `${s.attendance}%` : '—'}</b></div>
       </div>
     </section>
 
-    <section class="result-panel">
-      <div><span class="result-kicker">FINAL TERM RESULT</span><strong class="result-title">${esc(status)}</strong><small>${approved.length} approved evaluations · ${esc(termLabel)} · ${esc(s.year || '—')}</small></div>
-      <div class="result-score"><strong>${avg !== null ? `${avg}%` : '—'}</strong><span>TERM AVERAGE</span></div>
-      <div class="result-attendance"><span>ATTENDANCE</span><strong>${s.attendance != null ? `${esc(s.attendance)}%` : '—'}</strong></div>
-    </section>
-
-    <section class="approval-block">
-      <div class="section-head"><span class="section-icon">03</span><span>OFFICIAL APPROVAL</span><em>Authorized school officials</em></div>
-      <div class="signature-grid">
-        ${signatureBox(classSig, classTeacherName, 'CLASS TEACHER')}
-        ${signatureBox(supervisor, null, 'SCHOOL SUPERVISOR')}
-        ${signatureBox(director, null, 'SCHOOL DIRECTOR')}
+    <section class="rc-section rc-approval">
+      <div class="rc-section-head"><span class="rc-section-icon">♟</span><span>OFFICIAL APPROVAL</span><em>Verified&nbsp;&nbsp;•&nbsp;&nbsp;Approved&nbsp;&nbsp;•&nbsp;&nbsp;Official Record</em></div>
+      <div class="rc-sign-grid">
+        ${sigBox(classTeacherName, 'CLASS TEACHER', classSig)}
+        ${sigBox(supervisor?.signer_name || null, 'SCHOOL SUPERVISOR', supervisor)}
+        ${sigBox(director?.signer_name || null, 'SCHOOL DIRECTOR', director)}
       </div>
     </section>
 
-    <footer class="report-footer">
-      <div><b>Serial:</b> ${esc(serial)}</div>
-      <div>Only approved evaluations constitute official academic records.</div>
-      <div><b>Printed:</b> ${esc(printed)}</div>
-    </footer>
+    <div class="rc-footer-band"><span>Qur’an Today&nbsp;&nbsp;•&nbsp;&nbsp;Better Muslims Tomorrow</span><b>رَبِّ زِدْنِي عِلْمًا</b><span>My Lord, increase me in knowledge (Taha 20:114)</span></div>
+    <footer class="rc-footer">Serial: ${serial}&nbsp;&nbsp;•&nbsp;&nbsp;Only approved evaluations constitute official academic records&nbsp;&nbsp;•&nbsp;&nbsp;Printed: ${printed}</footer>
   </div>`;
 }
 
+
 const PRINT_CSS = `
-  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  html,body{margin:0;padding:0;background:#fff;font-family:Arial,'Segoe UI',sans-serif;color:#18312c;line-height:1.25}
-  @page{size:A4 portrait;margin:0}
-  .page{width:210mm;height:297mm;padding:7.5mm 9mm 6.5mm;background:#fff;display:flex;flex-direction:column;gap:3.2mm;overflow:hidden;page-break-after:always;break-after:page;position:relative}
-  .page:before{content:"";position:absolute;inset:3.5mm;border:0.35mm solid #d7bf78;pointer-events:none}
-  .page:after{content:"";position:absolute;left:4mm;right:4mm;bottom:4mm;height:1.2mm;background:linear-gradient(90deg,#0b4b3e,#c59a3a,#0b4b3e);opacity:.95;pointer-events:none}
-  .report-header{height:31mm;flex:0 0 31mm;position:relative;z-index:1;padding:0 2mm;display:flex;flex-direction:column;justify-content:center}
-  .header-rule{height:1.2mm;background:linear-gradient(90deg,#0b4b3e 0 74%,#c59a3a 74%);margin-bottom:2.2mm}
-  .header-main{display:grid;grid-template-columns:25mm 1fr 31mm;gap:4mm;align-items:center}
-  .school-logo,.school-logo-placeholder{width:21mm;height:21mm;object-fit:contain;border-radius:50%;border:.5mm solid #d7bf78;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;color:#0b4b3e;font-weight:900;font-size:10px;line-height:.9}
-  .school-logo-placeholder span{font-size:8px}
-  .school-heading{min-width:0;text-align:center}
-  .school-acronym{font-size:8px;font-weight:800;letter-spacing:.32em;color:#b0862c;margin-left:.32em}
-  .school-name{font-family:Georgia,'Times New Roman',serif;font-size:14.5px;line-height:1.05;font-weight:700;color:#0a4036;text-transform:uppercase;margin-top:.8mm}
-  .school-address{font-size:6.2px;color:#66736e;margin-top:1.1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .header-verification{display:flex;flex-direction:column;align-items:center;gap:1.3mm}
-  .report-badge{background:#0b4b3e;color:#fff;border:.45mm solid #c59a3a;padding:1.7mm 2.2mm;border-radius:2mm;font-family:Georgia,serif;font-size:6.8px;font-weight:700;letter-spacing:.08em;text-align:center;white-space:nowrap}
-  .qr-wrap{text-align:center;color:#63716d;font-size:5px;font-weight:700;letter-spacing:.08em}
-  .qr{width:17mm;height:17mm;display:block;margin:auto;border:.3mm solid #d7dfdc}
-  .header-meta{border-top:.3mm solid #d7dfdc;margin-top:2mm;padding-top:1.2mm;display:flex;justify-content:center;gap:2mm;font-size:5.8px;font-weight:700;letter-spacing:.1em;color:#71807a;text-transform:uppercase}
-  .meta-dot{color:#c59a3a}
-
-  .student-card{height:27mm;flex:0 0 27mm;display:grid;grid-template-columns:67mm 1fr;border:.35mm solid #cbd9d3;border-radius:2.2mm;background:#fbfcfb;overflow:hidden;z-index:1}
-  .student-identity{display:flex;align-items:center;gap:3mm;padding:3mm 4mm;border-right:.35mm solid #d7e1dd;background:#f6faf7}
-  .student-photo,.student-photo-placeholder{width:18mm;height:18mm;border-radius:1.8mm;object-fit:cover;border:.35mm solid #b7c8c0;flex:0 0 18mm}
-  .student-photo-placeholder{display:flex;align-items:center;justify-content:center;background:#e2ece7;color:#0b4b3e;font-size:17px;font-weight:900}
-  .field-label{font-size:5.5px;letter-spacing:.12em;color:#7b8984;font-weight:800}
-  .student-name{font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;color:#0b3d35;line-height:1.05;margin-top:1mm}
-  .identity-line{display:flex;gap:1.2mm;margin-top:1.5mm;font-size:5.8px;color:#78857f}.identity-line b{color:#233b35}
-  .student-fields{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
-  .student-fields>div{padding:2.1mm 3mm;border-bottom:.25mm solid #e0e7e4;border-left:.25mm solid #e0e7e4;display:flex;flex-direction:column;justify-content:center}
-  .student-fields>div:nth-last-child(-n+3){border-bottom:0}
-  .student-fields span{font-size:5px;letter-spacing:.11em;color:#7a8983;font-weight:800}.student-fields b{font-size:6.5px;color:#203a34;margin-top:.8mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-
-  .section-block,.approval-block{z-index:1;min-height:0}
-  .academic-block{height:47mm;flex:0 0 47mm}
-  .section-head{height:8mm;display:flex;align-items:center;gap:2.2mm;background:#0b4b3e;color:#fff;border-radius:1.8mm 1.8mm 0 0;padding:0 3.2mm;font-family:Georgia,'Times New Roman',serif;font-size:9px;font-weight:700;letter-spacing:.05em}
-  .section-head.dark{background:#0b4b3e}.section-head em{margin-left:auto;font-family:Arial,sans-serif;font-style:normal;font-size:5.8px;font-weight:600;letter-spacing:.06em;color:#dcefe7;text-transform:uppercase}
-  .section-icon{display:inline-flex;width:5.2mm;height:5.2mm;border:.35mm solid #c59a3a;border-radius:50%;align-items:center;justify-content:center;color:#f0d58d;font-family:Arial,sans-serif;font-size:5px;letter-spacing:0}
-  .academic-body{height:39mm;display:grid;grid-template-columns:1fr 28mm;gap:2.5mm;padding:2.2mm;border:.35mm solid #ccd9d4;border-top:0;border-radius:0 0 1.8mm 1.8mm;background:#fff}
-  .evaluation-table{width:100%;height:34.5mm;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:5.6px;color:#344640;overflow:hidden;border:.25mm solid #d4dfdb;border-radius:1.2mm}
-  .evaluation-table th{background:#eef4f1;color:#52645d;font-size:4.8px;line-height:1.05;letter-spacing:.05em;padding:1.3mm .5mm;border-right:.2mm solid #d6e0dc;border-bottom:.3mm solid #c7d5d0;text-align:center}
-  .evaluation-table th:first-child{width:27mm;text-align:left;padding-left:1.7mm}.evaluation-table th:nth-child(2){width:14mm}.evaluation-table th:nth-child(3){width:10mm}.evaluation-table th:nth-child(n+4):nth-child(-n+8){width:8mm}.evaluation-table th:nth-child(9){width:12mm}.evaluation-table th:nth-child(10){width:11mm}
-  .evaluation-table th small{font-size:4px;font-weight:400}.evaluation-table td{padding:1.25mm .45mm;border-right:.2mm solid #e0e7e4;border-bottom:.2mm solid #e0e7e4;text-align:center;vertical-align:middle}.evaluation-table tr:last-child td{border-bottom:0}.evaluation-table td:last-child,.evaluation-table th:last-child{border-right:0}
-  .evaluation-table tbody tr:nth-child(even){background:#fbfdfc}.evaluation-table .eval-name{text-align:left;padding-left:1.5mm;font-weight:700;color:#183d34}.eval-name span{display:inline-flex;align-items:center;justify-content:center;width:5mm;height:4.5mm;background:#e3f0ea;color:#0b5a48;border-radius:1mm;font-size:4.5px;margin-right:1mm}
-  .score-cell{font-weight:900;color:#0b5a48;font-size:6.4px}.grade-cell{font-weight:900;color:#8a6b24;font-size:6.4px}.missing-row{color:#9aa7a2}
-  .average-card{height:34.5mm;border:.35mm solid #a8c8ba;border-radius:2mm;background:linear-gradient(180deg,#f0f8f3,#fbfdfb);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2mm}
-  .average-label{font-size:5.2px;font-weight:800;letter-spacing:.12em;color:#65766e}.average-score{font-family:Georgia,serif;font-size:23px;line-height:1;color:#0b4b3e;font-weight:700;margin:2.5mm 0 1.5mm}.average-status{font-size:6.5px;font-weight:800;padding:1.3mm 2.5mm;border-radius:1.2mm;width:100%}.result-excellent{background:#d9f1e3;color:#0b5a48}.result-good{background:#e4effb;color:#1f557a}.result-ok{background:#fff2d3;color:#8a6418}.result-low{background:#fde5e5;color:#9b3333}.average-count{font-size:5.2px;color:#7a8983;margin-top:2mm}
-
-  .hifz-block{height:70mm;flex:0 0 70mm}.hifz-main{height:40mm;display:grid;grid-template-columns:28mm 1fr 31mm;gap:3mm;align-items:center;padding:3mm 4mm;border:.35mm solid #b9cfc5;border-top:0;background:#f8fbf9}
-  .progress-ring{position:relative;width:27mm;height:27mm;display:flex;align-items:center;justify-content:center}.progress-ring svg{position:absolute;inset:0;width:100%;height:100%}.ring-center{text-align:center;position:relative;z-index:1}.ring-center strong{display:block;font-family:Georgia,serif;font-size:13px;color:#0b4b3e;line-height:1}.ring-center span{display:block;font-size:4.5px;line-height:1.25;color:#71807a;font-weight:800;letter-spacing:.04em;margin-top:1mm}
-  .journey-copy{min-width:0}.journey-kicker{font-size:5.3px;color:#9a762b;letter-spacing:.13em;font-weight:800}.journey-position{font-family:Georgia,serif;font-size:15px;color:#0a4036;font-weight:700;margin:.8mm 0 1.3mm}.journey-details{font-size:6.2px;color:#63736c;margin-top:.6mm}.journey-details b{color:#2b443d}.progress-track{height:2.5mm;background:#dfe9e4;border-radius:2mm;overflow:hidden;margin-top:2.2mm}.progress-track span{display:block;height:100%;background:linear-gradient(90deg,#0f7059,#c49a3b);border-radius:2mm}.progress-meta{display:flex;justify-content:space-between;margin-top:1.1mm;font-size:5.5px;color:#72807b}.progress-meta b{color:#0b5a48}.book-mark{width:10mm;height:7mm;margin-bottom:1mm;fill:none;stroke:#9a762b;stroke-width:1.5}.journey-highlight{height:25mm;border:.35mm solid #d7bf78;border-radius:1.8mm;background:#fffdf6;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#75602e}.journey-highlight div{font-size:5px;font-weight:800;letter-spacing:.13em;line-height:1.2}.journey-highlight strong{font-family:Georgia,serif;font-size:17px;color:#0b4b3e;line-height:1;margin:1mm 0}.journey-highlight span{font-size:5.2px;color:#7b8075}
-  .stats-grid{height:30mm;display:grid;grid-template-columns:repeat(8,1fr);border:0;border-left:.35mm solid #ccd9d4;border-right:.35mm solid #ccd9d4;border-bottom:.35mm solid #ccd9d4;border-radius:0 0 1.8mm 1.8mm;overflow:hidden}.stat{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1.3mm .7mm;border-right:.25mm solid #d7e0dc}.stat:last-child{border-right:0}.stat.memorized{background:#f2f8f5}.stat.remaining{background:#fffaf0}.stat span{font-size:4.7px;line-height:1.15;letter-spacing:.04em;font-weight:800;color:#708079}.stat.memorized span{color:#0d6b55}.stat.remaining span{color:#9a772b}.stat strong{font-family:Georgia,serif;font-size:13px;line-height:1;margin-top:1.6mm;color:#0b4b3e}.stat.remaining strong{color:#735b24}.stat small{font-family:Arial,sans-serif;font-size:5px;font-weight:700;color:#8c9993;margin-left:.6mm}
-
-  .result-panel{height:28mm;flex:0 0 28mm;display:grid;grid-template-columns:1fr 38mm 34mm;align-items:stretch;border:.35mm solid #bca25d;border-radius:2mm;background:#fbf8ed;overflow:hidden;z-index:1}.result-panel>div{padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center}.result-panel>div+div{border-left:.3mm solid #d8cda9;align-items:center;text-align:center}.result-kicker{font-size:5.2px;letter-spacing:.13em;color:#88703a;font-weight:800}.result-title{font-family:Georgia,serif;font-size:15px;color:#0b4b3e;margin-top:1mm}.result-panel small{font-size:5.4px;color:#75817c;margin-top:1mm}.result-score strong{font-family:Georgia,serif;font-size:22px;line-height:1;color:#0b4b3e}.result-score span,.result-attendance span{font-size:5px;font-weight:800;letter-spacing:.1em;color:#7a7668;margin-top:1mm}.result-attendance strong{font-family:Georgia,serif;font-size:17px;color:#0b4b3e;margin-top:1mm}
-
-  .approval-block{height:39mm;flex:0 0 39mm}.signature-grid{height:31mm;display:grid;grid-template-columns:repeat(3,1fr);border:.35mm solid #ccd9d4;border-top:0;border-radius:0 0 1.8mm 1.8mm;overflow:hidden;background:#fff}.signature-box{padding:2.5mm 4mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center}.signature-box+ .signature-box{border-left:.3mm solid #d5dfdb}.signature-stage{height:8.5mm;width:100%;display:flex;align-items:flex-end;justify-content:center}.signature-image{max-width:38mm;max-height:8mm;object-fit:contain}.signature-line{width:80%;border-bottom:.3mm solid #80918a;height:1mm}.signature-name{font-size:6.3px;font-weight:800;color:#153b32;margin-top:1.1mm;min-height:2.8mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.signature-role{font-size:5.1px;letter-spacing:.1em;color:#527168;font-weight:800;margin-top:.5mm}.signature-date{font-size:5.1px;color:#8a9691;margin-top:1.3mm}
-  .report-footer{height:7mm;flex:0 0 7mm;display:grid;grid-template-columns:1.1fr 1.8fr .7fr;align-items:center;border-top:.3mm solid #d1dcd7;padding:1.5mm 1mm 0;z-index:2;font-size:5px;color:#6d7b76}.report-footer div:nth-child(2){text-align:center}.report-footer div:last-child{text-align:right}.report-footer b{color:#38564d}
-  @media print{body{background:#fff}.page{margin:0}.report-footer{break-inside:avoid}.section-block,.approval-block,.result-panel,.student-card{break-inside:avoid}}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{margin:0;padding:0;background:#fff;font-family:Georgia,'Times New Roman',serif;color:#102a26;line-height:1.25}
+@page{size:A4 portrait;margin:0}
+.page{width:210mm;height:297mm;padding:6mm 6.5mm 0;display:flex;flex-direction:column;gap:2.4mm;page-break-after:always;break-after:page;overflow:hidden;background:#fffdf8;position:relative}
+.page:before{content:"";position:absolute;inset:0;border:1px solid #c8b77a;pointer-events:none;z-index:20}
+.page:after{content:"";position:absolute;left:0;right:0;top:0;height:35mm;opacity:.055;background-image:radial-gradient(#0b5b49 1px,transparent 1px);background-size:7px 7px;pointer-events:none}
+.rc-header{display:grid;grid-template-columns:48mm 1fr 43mm;align-items:center;gap:3mm;min-height:29mm;position:relative;z-index:2}
+.rc-header-left{text-align:center}.rc-logo{width:31mm;height:25mm;object-fit:contain;display:block;margin:0 auto 1mm}.rc-logo-fallback{width:31mm;height:25mm;display:grid;place-items:center;font-size:10px;font-weight:900;color:#0b5b49;margin:auto}.rc-brand-caption{font-size:5.4px;line-height:1.2;color:#0b5b49;letter-spacing:.06em}.rc-brand-caption span{font-size:4.4px;color:#5e6d67;letter-spacing:.02em}
+.rc-header-center{text-align:center}.rc-acronym{font-size:27px;line-height:.9;letter-spacing:.28em;font-weight:700;color:#083f34}.rc-school-name{font-size:13.2px;line-height:1.02;font-weight:700;text-transform:uppercase;color:#0a4136;margin-top:1.4mm}.rc-address{font-size:5.8px;color:#52635d;margin-top:1.2mm;text-transform:uppercase}.rc-motto{font-size:7px;margin-top:1.4mm;color:#173f37;letter-spacing:.03em}
+.rc-header-right{text-align:center}.rc-quote-ar{font-size:9px;line-height:1.35;font-weight:700;color:#0b5b49}.rc-quote-en{font-family:Georgia,serif;font-size:5.9px;line-height:1.25;margin-top:1mm;color:#243d38}.rc-quote-ref{font-size:5.3px;margin-top:.7mm;color:#80651e}
+.rc-ribbon{width:132mm;min-height:18mm;align-self:center;background:#064a3c;color:white;border:1.4mm solid #d2a52e;outline:1px solid #5c4612;border-radius:4mm;text-align:center;padding:2.4mm 7mm 1.7mm;position:relative;z-index:3;box-shadow:0 1mm 0 rgba(0,0,0,.08)}.rc-ribbon:before,.rc-ribbon:after{content:"◆";position:absolute;top:4.6mm;color:#d2a52e;font-size:8px}.rc-ribbon:before{left:4mm}.rc-ribbon:after{right:4mm}.rc-ribbon-title{font-size:19px;line-height:1;font-weight:700;letter-spacing:.05em}.rc-ribbon-term{font-size:7px;letter-spacing:.09em;margin-top:1.2mm;color:#f5e7b6}
+.rc-top-grid{display:grid;grid-template-columns:1fr 34mm 25mm;gap:1.5mm;min-height:30mm;align-items:stretch}.rc-student-card,.rc-attendance{border:1px solid #d1c493;border-radius:2.8mm;background:#fffefa}.rc-student-card{display:flex;overflow:hidden}.rc-photo{width:22mm;height:100%;object-fit:cover;border-right:1px solid #d9d0ad}.rc-student-main{flex:1;padding:2.5mm 4mm 1.8mm}.rc-label,.rc-detail-grid span,.rc-final-label{display:block;font-size:5.8px;color:#60716b}.rc-student-name{font-size:14.5px;font-weight:700;color:#092f29;line-height:1.05;margin:.8mm 0 2.1mm}.rc-detail-grid{display:grid;grid-template-columns:1.2fr 1.1fr .7fr .65fr;gap:0;border-top:1px solid #ded8c4}.rc-detail-grid div{padding:1.5mm 2mm 1mm 0;border-right:1px solid #ded8c4}.rc-detail-grid div:nth-child(4n){border-right:0}.rc-detail-grid div:nth-child(n+5){border-top:1px solid #ded8c4}.rc-detail-grid b{display:block;font-size:6.7px;line-height:1.15;margin-top:.4mm;color:#183b35}.rc-attendance{padding:3mm;text-align:center;display:flex;flex-direction:column;justify-content:center}.rc-att-title{font-size:7px;font-weight:700}.rc-att-value{font-size:19px;font-weight:700;color:#0a4c3d;margin:1mm 0}.rc-status{background:#168447;color:white;border-radius:2mm;padding:1.4mm 2mm;font-size:7.5px;font-weight:700}.rc-qr-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center}.rc-qr{width:21mm;height:21mm;image-rendering:auto}.rc-qr-label{font-family:Arial,sans-serif;font-size:5.4px;margin-top:1mm;color:#31423e;letter-spacing:.06em}
+.rc-section{border:1px solid #cdbf8c;border-radius:2.6mm;overflow:hidden;background:#fffefa;flex-shrink:0}.rc-section-head{height:10mm;background:#07513f;color:white;display:flex;align-items:center;padding:0 4mm;font-size:12.5px;font-weight:700;letter-spacing:.035em}.rc-section-head em{margin-left:auto;font-size:6.7px;font-weight:400;font-style:italic;letter-spacing:.01em;color:#f3ecd5}.rc-section-icon{font-family:Arial,sans-serif;font-size:15px;margin-right:2.5mm;color:#f4e6ad}.rc-academic-body{display:grid;grid-template-columns:1fr 44mm;gap:2.5mm;padding:2mm 2.5mm 2.2mm}.rc-table{width:100%;border-collapse:collapse;font-family:Georgia,'Times New Roman',serif;font-size:6.6px}.rc-table th{background:#edf3ef;color:#163c35;font-size:5.6px;line-height:1.05;padding:1.8mm .8mm;border:1px solid #cbd5d0;text-align:center}.rc-table td{padding:2mm .8mm;border:1px solid #d2d9d5;text-align:center;height:8.3mm}.rc-table td:first-child{text-align:left;padding-left:1.5mm;white-space:nowrap}.rc-eval-no{display:inline-grid;place-items:center;width:4mm;height:4mm;border-radius:50%;background:#0b6b54;color:#fff;font-family:Arial,sans-serif;font-size:4.8px;margin-right:1.2mm}.rc-score,.rc-grade{font-weight:700;color:#064b3c}.rc-average{border:1px solid #b9c5bd;border-radius:2.2mm;background:linear-gradient(180deg,#f4f8f3,#fffefa);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2mm}.rc-average-title{font-family:Arial,sans-serif;font-size:6.8px;font-weight:700;letter-spacing:.08em;color:#345149}.rc-average-score{font-size:24px;line-height:1;font-weight:700;color:#075a47;margin:2mm 0 1mm}.rc-average-status{background:#198c4a;color:#fff;border-radius:2mm;padding:1.4mm 5mm;font-size:8px;font-weight:700}.rc-average-sub{font-size:6.2px;color:#4f625c;margin-top:1.4mm}
+.rc-hifz{background:#fbfaf2}.rc-hifz .rc-section-head{height:10.5mm}.rc-hifz-main{display:grid;grid-template-columns:31mm 1fr 45mm;gap:3mm;align-items:center;padding:3mm 4mm 2.5mm;background:linear-gradient(90deg,#fbfcf8 0%,#fbfcf8 60%,#f2e7cc 100%)}.rc-ring-wrap{width:28mm;height:28mm;position:relative;margin:auto}.rc-ring{width:28mm;height:28mm;transform:rotate(0deg)}.ring-bg{fill:none;stroke:#d8e2dd;stroke-width:8}.ring-fill{fill:none;stroke:#13905c;stroke-width:8;stroke-linecap:round;transform:rotate(-90deg);transform-origin:50% 50%}.rc-ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}.rc-ring-center b{font-size:13px;color:#083f34}.rc-ring-center span{font-size:5.3px;line-height:1.25;color:#33534b;text-transform:uppercase}.rc-small-cap{font-family:Arial,sans-serif;font-size:5.8px;letter-spacing:.12em;color:#987324;font-weight:700}.rc-position{font-size:15px;font-weight:700;color:#0a4438;margin:.7mm 0}.rc-hifz-sub,.rc-hifz-teacher{font-size:6.8px;color:#264a42}.rc-hifz-teacher{margin-top:.8mm}.rc-progress{height:3.8mm;background:#dce1df;border-radius:3mm;overflow:hidden;margin-top:2.4mm}.rc-progress span{display:block;height:100%;background:linear-gradient(90deg,#0d8051,#d0a12d);border-radius:3mm}.rc-progress-meta{display:flex;justify-content:space-between;font-size:5.8px;color:#596a64;margin-top:1mm}.rc-hifz-art{height:27mm;border-left:1px solid #d7c89f;display:flex;align-items:center;justify-content:center;gap:2mm;color:#7b6324;font-size:8px;font-style:italic;text-align:center}.rc-book{font-size:36px;color:#a57b1c;line-height:1}.rc-stats{display:grid;grid-template-columns:repeat(8,1fr);border-top:1px solid #cfc9b1;background:#fffefa}.rc-stats>div{min-height:17mm;padding:2mm 1mm;text-align:center;border-right:1px solid #d5d5c9;display:flex;flex-direction:column;justify-content:center;align-items:center}.rc-stats>div:last-child{border-right:0}.rc-stats span{font-family:Arial,sans-serif;font-size:5.2px;line-height:1.2;color:#35524a;text-transform:uppercase}.rc-stats b{font-size:15px;line-height:1;color:#0a6b50;margin-top:1.5mm}.rc-stats small{font-size:5.8px;color:#68736e}.rc-stats .remaining{background:#fffaf0}.rc-stats .remaining b{color:#1b3e57}.rc-stats .remaining:nth-child(5) b{color:#9a3737}.rc-stats .remaining:nth-child(7) b{color:#8d6b17}
+.rc-final .rc-section-head{background:#f5ead0;color:#43552d;border-bottom:1px solid #d2b96e}.rc-final .rc-section-icon{color:#a27b1d}.rc-final-body{display:grid;grid-template-columns:1fr .75fr 1.25fr .55fr;align-items:center;min-height:22mm}.rc-final-col,.rc-final-score,.rc-final-details{padding:2mm 4mm}.rc-final-col{text-align:center;border-right:1px solid #d6d0bd}.rc-final-label{font-weight:700;color:#345047;font-size:6.7px;margin-bottom:1.5mm}.rc-final-badge{background:#137b3d;color:white;border-radius:2.5mm;padding:2mm 6mm;font-size:12px;font-weight:700}.rc-final-score{text-align:center;border-right:1px solid #d6d0bd}.rc-final-score b{display:block;font-size:26px;line-height:1;color:#0b5544}.rc-final-score span{font-size:7px;font-weight:700}.rc-final-details{font-family:Arial,sans-serif;font-size:6.2px;line-height:1.7;color:#203f38}.rc-final-att{text-align:center;border-left:1px solid #d6d0bd;padding:2mm 3mm}.rc-final-att span{display:block;font-family:Arial,sans-serif;font-size:5.7px;font-weight:700;color:#66736f;letter-spacing:.06em}.rc-final-att b{display:block;font-size:17px;color:#0b5544;margin-top:1.2mm}
+.rc-approval .rc-section-head{height:9mm}.rc-sign-grid{display:grid;grid-template-columns:repeat(3,1fr)}.rc-sign{min-height:24mm;padding:2.2mm 5mm 1.5mm;text-align:center;border-right:1px solid #d5d1c2;position:relative}.rc-sign:last-child{border-right:0}.rc-sign-name{font-size:8px;font-weight:700;color:#102f29;min-height:4mm}.rc-sign-role{font-family:Arial,sans-serif;font-size:6px;font-weight:700;letter-spacing:.06em;color:#35584f;margin-top:.4mm}.rc-sign-line{height:10mm;border-bottom:1px dotted #6f7a75;display:flex;align-items:flex-end;justify-content:center;margin-top:1mm}.rc-sign-img{max-width:42mm;max-height:10mm;object-fit:contain}.rc-sign-date{font-family:Arial,sans-serif;font-size:5.8px;color:#65716d;margin-top:1mm}
+.rc-footer-band{margin-top:auto;height:9mm;background:#07513f;color:white;border-top:1.2mm solid #c99c2a;display:flex;align-items:center;justify-content:space-between;padding:0 10mm;font-size:6.3px;font-style:italic;position:relative;z-index:2}.rc-footer-band b{font-size:12px;font-style:normal;color:#f3e4a9}.rc-footer{height:5.5mm;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;font-size:5.5px;color:#3f4d49;white-space:nowrap}
+@media print{.page{margin:0}.rc-footer-band{break-inside:avoid}.rc-section{break-inside:avoid}}
 `;
 
 function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {
