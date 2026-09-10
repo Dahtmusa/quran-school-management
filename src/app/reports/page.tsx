@@ -3,280 +3,245 @@ import { loadCMSSettings } from '@/lib/cms-live-store';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm, loadSignaturesForReportCards, type ReportCardSignatures } from '@/lib/live-store';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
 function buildReportCardHTML(s: any, settings: any, termLabel: string, signatures: ReportCardSignatures, qrDataUrl = '') {
-  const schoolName = settings.school_name?.value || 'AMQM';
-  const shortName  = settings.short_name?.value  || 'AMQM';
-  const address    = settings.contact?.address   || '';
-  const logoUrl    = settings.logo_url?.value    || '';
-  const approved   = s.es.filter((e: any) => e.status === 'Approved');
-  const avg        = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
-  const status     = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
-  const absP       = absoluteProgress(s.current, s.direction);
-  const rem        = remainingFrom(s.current, s.direction);
-  const juz        = juzForPosition(s.current);
-  const hizb       = hizbForPosition(s.current);
-  const mushafPg   = pageForPosition(s.current);
-  const evals      = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
-  const classSig        = s.classId ? signatures.teachers[s.classId] : null;
+  const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const schoolName = settings.school_name?.value || 'ALIYU AND MAIMUNA CENTER FOR QUR\'ANIC MEMORIZATION';
+  const shortName = settings.short_name?.value || 'AMQM';
+  const address = settings.contact?.address || '';
+  const logoUrl = settings.logo_url?.value || '';
+  const approved = s.es.filter((e: any) => e.status === 'Approved');
+  const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
+  const status = avg === null ? 'Pending' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
+  const absP = absoluteProgress(s.current, s.direction);
+  const rem = remainingFrom(s.current, s.direction);
+  const juz = juzForPosition(s.current);
+  const hizb = hizbForPosition(s.current);
+  const mushafPg = pageForPosition(s.current);
+  const evals = [1, 2, 3].map(n => {
+    const e = s.es.find((x: any) => x.number === n);
+    return e && e.status === 'Approved' ? e : null;
+  });
+  const classSig = s.classId ? signatures.teachers[s.classId] : null;
   const classTeacherName = classSig?.signer_name || s.teacher || null;
-  const sigBoxes   = [
-    { lbl: 'Class Teacher',     sig: classSig,              fallback: classTeacherName },
-    { lbl: 'School Supervisor', sig: signatures.supervisor, fallback: null },
-    { lbl: 'School Director',   sig: signatures.director,   fallback: null },
-  ];
-  const sBg   = avg !== null && avg >= 90 ? '#d1fae5' : avg !== null && avg >= 75 ? '#dbeafe' : avg !== null && avg >= 60 ? '#fef3c7' : '#ffe4e6';
-  const sClr  = avg !== null && avg >= 90 ? '#065f46' : avg !== null && avg >= 75 ? '#1e40af' : avg !== null && avg >= 60 ? '#92400e' : '#be123c';
-  const dir   = s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';
-  const pct   = Math.min(100, Math.max(0, absP.percent));
+  const supervisor = signatures.supervisor;
+  const director = signatures.director;
+  const dir = s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';
+  const pct = Math.min(100, Math.max(0, Number(absP.percent) || 0));
   const serial = `${(s.admissionNo || 'N/A').toUpperCase()}/${termLabel.replace(/[\s·]+/g, '-').toUpperCase()}`;
-  const attHtml = s.attendance != null ? `<span class="chip chip-att">Attendance: ${s.attendance}%</span>` : '';
+  const printed = new Date().toLocaleDateString('en-NG');
 
-  const evalCards = evals.map((e, i) => e
-    ? `<div class="ec">
-        <div class="ec-num">Eval ${i + 1}</div>
-        <div class="ec-score">${e.score}%</div>
-        <div class="ec-grade">${e.grade || '—'}</div>
-        <div class="ec-mem">${e.memorizedAyahs || 0} ayahs · ${Number(e.memorizedPages || 0).toFixed(1)} pg</div>
-        <div class="ec-rub">
-          <div class="ec-rub-cell"><span class="rl">Mem</span><span class="rv">${e.memorization}/5</span></div>
-          <div class="ec-rub-cell"><span class="rl">Acc</span><span class="rv">${e.accuracy}/5</span></div>
-          <div class="ec-rub-cell"><span class="rl">Flu</span><span class="rv">${e.fluency}/5</span></div>
-          <div class="ec-rub-cell"><span class="rl">Taj</span><span class="rv">${e.tajweed}/5</span></div>
-          <div class="ec-rub-cell"><span class="rl">Ret</span><span class="rv">${e.retention}/5</span></div>
-        </div>
-       </div>`
-    : `<div class="ec ec-miss"><div class="ec-num">Eval ${i + 1}</div><div class="ec-none">Not recorded</div></div>`
-  ).join('');
+  const gradeClass = avg !== null && avg >= 90 ? 'result-excellent' : avg !== null && avg >= 75 ? 'result-good' : avg !== null && avg >= 60 ? 'result-ok' : 'result-low';
 
-  const sigs = sigBoxes.map(({ lbl: sl, sig, fallback }) =>
-    `<div class="sb">
-      <div class="sa">${sig?.signature_data ? `<img src="${sig.signature_data}" class="si"/>` : ''}</div>
-      <div class="sn">${sig?.signer_name || fallback || '&nbsp;'}</div>
-      <div class="sl-role">${sl}</div>
-      <div class="sd">Date: ________________</div>
-    </div>`
-  ).join('');
+  const evalRows = evals.map((e, i) => e ? `
+    <tr>
+      <td class="eval-name"><span>0${i + 1}</span> Evaluation ${i + 1}</td>
+      <td>${Number(e.memorizedAyahs || 0).toLocaleString()} ayahs</td>
+      <td>${Number(e.memorizedPages || 0).toFixed(1)}</td>
+      <td>${e.memorization ?? '—'}/5</td>
+      <td>${e.accuracy ?? '—'}/5</td>
+      <td>${e.fluency ?? '—'}/5</td>
+      <td>${e.tajweed ?? '—'}/5</td>
+      <td>${e.retention ?? '—'}/5</td>
+      <td class="score-cell">${e.score}%</td>
+      <td class="grade-cell">${esc(e.grade || '—')}</td>
+    </tr>` : `
+    <tr class="missing-row">
+      <td class="eval-name"><span>0${i + 1}</span> Evaluation ${i + 1}</td>
+      <td colspan="7">Not recorded</td><td>—</td><td>—</td>
+    </tr>`).join('');
 
-  const logoHtml  = logoUrl    ? `<img src="${logoUrl}" class="s1-logo" alt=""/>` : '';
-  const photoHtml = s.photoUrl ? `<img src="${s.photoUrl}" class="s2-photo" alt=""/>` : `<div class="s2-photo-ph">${(s.name || '?').charAt(0)}</div>`;
-  const qrHtml    = qrDataUrl  ? `<div class="s1-qr"><img src="${qrDataUrl}" alt="QR"/><div class="s1-qrl">Scan to verify</div></div>` : '';
+  const signatureBox = (sig: any, fallback: string | null, role: string) => {
+    const name = sig?.signer_name || fallback || '—';
+    return `<div class="signature-box">
+      <div class="signature-stage">${sig?.signature_data ? `<img src="${sig.signature_data}" class="signature-image" alt=""/>` : ''}</div>
+      <div class="signature-line"></div>
+      <div class="signature-name">${esc(name)}</div>
+      <div class="signature-role">${esc(role)}</div>
+      <div class="signature-date">Date: __________________</div>
+    </div>`;
+  };
+
+  const logoHtml = logoUrl ? `<img src="${logoUrl}" class="school-logo" alt="${esc(shortName)}"/>` : `<div class="school-logo-placeholder">AM<br/><span>QM</span></div>`;
+  const photoHtml = s.photoUrl
+    ? `<img src="${s.photoUrl}" class="student-photo" alt=""/>`
+    : `<div class="student-photo-placeholder">${esc((s.name || '?').charAt(0).toUpperCase())}</div>`;
+  const qrHtml = qrDataUrl ? `<div class="qr-wrap"><img src="${qrDataUrl}" class="qr" alt="Verification QR"/><div>SCAN TO VERIFY</div></div>` : '';
+  const ringCirc = 2 * Math.PI * 29;
+  const ringOffset = ringCirc * (1 - pct / 100);
 
   return `<div class="page">
-
-  <!-- S1: School Header -->
-  <div class="s1">
-    ${logoHtml}
-    <div class="s1-info">
-      <div class="s1-sn">${shortName}</div>
-      <div class="s1-name">${schoolName}</div>
-      <div class="s1-addr">${address}</div>
-    </div>
-    <div class="s1-right">
-      <div class="s1-badge">TERM REPORT CARD</div>
-      ${qrHtml}
-    </div>
-  </div>
-
-  <!-- S2: Student Profile -->
-  <div class="s2">
-    ${photoHtml}
-    <div class="s2-info">
-      <div class="s2-name">${s.name}</div>
-      <div class="s2-row">Adm No: <b>${s.admissionNo?.toUpperCase() || '—'}</b>&nbsp;·&nbsp;Class: <b>${s.className || '—'}</b>&nbsp;·&nbsp;Section: <b>${s.section || '—'}</b>&nbsp;·&nbsp;Year: <b>${s.year || '—'}</b></div>
-      <div class="s2-row">Term: <b>${termLabel}</b>&nbsp;·&nbsp;Teacher: <b>${s.teacher || '—'}</b></div>
-      <div class="s2-chips">
-        <span class="chip chip-dir">${dir}</span>
-        ${attHtml}
-        <span class="chip" style="background:${sBg};color:${sClr}">${status}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- S3: Academic Performance -->
-  <div class="sec-lbl">Academic Performance</div>
-  <div class="s3">
-    <div class="s3-grid">
-      ${evalCards}
-      <div class="ec ec-avg">
-        <div class="ec-num">Term Average</div>
-        <div class="ec-score" style="color:#062d2a">${avg !== null ? avg + '%' : '—'}</div>
-        <div class="ec-grade" style="color:#065f46">${status}</div>
-        <div class="ec-mem">${approved.length} of 3 evaluations</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- S4: Hifz Journey -->
-  <div class="sec-lbl">Qur&#x101;n Memorization Journey</div>
-  <div class="s4">
-    <div class="s4-header">
-      <div class="s4-ring-wrap">
-        <svg class="s4-ring" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
-          <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient></defs>
-          <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="6.5"/>
-          <circle cx="36" cy="36" r="29" fill="none" stroke="url(#rg)" stroke-width="6.5"
-            stroke-dasharray="${(2 * Math.PI * 29).toFixed(2)}"
-            stroke-dashoffset="${(2 * Math.PI * 29 * (1 - pct / 100)).toFixed(2)}"
-            stroke-linecap="round" transform="rotate(-90 36 36)"/>
-        </svg>
-        <div class="s4-ring-inner">
-          <div class="s4-ring-pct">${pct.toFixed(1)}%</div>
-          <div class="s4-ring-lbl">Qur&#x101;n<br/>Complete</div>
+    <header class="report-header">
+      <div class="header-rule"></div>
+      <div class="header-main">
+        ${logoHtml}
+        <div class="school-heading">
+          <div class="school-acronym">${esc(shortName)}</div>
+          <div class="school-name">${esc(schoolName)}</div>
+          <div class="school-address">${esc(address)}</div>
+        </div>
+        <div class="header-verification">
+          <div class="report-badge">TERM REPORT CARD</div>
+          ${qrHtml}
         </div>
       </div>
-      <div class="s4-info">
-        <div class="s4-eyebrow">Hifz Journey</div>
-        <div class="s4-pos">${label(s.current)}</div>
-        <div class="s4-sub">Started: ${label(s.start)}&nbsp;·&nbsp;${dir}&nbsp;·&nbsp;Teacher: ${s.teacher || '—'}</div>
-        <div class="s4-bar-track"><div class="s4-bar-fill" style="width:${pct}%"></div></div>
-        <div class="s4-bar-meta">
-          <span>${pct.toFixed(1)}% of Qur&#x101;n&nbsp;·&nbsp;${absP.hizbs} / 60 Hizb</span>
-          <span>${rem.ayahs.toLocaleString()} ayahs left</span>
+      <div class="header-meta"><span>${esc(termLabel)}</span><span class="meta-dot">•</span><span>OFFICIAL ACADEMIC RECORD</span></div>
+    </header>
+
+    <section class="student-card">
+      <div class="student-identity">
+        ${photoHtml}
+        <div class="student-main">
+          <div class="field-label">STUDENT NAME</div>
+          <div class="student-name">${esc(s.name)}</div>
+          <div class="identity-line"><span>Admission No.</span><b>${esc(s.admissionNo?.toUpperCase() || '—')}</b></div>
         </div>
       </div>
-    </div>
-    <div class="s4-grid">
-      <div class="s4-stat s4-stat-m"><div class="s4-sl s4-sl-m">Ayahs Memorized</div><div class="s4-sv s4-sv-m">${absP.ayahs.toLocaleString()}</div></div>
-      <div class="s4-stat s4-stat-m"><div class="s4-sl s4-sl-m">Pages Memorized</div><div class="s4-sv s4-sv-m">${absP.pages}</div></div>
-      <div class="s4-stat s4-stat-m"><div class="s4-sl s4-sl-m">Hizb Memorized</div><div class="s4-sv s4-sv-m">${absP.hizbs}<span class="s4-sv-sub">&thinsp;/ 60</span></div></div>
-      <div class="s4-stat s4-stat-m"><div class="s4-sl s4-sl-m">Mushaf Page</div><div class="s4-sv s4-sv-m">${mushafPg}<span class="s4-sv-sub">&thinsp;/ 604</span></div></div>
-      <div class="s4-stat s4-stat-r"><div class="s4-sl s4-sl-r">Ayahs Remaining</div><div class="s4-sv s4-sv-r">${rem.ayahs.toLocaleString()}</div></div>
-      <div class="s4-stat s4-stat-r"><div class="s4-sl s4-sl-r">Pages Remaining</div><div class="s4-sv s4-sv-r">${rem.pages}</div></div>
-      <div class="s4-stat s4-stat-r"><div class="s4-sl s4-sl-r">Hizbs Remaining</div><div class="s4-sv s4-sv-r">${rem.hizbs}<span class="s4-sv-sub">&thinsp;/ 60</span></div></div>
-      <div class="s4-stat s4-stat-r"><div class="s4-sl s4-sl-r">Current Juz / Hizb</div><div class="s4-sv s4-sv-r">${juz} / ${hizb}</div></div>
-    </div>
-  </div>
+      <div class="student-fields">
+        <div><span>CLASS</span><b>${esc(s.className || '—')}</b></div>
+        <div><span>SECTION</span><b>${esc(s.section || '—')}</b></div>
+        <div><span>YEAR</span><b>${esc(s.year || '—')}</b></div>
+        <div><span>CLASS TEACHER</span><b>${esc(s.teacher || '—')}</b></div>
+        <div><span>TERM</span><b>${esc(termLabel)}</b></div>
+        <div><span>ATTENDANCE</span><b>${s.attendance != null ? `${esc(s.attendance)}%` : '—'}</b></div>
+      </div>
+    </section>
 
-  <!-- S5: Final Term Result -->
-  <div class="sec-lbl">Final Term Result</div>
-  <div class="s5">
-    <div class="s5-left">
-      <div class="s5-lbl-text">Academic Standing</div>
-      <div class="s5-standing">${status}</div>
-      <div class="s5-detail">${approved.length} approved evaluation${approved.length !== 1 ? 's' : ''}&nbsp;·&nbsp;${termLabel}&nbsp;·&nbsp;${s.year || '—'}</div>
-    </div>
-    <div class="s5-right">
-      <div class="s5-avg">${avg !== null ? avg + '%' : '—'}</div>
-      <div class="s5-avg-lbl">Term Average</div>
-    </div>
-  </div>
+    <section class="section-block academic-block">
+      <div class="section-head"><span class="section-icon">01</span><span>ACADEMIC PERFORMANCE</span><em>Evaluation trail</em></div>
+      <div class="academic-body">
+        <table class="evaluation-table">
+          <thead><tr><th>ASSESSMENT</th><th>AYAHS</th><th>PAGES</th><th>MEM<br><small>/5</small></th><th>ACC<br><small>/5</small></th><th>FLU<br><small>/5</small></th><th>TAJ<br><small>/5</small></th><th>RET<br><small>/5</small></th><th>SCORE</th><th>GRADE</th></tr></thead>
+          <tbody>${evalRows}</tbody>
+        </table>
+        <aside class="average-card">
+          <div class="average-label">TERM AVERAGE</div>
+          <div class="average-score">${avg !== null ? `${avg}%` : '—'}</div>
+          <div class="average-status ${gradeClass}">${esc(status)}</div>
+          <div class="average-count">${approved.length} of 3 evaluations</div>
+        </aside>
+      </div>
+    </section>
 
-  <!-- S6: Official Approval -->
-  <div class="sec-lbl">Official Approval</div>
-  <div class="sigrow">${sigs}</div>
+    <section class="section-block hifz-block">
+      <div class="section-head dark"><span class="section-icon">02</span><span>QUR'AN MEMORIZATION JOURNEY</span><em>${esc(dir)}</em></div>
+      <div class="hifz-main">
+        <div class="progress-ring">
+          <svg viewBox="0 0 72 72" aria-hidden="true">
+            <circle cx="36" cy="36" r="29" fill="none" stroke="#dce9e3" stroke-width="6"/>
+            <circle cx="36" cy="36" r="29" fill="none" stroke="#16745f" stroke-width="6" stroke-linecap="round" stroke-dasharray="${ringCirc.toFixed(2)}" stroke-dashoffset="${ringOffset.toFixed(2)}" transform="rotate(-90 36 36)"/>
+          </svg>
+          <div class="ring-center"><strong>${pct.toFixed(1)}%</strong><span>QUR'AN<br/>COMPLETED</span></div>
+        </div>
+        <div class="journey-copy">
+          <div class="journey-kicker">CURRENT POSITION</div>
+          <div class="journey-position">${esc(label(s.current))}</div>
+          <div class="journey-details">Started: <b>${esc(label(s.start))}</b> &nbsp;·&nbsp; Direction: <b>${esc(dir)}</b></div>
+          <div class="journey-details">Teacher: <b>${esc(s.teacher || '—')}</b></div>
+          <div class="progress-track"><span style="width:${pct}%"></span></div>
+          <div class="progress-meta"><b>${absP.hizbs} / 60 Hizb</b><span>${rem.ayahs.toLocaleString()} ayahs remaining</span></div>
+        </div>
+        <div class="journey-highlight"><svg class="book-mark" viewBox="0 0 48 32" aria-hidden="true"><path d="M4 5c7-3 13-2 20 2v20c-7-4-13-5-20-2z"/><path d="M44 5c-7-3-13-2-20 2v20c7-4 13-5 20-2z"/><path d="M24 7v20"/></svg><div>HIFZ<br/>PROGRESS</div><strong>${absP.ayahs.toLocaleString()}</strong><span>ayahs memorized</span></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat memorized"><span>AYAHS MEMORIZED</span><strong>${absP.ayahs.toLocaleString()}</strong></div>
+        <div class="stat memorized"><span>PAGES MEMORIZED</span><strong>${absP.pages}</strong></div>
+        <div class="stat memorized"><span>HIZB MEMORIZED</span><strong>${absP.hizbs}<small>/ 60</small></strong></div>
+        <div class="stat memorized"><span>MUSHAF PAGE</span><strong>${mushafPg}<small>/ 604</small></strong></div>
+        <div class="stat remaining"><span>AYAHS REMAINING</span><strong>${rem.ayahs.toLocaleString()}</strong></div>
+        <div class="stat remaining"><span>PAGES REMAINING</span><strong>${rem.pages}</strong></div>
+        <div class="stat remaining"><span>HIZBS REMAINING</span><strong>${rem.hizbs}<small>/ 60</small></strong></div>
+        <div class="stat remaining"><span>CURRENT JUZ / HIZB</span><strong>${juz} / ${hizb}</strong></div>
+      </div>
+    </section>
 
-  <!-- S7: Verification Footer -->
-  <div class="ft">Serial: ${serial}&nbsp;·&nbsp;Only approved evaluations constitute official academic records&nbsp;·&nbsp;Printed: ${new Date().toLocaleDateString('en-NG')}</div>
+    <section class="result-panel">
+      <div><span class="result-kicker">FINAL TERM RESULT</span><strong class="result-title">${esc(status)}</strong><small>${approved.length} approved evaluations · ${esc(termLabel)} · ${esc(s.year || '—')}</small></div>
+      <div class="result-score"><strong>${avg !== null ? `${avg}%` : '—'}</strong><span>TERM AVERAGE</span></div>
+      <div class="result-attendance"><span>ATTENDANCE</span><strong>${s.attendance != null ? `${esc(s.attendance)}%` : '—'}</strong></div>
+    </section>
 
+    <section class="approval-block">
+      <div class="section-head"><span class="section-icon">03</span><span>OFFICIAL APPROVAL</span><em>Authorized school officials</em></div>
+      <div class="signature-grid">
+        ${signatureBox(classSig, classTeacherName, 'CLASS TEACHER')}
+        ${signatureBox(supervisor, null, 'SCHOOL SUPERVISOR')}
+        ${signatureBox(director, null, 'SCHOOL DIRECTOR')}
+      </div>
+    </section>
+
+    <footer class="report-footer">
+      <div><b>Serial:</b> ${esc(serial)}</div>
+      <div>Only approved evaluations constitute official academic records.</div>
+      <div><b>Printed:</b> ${esc(printed)}</div>
+    </footer>
   </div>`;
 }
 
 const PRINT_CSS = `
   *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  html,body{margin:0;padding:0;background:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:10px;color:#1a1a1a;line-height:1.3}
+  html,body{margin:0;padding:0;background:#fff;font-family:Arial,'Segoe UI',sans-serif;color:#18312c;line-height:1.25}
   @page{size:A4 portrait;margin:0}
+  .page{width:210mm;height:297mm;padding:7.5mm 9mm 6.5mm;background:#fff;display:flex;flex-direction:column;gap:3.2mm;overflow:hidden;page-break-after:always;break-after:page;position:relative}
+  .page:before{content:"";position:absolute;inset:3.5mm;border:0.35mm solid #d7bf78;pointer-events:none}
+  .page:after{content:"";position:absolute;left:4mm;right:4mm;bottom:4mm;height:1.2mm;background:linear-gradient(90deg,#0b4b3e,#c59a3a,#0b4b3e);opacity:.95;pointer-events:none}
+  .report-header{height:31mm;flex:0 0 31mm;position:relative;z-index:1;padding:0 2mm;display:flex;flex-direction:column;justify-content:center}
+  .header-rule{height:1.2mm;background:linear-gradient(90deg,#0b4b3e 0 74%,#c59a3a 74%);margin-bottom:2.2mm}
+  .header-main{display:grid;grid-template-columns:25mm 1fr 31mm;gap:4mm;align-items:center}
+  .school-logo,.school-logo-placeholder{width:21mm;height:21mm;object-fit:contain;border-radius:50%;border:.5mm solid #d7bf78;background:#fff;display:flex;align-items:center;justify-content:center;text-align:center;color:#0b4b3e;font-weight:900;font-size:10px;line-height:.9}
+  .school-logo-placeholder span{font-size:8px}
+  .school-heading{min-width:0;text-align:center}
+  .school-acronym{font-size:8px;font-weight:800;letter-spacing:.32em;color:#b0862c;margin-left:.32em}
+  .school-name{font-family:Georgia,'Times New Roman',serif;font-size:14.5px;line-height:1.05;font-weight:700;color:#0a4036;text-transform:uppercase;margin-top:.8mm}
+  .school-address{font-size:6.2px;color:#66736e;margin-top:1.1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .header-verification{display:flex;flex-direction:column;align-items:center;gap:1.3mm}
+  .report-badge{background:#0b4b3e;color:#fff;border:.45mm solid #c59a3a;padding:1.7mm 2.2mm;border-radius:2mm;font-family:Georgia,serif;font-size:6.8px;font-weight:700;letter-spacing:.08em;text-align:center;white-space:nowrap}
+  .qr-wrap{text-align:center;color:#63716d;font-size:5px;font-weight:700;letter-spacing:.08em}
+  .qr{width:17mm;height:17mm;display:block;margin:auto;border:.3mm solid #d7dfdc}
+  .header-meta{border-top:.3mm solid #d7dfdc;margin-top:2mm;padding-top:1.2mm;display:flex;justify-content:center;gap:2mm;font-size:5.8px;font-weight:700;letter-spacing:.1em;color:#71807a;text-transform:uppercase}
+  .meta-dot{color:#c59a3a}
 
-  /* One canonical A4 composition. Heights are intentional so cards do not stretch. */
-  .page{width:210mm;height:297mm;padding:6.5mm 10mm;display:flex;flex-direction:column;gap:2.5px;page-break-after:always;break-after:page;overflow:hidden}
+  .student-card{height:27mm;flex:0 0 27mm;display:grid;grid-template-columns:67mm 1fr;border:.35mm solid #cbd9d3;border-radius:2.2mm;background:#fbfcfb;overflow:hidden;z-index:1}
+  .student-identity{display:flex;align-items:center;gap:3mm;padding:3mm 4mm;border-right:.35mm solid #d7e1dd;background:#f6faf7}
+  .student-photo,.student-photo-placeholder{width:18mm;height:18mm;border-radius:1.8mm;object-fit:cover;border:.35mm solid #b7c8c0;flex:0 0 18mm}
+  .student-photo-placeholder{display:flex;align-items:center;justify-content:center;background:#e2ece7;color:#0b4b3e;font-size:17px;font-weight:900}
+  .field-label{font-size:5.5px;letter-spacing:.12em;color:#7b8984;font-weight:800}
+  .student-name{font-family:Georgia,'Times New Roman',serif;font-size:12px;font-weight:700;color:#0b3d35;line-height:1.05;margin-top:1mm}
+  .identity-line{display:flex;gap:1.2mm;margin-top:1.5mm;font-size:5.8px;color:#78857f}.identity-line b{color:#233b35}
+  .student-fields{display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr}
+  .student-fields>div{padding:2.1mm 3mm;border-bottom:.25mm solid #e0e7e4;border-left:.25mm solid #e0e7e4;display:flex;flex-direction:column;justify-content:center}
+  .student-fields>div:nth-last-child(-n+3){border-bottom:0}
+  .student-fields span{font-size:5px;letter-spacing:.11em;color:#7a8983;font-weight:800}.student-fields b{font-size:6.5px;color:#203a34;margin-top:.8mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-  /* Header */
-  .s1{height:24mm;display:flex;align-items:center;gap:10px;padding-bottom:6px;border-bottom:2.5px solid #062d2a;flex-shrink:0}
-  .s1-logo{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0}
-  .s1-info{flex:1;min-width:0}
-  .s1-sn{font-size:6.5px;font-weight:800;letter-spacing:.2em;color:#b45309;text-transform:uppercase;margin-bottom:2px}
-  .s1-name{font-size:16px;font-weight:900;color:#062d2a;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .s1-addr{font-size:7px;color:#6b7280;margin-top:3px}
-  .s1-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
-  .s1-badge{background:#062d2a;color:#fff;padding:3px 9px;border-radius:18px;font-size:6px;font-weight:800;letter-spacing:.07em;white-space:nowrap}
-  .s1-qr{text-align:center}
-  .s1-qr img{width:48px;height:48px;border-radius:4px;display:block}
-  .s1-qrl{font-size:5px;color:#9ca3af;text-align:center;display:block;margin-top:1px}
+  .section-block,.approval-block{z-index:1;min-height:0}
+  .academic-block{height:47mm;flex:0 0 47mm}
+  .section-head{height:8mm;display:flex;align-items:center;gap:2.2mm;background:#0b4b3e;color:#fff;border-radius:1.8mm 1.8mm 0 0;padding:0 3.2mm;font-family:Georgia,'Times New Roman',serif;font-size:9px;font-weight:700;letter-spacing:.05em}
+  .section-head.dark{background:#0b4b3e}.section-head em{margin-left:auto;font-family:Arial,sans-serif;font-style:normal;font-size:5.8px;font-weight:600;letter-spacing:.06em;color:#dcefe7;text-transform:uppercase}
+  .section-icon{display:inline-flex;width:5.2mm;height:5.2mm;border:.35mm solid #c59a3a;border-radius:50%;align-items:center;justify-content:center;color:#f0d58d;font-family:Arial,sans-serif;font-size:5px;letter-spacing:0}
+  .academic-body{height:39mm;display:grid;grid-template-columns:1fr 28mm;gap:2.5mm;padding:2.2mm;border:.35mm solid #ccd9d4;border-top:0;border-radius:0 0 1.8mm 1.8mm;background:#fff}
+  .evaluation-table{width:100%;height:34.5mm;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:5.6px;color:#344640;overflow:hidden;border:.25mm solid #d4dfdb;border-radius:1.2mm}
+  .evaluation-table th{background:#eef4f1;color:#52645d;font-size:4.8px;line-height:1.05;letter-spacing:.05em;padding:1.3mm .5mm;border-right:.2mm solid #d6e0dc;border-bottom:.3mm solid #c7d5d0;text-align:center}
+  .evaluation-table th:first-child{width:27mm;text-align:left;padding-left:1.7mm}.evaluation-table th:nth-child(2){width:14mm}.evaluation-table th:nth-child(3){width:10mm}.evaluation-table th:nth-child(n+4):nth-child(-n+8){width:8mm}.evaluation-table th:nth-child(9){width:12mm}.evaluation-table th:nth-child(10){width:11mm}
+  .evaluation-table th small{font-size:4px;font-weight:400}.evaluation-table td{padding:1.25mm .45mm;border-right:.2mm solid #e0e7e4;border-bottom:.2mm solid #e0e7e4;text-align:center;vertical-align:middle}.evaluation-table tr:last-child td{border-bottom:0}.evaluation-table td:last-child,.evaluation-table th:last-child{border-right:0}
+  .evaluation-table tbody tr:nth-child(even){background:#fbfdfc}.evaluation-table .eval-name{text-align:left;padding-left:1.5mm;font-weight:700;color:#183d34}.eval-name span{display:inline-flex;align-items:center;justify-content:center;width:5mm;height:4.5mm;background:#e3f0ea;color:#0b5a48;border-radius:1mm;font-size:4.5px;margin-right:1mm}
+  .score-cell{font-weight:900;color:#0b5a48;font-size:6.4px}.grade-cell{font-weight:900;color:#8a6b24;font-size:6.4px}.missing-row{color:#9aa7a2}
+  .average-card{height:34.5mm;border:.35mm solid #a8c8ba;border-radius:2mm;background:linear-gradient(180deg,#f0f8f3,#fbfdfb);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2mm}
+  .average-label{font-size:5.2px;font-weight:800;letter-spacing:.12em;color:#65766e}.average-score{font-family:Georgia,serif;font-size:23px;line-height:1;color:#0b4b3e;font-weight:700;margin:2.5mm 0 1.5mm}.average-status{font-size:6.5px;font-weight:800;padding:1.3mm 2.5mm;border-radius:1.2mm;width:100%}.result-excellent{background:#d9f1e3;color:#0b5a48}.result-good{background:#e4effb;color:#1f557a}.result-ok{background:#fff2d3;color:#8a6418}.result-low{background:#fde5e5;color:#9b3333}.average-count{font-size:5.2px;color:#7a8983;margin-top:2mm}
 
-  /* Student profile */
-  .s2{height:22mm;display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:6px 10px;flex-shrink:0}
-  .s2-photo,.s2-photo-ph{width:50px;height:50px;border-radius:8px;flex-shrink:0}
-  .s2-photo{object-fit:cover;border:1.5px solid #e2e8f0}
-  .s2-photo-ph{background:#cbd5e1;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;color:#94a3b8}
-  .s2-info{flex:1;min-width:0}
-  .s2-name{font-size:14px;font-weight:900;color:#062d2a;line-height:1.1}
-  .s2-row{font-size:7px;color:#6b7280;margin-top:2px;line-height:1.45}
-  .s2-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
-  .chip{font-size:6px;font-weight:700;padding:2px 6px;border-radius:11px;white-space:nowrap}
-  .chip-dir{background:#d1fae5;color:#065f46}
-  .chip-att{background:#e0f2fe;color:#0369a1}
+  .hifz-block{height:70mm;flex:0 0 70mm}.hifz-main{height:40mm;display:grid;grid-template-columns:28mm 1fr 31mm;gap:3mm;align-items:center;padding:3mm 4mm;border:.35mm solid #b9cfc5;border-top:0;background:#f8fbf9}
+  .progress-ring{position:relative;width:27mm;height:27mm;display:flex;align-items:center;justify-content:center}.progress-ring svg{position:absolute;inset:0;width:100%;height:100%}.ring-center{text-align:center;position:relative;z-index:1}.ring-center strong{display:block;font-family:Georgia,serif;font-size:13px;color:#0b4b3e;line-height:1}.ring-center span{display:block;font-size:4.5px;line-height:1.25;color:#71807a;font-weight:800;letter-spacing:.04em;margin-top:1mm}
+  .journey-copy{min-width:0}.journey-kicker{font-size:5.3px;color:#9a762b;letter-spacing:.13em;font-weight:800}.journey-position{font-family:Georgia,serif;font-size:15px;color:#0a4036;font-weight:700;margin:.8mm 0 1.3mm}.journey-details{font-size:6.2px;color:#63736c;margin-top:.6mm}.journey-details b{color:#2b443d}.progress-track{height:2.5mm;background:#dfe9e4;border-radius:2mm;overflow:hidden;margin-top:2.2mm}.progress-track span{display:block;height:100%;background:linear-gradient(90deg,#0f7059,#c49a3b);border-radius:2mm}.progress-meta{display:flex;justify-content:space-between;margin-top:1.1mm;font-size:5.5px;color:#72807b}.progress-meta b{color:#0b5a48}.book-mark{width:10mm;height:7mm;margin-bottom:1mm;fill:none;stroke:#9a762b;stroke-width:1.5}.journey-highlight{height:25mm;border:.35mm solid #d7bf78;border-radius:1.8mm;background:#fffdf6;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#75602e}.journey-highlight div{font-size:5px;font-weight:800;letter-spacing:.13em;line-height:1.2}.journey-highlight strong{font-family:Georgia,serif;font-size:17px;color:#0b4b3e;line-height:1;margin:1mm 0}.journey-highlight span{font-size:5.2px;color:#7b8075}
+  .stats-grid{height:30mm;display:grid;grid-template-columns:repeat(8,1fr);border:0;border-left:.35mm solid #ccd9d4;border-right:.35mm solid #ccd9d4;border-bottom:.35mm solid #ccd9d4;border-radius:0 0 1.8mm 1.8mm;overflow:hidden}.stat{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:1.3mm .7mm;border-right:.25mm solid #d7e0dc}.stat:last-child{border-right:0}.stat.memorized{background:#f2f8f5}.stat.remaining{background:#fffaf0}.stat span{font-size:4.7px;line-height:1.15;letter-spacing:.04em;font-weight:800;color:#708079}.stat.memorized span{color:#0d6b55}.stat.remaining span{color:#9a772b}.stat strong{font-family:Georgia,serif;font-size:13px;line-height:1;margin-top:1.6mm;color:#0b4b3e}.stat.remaining strong{color:#735b24}.stat small{font-family:Arial,sans-serif;font-size:5px;font-weight:700;color:#8c9993;margin-left:.6mm}
 
-  /* Section labels */
-  .sec-lbl{font-size:6px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;flex-shrink:0;margin-top:1px;line-height:1.2}
+  .result-panel{height:28mm;flex:0 0 28mm;display:grid;grid-template-columns:1fr 38mm 34mm;align-items:stretch;border:.35mm solid #bca25d;border-radius:2mm;background:#fbf8ed;overflow:hidden;z-index:1}.result-panel>div{padding:3mm 4mm;display:flex;flex-direction:column;justify-content:center}.result-panel>div+div{border-left:.3mm solid #d8cda9;align-items:center;text-align:center}.result-kicker{font-size:5.2px;letter-spacing:.13em;color:#88703a;font-weight:800}.result-title{font-family:Georgia,serif;font-size:15px;color:#0b4b3e;margin-top:1mm}.result-panel small{font-size:5.4px;color:#75817c;margin-top:1mm}.result-score strong{font-family:Georgia,serif;font-size:22px;line-height:1;color:#0b4b3e}.result-score span,.result-attendance span{font-size:5px;font-weight:800;letter-spacing:.1em;color:#7a7668;margin-top:1mm}.result-attendance strong{font-family:Georgia,serif;font-size:17px;color:#0b4b3e;margin-top:1mm}
 
-  /* Academic performance: compact, fixed-height cards */
-  .s3{height:43mm;display:block;flex-shrink:0}
-  .s3-grid{height:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
-  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:5px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;overflow:hidden}
-  .ec-miss{opacity:.4;justify-content:center;gap:3px}
-  .ec-avg{background:#ecfdf5;border-color:#34d399;border-width:1.5px}
-  .ec-num{font-size:5.8px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:1px}
-  .ec-score{font-size:18px;font-weight:900;color:#062d2a;line-height:1}
-  .ec-grade{font-size:8.5px;font-weight:800;color:#475569}
-  .ec-mem{font-size:5.8px;color:#94a3b8;white-space:nowrap}
-  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:3px}
-  .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:2px 1px}
-  .rl{display:block;font-size:4.6px;color:#9ca3af;text-transform:uppercase;letter-spacing:.03em}
-  .rv{display:block;font-size:6.8px;font-weight:800;color:#065f46}
-  .ec-none{font-size:8px;color:#9ca3af}
-
-  /* Hifz journey: generous overall panel, compact stat tiles */
-  .s4{height:95mm;background:#062d2a;color:#fff;border-radius:11px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;overflow:hidden}
-  .s4-header{height:52mm;display:flex;align-items:center;gap:12px;flex-shrink:0}
-  .s4-ring-wrap{position:relative;width:68px;height:68px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-  .s4-ring{position:absolute;top:0;left:0;width:68px;height:68px}
-  .s4-ring-inner{position:relative;z-index:1;text-align:center}
-  .s4-ring-pct{font-size:12px;font-weight:900;color:#6ee7b7;line-height:1}
-  .s4-ring-lbl{font-size:4.3px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;line-height:1.4}
-  .s4-info{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
-  .s4-eyebrow{font-size:6.5px;font-weight:800;letter-spacing:.18em;color:#fbbf24;text-transform:uppercase}
-  .s4-pos{font-size:15px;font-weight:900;line-height:1.1;color:#fff}
-  .s4-sub{font-size:6.5px;color:#a7f3d0}
-  .s4-bar-track{height:7px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin-top:2px}
-  .s4-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#34d399,#fbbf24)}
-  .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.55);margin-top:1px}
-  .s4-grid{height:29mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:4px;flex-shrink:0}
-  .s4-stat{border-radius:7px;padding:3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
-  .s4-stat-m{background:rgba(255,255,255,.08)}
-  .s4-stat-r{background:rgba(251,191,36,.12)}
-  .s4-sl{font-size:5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:600;white-space:nowrap}
-  .s4-sl-m{color:#6ee7b7}
-  .s4-sl-r{color:#fcd34d}
-  .s4-sv{font-size:12px;font-weight:900;line-height:1}
-  .s4-sv-m{color:#fff}
-  .s4-sv-r{color:#fde68a}
-  .s4-sv-sub{font-size:6.5px;font-weight:400;opacity:.65}
-
-  /* Final result */
-  .s5{height:22mm;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f0fdf4;border:1.5px solid #34d399;border-radius:10px;padding:7px 12px;flex-shrink:0}
-  .s5-lbl-text{font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#065f46}
-  .s5-standing{font-size:14px;font-weight:900;color:#062d2a;line-height:1.2;margin-top:1px}
-  .s5-detail{font-size:6.5px;color:#6b7280;margin-top:2px}
-  .s5-right{text-align:right;flex-shrink:0}
-  .s5-avg{font-size:24px;font-weight:900;color:#065f46;line-height:1}
-  .s5-avg-lbl{font-size:6.5px;color:#065f46;font-weight:700;margin-top:1px}
-
-  /* Official approval: fixed, balanced signature blocks */
-  .sigrow{height:34mm;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex-shrink:0}
-  .sb{text-align:center;border:1px solid #e2e8f0;border-radius:8px;padding:5px 7px;display:flex;flex-direction:column;min-width:0}
-  .sa{height:18mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:1.5px solid #94a3b8;margin-bottom:3px;padding-bottom:2px;flex-shrink:0}
-  .si{max-height:16mm;max-width:100%;object-fit:contain}
-  .sn{font-size:7.5px;font-weight:800;color:#062d2a;line-height:1.2;min-height:9px}
-  .sl-role{font-size:5.8px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;white-space:nowrap}
-  .sd{font-size:6px;color:#94a3b8;margin-top:3px}
-
-  /* Verification footer */
-  .ft{font-size:6.5px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:4px;flex-shrink:0;line-height:1.25;white-space:nowrap}
+  .approval-block{height:39mm;flex:0 0 39mm}.signature-grid{height:31mm;display:grid;grid-template-columns:repeat(3,1fr);border:.35mm solid #ccd9d4;border-top:0;border-radius:0 0 1.8mm 1.8mm;overflow:hidden;background:#fff}.signature-box{padding:2.5mm 4mm;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;text-align:center}.signature-box+ .signature-box{border-left:.3mm solid #d5dfdb}.signature-stage{height:8.5mm;width:100%;display:flex;align-items:flex-end;justify-content:center}.signature-image{max-width:38mm;max-height:8mm;object-fit:contain}.signature-line{width:80%;border-bottom:.3mm solid #80918a;height:1mm}.signature-name{font-size:6.3px;font-weight:800;color:#153b32;margin-top:1.1mm;min-height:2.8mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.signature-role{font-size:5.1px;letter-spacing:.1em;color:#527168;font-weight:800;margin-top:.5mm}.signature-date{font-size:5.1px;color:#8a9691;margin-top:1.3mm}
+  .report-footer{height:7mm;flex:0 0 7mm;display:grid;grid-template-columns:1.1fr 1.8fr .7fr;align-items:center;border-top:.3mm solid #d1dcd7;padding:1.5mm 1mm 0;z-index:2;font-size:5px;color:#6d7b76}.report-footer div:nth-child(2){text-align:center}.report-footer div:last-child{text-align:right}.report-footer b{color:#38564d}
+  @media print{body{background:#fff}.page{margin:0}.report-footer{break-inside:avoid}.section-block,.approval-block,.result-panel,.student-card{break-inside:avoid}}
 `;
-
 
 function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {
   const printScript = autoPrint
@@ -421,7 +386,7 @@ function ReportPreview({student,term,settings,close,signatures}:{student:any;ter
       setLoading(false);
     });
     return ()=>{ if(url) URL.revokeObjectURL(url); };
-  },[student.id,term?.id]);
+  },[student.id,term?.id,signatures,settings]);
 
   const handlePrint=()=>{
     const cw=iframeRef.current?.contentWindow;
