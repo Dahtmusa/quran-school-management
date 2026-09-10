@@ -43,7 +43,7 @@ export async function loadFinanceSummary() {
   const client = db();
   const [{ data: structures }, { data: fees }, { data: payments }] = await Promise.all([
     client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)'),
-    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number),academic_years:academic_year_id(name))'),
+    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on),academic_years:academic_year_id(name,starts_on))'),
     client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id(full_name,admission_no)').order('paid_on', { ascending: false }),
   ]);
   return { structures: structures || [], fees: fees || [], payments: payments || [] };
@@ -130,6 +130,12 @@ export async function loadParentFeeSummary(studentId: string) {
     currency: string;
     school_name: string;
     school_address: string;
+    current_term_id?: string | null;
+    current_term_fee?: number;
+    current_term_paid?: number;
+    previous_balance?: number;
+    total_payable?: number;
+    total_outstanding?: number;
   };
 }
 
