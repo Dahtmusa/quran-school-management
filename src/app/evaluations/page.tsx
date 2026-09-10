@@ -2,22 +2,42 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { completeTerm, createEvaluationCampaign, loadClasses, loadEvaluationCampaigns, loadEvaluations, loadOperationalTerms, reviewEvaluation, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { completeTerm, createEvaluationCampaign, loadClasses, loadEvaluationCampaigns, loadEvaluations, loadOperationalTerms, reviewEvaluation, loadCurrentAcademicTerm, loadStudents } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 
 export default function EvaluationsAdmin(){
   const [evals,setEvals]=useState<any[]>([]),[campaigns,setCampaigns]=useState<any[]>([]),[terms,setTerms]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]);
   const [termId,setTermId]=useState(''),[number,setNumber]=useState<1|2|3>(1),[title,setTitle]=useState('Evaluation 1'),[opensAt,setOpensAt]=useState(''),[closesAt,setClosesAt]=useState(''),[selectedClasses,setSelectedClasses]=useState<string[]>([]);
-  const [currentTerm,setCurrentTerm]=useState<any>(null); const [campaignFilter,setCampaignFilter]=useState('all'),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
+  const [currentTerm,setCurrentTerm]=useState<any>(null),[students,setStudents]=useState<any[]>([]); const [campaignFilter,setCampaignFilter]=useState('all'),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
   const [expandedClass,setExpandedClass]=useState<string|null>(null),[returnId,setReturnId]=useState<string|null>(null),[returnReason,setReturnReason]=useState('');
   const [detailEvalId,setDetailEvalId]=useState<string|null>(null);
-  const refresh=async()=>{const [e,c,t,cl,cur]=await Promise.all([loadEvaluations(),loadEvaluationCampaigns(),loadOperationalTerms(),loadClasses(),loadCurrentAcademicTerm()]);setEvals(e);setCampaigns(c);setTerms(t);setClasses(cl);setCurrentTerm(cur);if(cur?.term_id&&!termId)setTermId(cur.term_id);};
+  const refresh=async()=>{const [e,c,t,cl,cur,st]=await Promise.all([loadEvaluations(),loadEvaluationCampaigns(),loadOperationalTerms(),loadClasses(),loadCurrentAcademicTerm(),loadStudents()]);setEvals(e);setCampaigns(c);setTerms(t);setClasses(cl);setCurrentTerm(cur);setStudents(st);if(cur?.term_id&&!termId)setTermId(cur.term_id);};
   useEffect(()=>{refresh()},[]);
   const activeCampaigns=campaigns.filter(c=>c.status==='open'||c.status==='scheduled');
   const pending=evals.filter(e=>e.status==='Pending Approval');
   const returned=evals.filter(e=>e.status==='Returned');
   const approved=evals.filter(e=>e.status==='Approved');
   const currentCampaign=campaigns.find(c=>c.term_id===termId&&c.evaluation_number===number);
+  const historicalClassStatus=useMemo(()=>{
+    const historicalTermId=currentTerm?.term_id;
+    if(!historicalTermId) return {reviewed:[],remaining:[],partial:[],total:0};
+    const activeByClass=new Map<string,number>();
+    for(const s of students){ if(s.classId && s.status !== 'withdrawn') activeByClass.set(s.classId,(activeByClass.get(s.classId)||0)+1); }
+    const byClass=new Map<string,{approved:number,pending:number,returned:number}>();
+    for(const e of evals){
+      if(e.term && e.number===3 && !e.campaignId && e.classId){
+        // Only First Term of the current academic year is part of this one-time historical review.
+        const term=terms.find(t=>t.id===historicalTermId);
+        if(term && e.term!==term.name) continue;
+        const v=byClass.get(e.classId)||{approved:0,pending:0,returned:0};
+        if(e.status==='Approved') v.approved++; else if(e.status==='Pending Approval') v.pending++; else if(e.status==='Returned') v.returned++;
+        byClass.set(e.classId,v);
+      }
+    }
+    const rows=classes.filter(c=>c.active).map(c=>{ const total=activeByClass.get(c.id)||0; const v=byClass.get(c.id)||{approved:0,pending:0,returned:0}; const complete=total>0&&v.approved===total; const hasAction=v.pending>0||v.returned>0; return {...c,total,approved:v.approved,pending:v.pending,returned:v.returned,remaining:Math.max(total-v.approved,0),status:complete?'reviewed':hasAction?'pending':v.approved>0?'partial':'remaining'}; });
+    return {reviewed:rows.filter(r=>r.status==='reviewed'),remaining:rows.filter(r=>r.status==='remaining'),partial:rows.filter(r=>r.status==='partial'||r.status==='pending'),total:rows.length};
+  },[classes,students,evals,terms,currentTerm]);
+
   const evalsByClass=useMemo(()=>{
     const termName=terms.find(t=>t.id===termId)?.name;
     const actionable=evals.filter(e=>(e.status==='Pending Approval'||e.status==='Returned')&&(!termName||e.term===termName));
@@ -41,6 +61,14 @@ export default function EvaluationsAdmin(){
       <section className="rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-900 to-[#9c7420] p-6 text-white shadow-xl md:p-8"><div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between"><div><div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">Assessment control centre</div><h2 className="mt-2 text-3xl font-black md:text-4xl">Run evaluations by class, not by student.</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">Admin creates each evaluation, chooses the current term, sets one opening and one closing time, and sends it to exactly the classes selected. Teachers enter results only during the open window.</p></div><div className="rounded-2xl bg-white/10 p-4 text-sm backdrop-blur"><div className="text-emerald-100/70">Automation</div><div className="mt-1 font-black">Open → Teacher entry → Auto-submit → Review → Approve</div></div></div></section>
       {message&&<div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Pending approval" value={pending.length} tone="amber"/><Kpi label="Approved" value={approved.length} tone="green"/><Kpi label="Returned" value={returned.length} tone="rose"/><Kpi label="Active windows" value={activeCampaigns.length} tone="blue"/></div>
+
+      <section className="rounded-2xl border border-amber-200 bg-white shadow-sm overflow-hidden">
+        <div className="border-b bg-amber-50 px-5 py-4"><div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-[11px] font-black uppercase tracking-wider text-amber-700">First Term 2026/27 · one-time historical review</div><h2 className="mt-1 text-lg font-black text-amber-950">Class review progress</h2><p className="text-xs text-amber-900/70">A class is marked <b>Reviewed</b> only when every active student has an approved historical Eval 3. Partial classes stay in the remaining list until the whole class is completed.</p></div><span className="pill bg-white text-amber-800 border border-amber-200">{historicalClassStatus.reviewed.length} reviewed · {historicalClassStatus.total-historicalClassStatus.reviewed.length} remaining</span></div></div>
+        <div className="grid gap-4 p-5 lg:grid-cols-2">
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4"><div className="flex items-center justify-between gap-2"><h3 className="font-black text-emerald-950">✓ Classes already reviewed</h3><span className="pill bg-white text-emerald-700">{historicalClassStatus.reviewed.length}</span></div>{historicalClassStatus.reviewed.length?<div className="mt-3 space-y-2">{historicalClassStatus.reviewed.map(c=><div key={c.id} className="flex items-center justify-between rounded-xl bg-white px-3 py-2"><span className="text-sm font-bold">{c.name}</span><span className="text-xs font-black text-emerald-700">{c.approved}/{c.total} ✓</span></div>)}</div>:<p className="mt-3 text-sm text-emerald-800/70">No class has been fully reviewed yet.</p>}</div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="flex items-center justify-between gap-2"><h3 className="font-black text-slate-950">Remaining / needs attention</h3><span className="pill bg-white text-slate-700">{historicalClassStatus.total-historicalClassStatus.reviewed.length}</span></div><div className="mt-3 space-y-2">{[...historicalClassStatus.partial,...historicalClassStatus.remaining].map(c=><div key={c.id} className="flex flex-col gap-1 rounded-xl bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"><span className="text-sm font-bold">{c.name}</span><span className="text-xs font-black">{c.status==='pending'?<span className="text-amber-700">{c.pending} pending · {c.remaining} remaining</span>:c.status==='partial'?<span className="text-indigo-700">{c.approved}/{c.total} reviewed · {c.remaining} remaining</span>:<span className="text-slate-500">Not submitted · {c.total} remaining</span>}</span></div>)}</div></div>
+        </div>
+      </section>
 
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div><div className="text-xs font-black uppercase tracking-wider text-amber-700">One-time setup</div><div className="mt-0.5 font-black text-amber-950">Historical Evaluation Import</div><p className="text-xs text-amber-800/70 mt-0.5">Enter Eval 1 &amp; 2 positions for all students from the class registers. System auto-computes scores and updates progress bars.</p></div>
