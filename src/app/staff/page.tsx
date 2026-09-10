@@ -20,12 +20,9 @@ export default function StaffPage(){
  const [classes,setClasses]=useState<LiveClass[]>([]);
  const [team,setTeam]=useState<TeamProfile[]>([]);
  const [message,setMessage]=useState('');
- const [busy,setBusy]=useState(false);
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
- const [schoolName,setSchoolName]=useState('ALIYU AND MAIMUNA CENTER FOR QU\'ANIC MEMORIZATION');
- const [shortName,setShortName]=useState('AMQM');
- const [directorSignatureUrl,setDirectorSignatureUrl]=useState<string|null>(null);
- const [directorName,setDirectorName]=useState('School Director');
+ const [directorSignature,setDirectorSignature]=useState<{name:string;signature:string|null}>({name:'Musa',signature:null});
+ const [busy,setBusy]=useState(false);
 
  /* ── teaching edit ── */
  const [editT,setEditT]=useState<StaffProfile|null>(null);
@@ -62,8 +59,7 @@ export default function StaffPage(){
 
  const refresh=async()=>{
    const [s,c,t,settings,sigs]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam(),loadCMSSettings(),loadSignaturesForReportCards()]);
-   const st:any=settings||{}; setLogoUrl(st.logo_url?.value||st.logo_url?.url||st.logo_url||null); setSchoolName(st.school_name?.value||'ALIYU AND MAIMUNA CENTER FOR QU\'ANIC MEMORIZATION'); setShortName(st.short_name?.value||'AMQM'); setDirectorSignatureUrl((sigs as any)?.director?.signature_data||null); setDirectorName((sigs as any)?.director?.signer_name||'School Director');
-   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
+   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url?.value?.url||(settings as any).logo_url?.value?.value||(settings as any).logo_url?.value||(settings as any).logo_url||null);if(sigs?.director)setDirectorSignature({name:sigs.director.signer_name||'Musa',signature:sigs.director.signature_data||null});
  };
  useEffect(()=>{refresh()},[]);
 
@@ -204,7 +200,7 @@ export default function StaffPage(){
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
-           <button className="btn bg-amber-50 text-amber-800 text-sm py-1.5 font-black" onClick={()=>printAcademicIdCard({type:'STAFF',name:t.full_name,id:t.staff_id||t.id,photoUrl:t.avatar_url,jobTitle:t.job_title||'Qur’an Teacher',department:t.department||'Qur’an Memorization',phone:t.phone||'',expiry:(t as any).id_expires_on||null,logoUrl,directorSignatureUrl,directorName,schoolName,shortName})}>Print ID</button>
+           <button className="btn bg-emerald-50 text-emerald-700 text-sm py-1.5" onClick={()=>printAcademicIdCard({type:'STAFF',name:t.full_name,id:t.staff_id||t.id,photoUrl:t.avatar_url,jobTitle:t.job_title||undefined,department:t.department||undefined,phone:t.phone||undefined,expiry:null,logoUrl,directorName:directorSignature.name,directorSignatureUrl:directorSignature.signature})}>Print ID</button>
            <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
          </div>
        </article>)}
@@ -294,7 +290,6 @@ export default function StaffPage(){
                </div>
              </div>
              <div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
-               <button className="btn bg-amber-50 text-amber-800 text-xs font-black" onClick={()=>printAcademicIdCard({type:'STAFF',name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url,jobTitle:a.job_title||ROLE_LABELS[a.role]||a.role,department:a.department||'Administration',phone:a.phone||'',expiry:(a as any).id_expires_on||null,logoUrl,directorSignatureUrl,directorName,schoolName,shortName})}>Print ID</button>
                <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit / Set credentials</button>
              </div>
            </article>)}
