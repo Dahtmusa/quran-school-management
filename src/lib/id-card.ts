@@ -11,9 +11,9 @@ function esc(value: unknown) {
 
 function nameClass(name: string) {
   const length = name.trim().length;
-  if (length > 32) return 'name name-xs';
-  if (length > 24) return 'name name-sm';
-  if (length > 17) return 'name name-md';
+  if (length > 30) return 'name name-xs';
+  if (length > 22) return 'name name-sm';
+  if (length > 14) return 'name name-md';
   return 'name';
 }
 
@@ -100,8 +100,8 @@ export async function printAcademicIdCard(input: {
   .photo,.photo-fallback{width:143px;height:164px;border-radius:17px;border:3px solid #dcb75b;background:#eaf0ec;object-fit:cover;display:block}
   .photo-fallback{display:grid;place-items:center;color:#2d6357;font-size:42px;font-weight:900}
   .title{font-size:10px;letter-spacing:2.1px;color:#71837d;font-weight:900;margin:2px 0 4px}
-  .name{font-size:28px;line-height:1.02;color:#063f34;font-weight:950;letter-spacing:-.3px;max-width:210px;overflow-wrap:anywhere}
-  .name.name-md{font-size:25px}.name.name-sm{font-size:22px}.name.name-xs{font-size:19px}
+  .name{font-size:23px;line-height:1.05;color:#063f34;font-weight:950;letter-spacing:-.15px;max-width:185px;overflow-wrap:anywhere}
+  .name.name-md{font-size:21px}.name.name-sm{font-size:19px}.name.name-xs{font-size:17px}
   .status{display:inline-flex;margin-top:9px;padding:7px 15px;border-radius:999px;background:#e7be62;color:#18392f;font-size:10px;font-weight:950;letter-spacing:1.1px}
   .qr-wrap{text-align:center}
   .qr{width:82px;height:82px;border-radius:13px;padding:4px;background:white;border:1px solid #d5e0da;display:block;margin:0 auto}
@@ -148,7 +148,7 @@ export async function printAcademicIdCard(input: {
     .front-main{grid-template-columns:22mm minmax(0,1fr) 13.5mm;gap:2.6mm;padding:2.7mm 3.4mm 0}
     .photo,.photo-fallback{width:22mm;height:25.4mm;border-radius:2.8mm}
     .photo-fallback{font-size:7mm}.title{font-size:1.55mm;letter-spacing:.45mm;margin:.3mm 0 .7mm}
-    .name{font-size:5.2mm;line-height:1.02;max-width:34mm}.name.name-md{font-size:4.7mm}.name.name-sm{font-size:4.2mm}.name.name-xs{font-size:3.7mm}
+    .name{font-size:4.25mm;line-height:1.05;max-width:31mm}.name.name-md{font-size:3.95mm}.name.name-sm{font-size:3.65mm}.name.name-xs{font-size:3.35mm}
     .status{margin-top:1.5mm;padding:1.3mm 2.8mm;font-size:1.8mm;letter-spacing:.25mm}
     .qr{width:12.6mm;height:12.6mm;border-radius:2.1mm;padding:.7mm}.scan{font-size:1.35mm;margin-top:1.1mm}
     .facts{left:3.4mm;right:3.4mm;bottom:8.6mm;grid-template-columns:1.05fr .95fr 1.85fr;gap:1.4mm}
