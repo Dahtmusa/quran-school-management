@@ -112,19 +112,31 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
   <!-- S4: Hifz Journey -->
   <div class="sec-lbl">Qur&#x101;n Memorization Journey</div>
   <div class="s4">
-    <div class="s4-top">
-      <div>
+    <div class="s4-header">
+      <div class="s4-ring-wrap">
+        <svg class="s4-ring" viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">
+          <defs><linearGradient id="rg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient></defs>
+          <circle cx="36" cy="36" r="29" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="6.5"/>
+          <circle cx="36" cy="36" r="29" fill="none" stroke="url(#rg)" stroke-width="6.5"
+            stroke-dasharray="${(2 * Math.PI * 29).toFixed(2)}"
+            stroke-dashoffset="${(2 * Math.PI * 29 * (1 - pct / 100)).toFixed(2)}"
+            stroke-linecap="round" transform="rotate(-90 36 36)"/>
+        </svg>
+        <div class="s4-ring-inner">
+          <div class="s4-ring-pct">${pct.toFixed(1)}%</div>
+          <div class="s4-ring-lbl">Qur&#x101;n<br/>Complete</div>
+        </div>
+      </div>
+      <div class="s4-info">
+        <div class="s4-eyebrow">Hifz Journey</div>
         <div class="s4-pos">${label(s.current)}</div>
         <div class="s4-sub">Started: ${label(s.start)}&nbsp;·&nbsp;${dir}&nbsp;·&nbsp;Teacher: ${s.teacher || '—'}</div>
+        <div class="s4-bar-track"><div class="s4-bar-fill" style="width:${pct}%"></div></div>
+        <div class="s4-bar-meta">
+          <span>${pct.toFixed(1)}% of Qur&#x101;n&nbsp;·&nbsp;${absP.hizbs} / 60 Hizb</span>
+          <span>${rem.ayahs.toLocaleString()} ayahs left</span>
+        </div>
       </div>
-      <div class="s4-pct-wrap">
-        <div class="s4-pct">${pct.toFixed(1)}%</div>
-        <div class="s4-pct-lbl">of Qur&#x101;n memorized</div>
-      </div>
-    </div>
-    <div class="s4-bar-outer">
-      <div class="s4-bar-track"><div class="s4-bar-fill" style="width:${pct}%"></div></div>
-      <div class="s4-bar-meta"><span>Beginning</span><span>Juz ${juz}&nbsp;·&nbsp;Hizb ${hizb}&nbsp;·&nbsp;${pct.toFixed(1)}% complete</span><span>Complete</span></div>
     </div>
     <div class="s4-grid">
       <div class="s4-stat s4-stat-m"><div class="s4-sl s4-sl-m">Ayahs Memorized</div><div class="s4-sv s4-sv-m">${absP.ayahs.toLocaleString()}</div></div>
@@ -217,25 +229,30 @@ const PRINT_CSS = `
   .ec-none{font-size:8px;color:#9ca3af}
 
   /* ── S4: Hifz Journey (flex:6, ~45% of available) ── */
-  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:10px 13px;flex:6 1 0;display:flex;flex-direction:column;gap:7px;min-height:0}
-  .s4-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-shrink:0}
-  .s4-pos{font-size:17px;font-weight:900;line-height:1.1}
-  .s4-sub{font-size:7px;color:#a7f3d0;margin-top:2px}
-  .s4-pct-wrap{text-align:right;flex-shrink:0}
-  .s4-pct{font-size:20px;font-weight:900;color:#6ee7b7;line-height:1}
-  .s4-pct-lbl{font-size:6.5px;color:#a7f3d0;margin-top:1px}
-  .s4-bar-outer{flex-shrink:0}
-  .s4-bar-track{height:7px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden}
+  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:10px 13px;flex:6 1 0;display:flex;flex-direction:column;gap:6px;min-height:0}
+  /* Ring + info row */
+  .s4-header{display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .s4-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .s4-ring{position:absolute;top:0;left:0;width:72px;height:72px}
+  .s4-ring-inner{position:relative;z-index:1;text-align:center}
+  .s4-ring-pct{font-size:12px;font-weight:900;color:#6ee7b7;line-height:1}
+  .s4-ring-lbl{font-size:4.5px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;line-height:1.4}
+  .s4-info{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
+  .s4-eyebrow{font-size:7px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
+  .s4-pos{font-size:16px;font-weight:900;line-height:1.1;color:#fff}
+  .s4-sub{font-size:6.5px;color:#a7f3d0}
+  .s4-bar-track{height:7px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin-top:2px}
   .s4-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#34d399,#fbbf24)}
-  .s4-bar-meta{display:flex;justify-content:space-between;margin-top:2px;font-size:5.5px;color:rgba(255,255,255,.4)}
+  .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.5);margin-top:2px}
+  /* 8-stat grid */
   .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;min-height:0}
-  .s4-stat{border-radius:6px;padding:0 4px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
-  .s4-stat-m{background:rgba(255,255,255,.09)}
-  .s4-stat-r{background:rgba(251,191,36,.13)}
-  .s4-sl{font-size:5.5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px}
+  .s4-stat{border-radius:8px;padding:4px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+  .s4-stat-m{background:rgba(255,255,255,.08)}
+  .s4-stat-r{background:rgba(251,191,36,.12)}
+  .s4-sl{font-size:5.5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;font-weight:600}
   .s4-sl-m{color:#6ee7b7}
   .s4-sl-r{color:#fcd34d}
-  .s4-sv{font-size:14px;font-weight:900;line-height:1}
+  .s4-sv{font-size:15px;font-weight:900;line-height:1}
   .s4-sv-m{color:#fff}
   .s4-sv-r{color:#fde68a}
   .s4-sv-sub{font-size:8px;font-weight:400;opacity:.65}
