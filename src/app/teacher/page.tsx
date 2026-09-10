@@ -3,7 +3,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, teacherSubmitHistoricalClass, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, loadTeacherHistoricalEvalDraft, saveTeacherHistoricalEvalDraft, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -40,6 +40,7 @@ export default function TeacherDashboard() {
 
   /* ── Historical records section ── */
   type HistEntry = { startSurah: number; startAyah: number; endSurah: number; endAyah: number; direction: string; };
+  type HistDraft = { entries: Record<string, HistEntry>; targetPages: number; updatedAt: string; };
   const [histOpen, setHistOpen] = useState(false);
   const [histTerms, setHistTerms] = useState<any[]>([]);
   const [histTermId, setHistTermId] = useState('');
@@ -47,6 +48,8 @@ export default function TeacherDashboard() {
   const [histEntries, setHistEntries] = useState<Record<string, HistEntry>>({});
   const [histSubmitting, setHistSubmitting] = useState<Set<string>>(new Set());
   const [histMsg, setHistMsg] = useState('');
+  const [histSavedAt, setHistSavedAt] = useState('');
+  const [histHydratedFor, setHistHydratedFor] = useState('');
 
   /* ── Section edit ── */
   const [editSectionTarget, setEditSectionTarget] = useState<any | null>(null);
@@ -154,59 +157,109 @@ export default function TeacherDashboard() {
     });
   }, [histOpen]);
 
-  // Effect 1: fresh init when term or student list changes — resets to defaults
-  // Does NOT depend on evaluations, so it never triggers on refresh
-  useEffect(() => {
-    if (!histTermId || !students.length) return;
-    setHistEntries(() => {
-      const next: Record<string, HistEntry> = {};
-      for (const s of students) {
-        next[s.id] = {
-          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
-          startAyah:  s.start?.ayah  || 1,
-          endSurah: 0,
-          endAyah: 0,
-          direction: s.direction || 'Baqarah-to-Nas',
-        };
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [histTermId, students.length]);
+  function histDraftKey(termId: string) {
+    return me?.id ? `amqm_historical_eval_draft:${me.id}:${termId}` : '';
+  }
 
-  // Effect 2: merge DB records into form when evaluations refresh
-  // ONLY overwrites a student's entry when a DB record exists for them.
-  // Students with no DB record keep whatever the teacher already typed.
+  function readHistDraft(termId: string): HistDraft | null {
+    const key = histDraftKey(termId);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) as HistDraft : null;
+    } catch { return null; }
+  }
+
+  function writeHistDraftLocal(termId: string, entries = histEntries, targetPages = histTargetPages) {
+    if (!termId || !me?.id || !entries || !Object.keys(entries).length) return false;
+    try {
+      const payload: HistDraft = { entries, targetPages, updatedAt: new Date().toISOString() };
+      localStorage.setItem(histDraftKey(termId), JSON.stringify(payload));
+      setHistSavedAt(payload.updatedAt);
+      return true;
+    } catch { return false; }
+  }
+
+  async function saveHistDraftCloud(termId: string, entries = histEntries, targetPages = histTargetPages) {
+    if (!termId || !me?.id || !entries || !Object.keys(entries).length) return null;
+    const updatedAt = new Date().toISOString();
+    const payload: HistDraft = { entries, targetPages, updatedAt };
+    try {
+      const savedAt = await saveTeacherHistoricalEvalDraft(termId, payload);
+      setHistSavedAt(savedAt || updatedAt);
+      return savedAt || updatedAt;
+    } catch { return null; }
+  }
+
+  // Hydrate from both browser storage and the server. The newest draft wins.
+  // Browser storage protects refreshes even before a network request completes;
+  // the server copy lets the teacher continue after logging in on another device.
   useEffect(() => {
-    if (!histTermId || !students.length) return;
-    setHistEntries(prev => {
-      let changed = false;
-      const next = { ...prev };
+    if (!histTermId || !students.length || !me?.id) return;
+    const hydrationKey = `${me.id}:${histTermId}`;
+    if (histHydratedFor === hydrationKey) return;
+
+    let cancelled = false;
+    (async () => {
+      const localSaved = readHistDraft(histTermId);
+      let cloudSaved: HistDraft | null = null;
+      try {
+        cloudSaved = await loadTeacherHistoricalEvalDraft(histTermId) as HistDraft | null;
+      } catch {}
+      if (cancelled) return;
+
+      const localTime = localSaved?.updatedAt ? new Date(localSaved.updatedAt).getTime() : 0;
+      const cloudTime = cloudSaved?.updatedAt ? new Date(cloudSaved.updatedAt).getTime() : 0;
+      const saved = cloudTime > localTime ? cloudSaved : localSaved;
+      const next: Record<string, HistEntry> = {};
+
       for (const s of students) {
-        const ex = (evaluations as any[]).find(
+        const dbEval = (evaluations as any[]).find(
           (e: any) => e.student_id === s.id && e.term_id === histTermId && e.evaluation_number === 3
         );
-        if (ex) {
-          const fromDB: HistEntry = {
-            startSurah: Number(ex.from_surah),
-            startAyah:  Number(ex.from_ayah),
-            endSurah:   Number(ex.to_surah),
-            endAyah:    Number(ex.to_ayah),
-            direction:  prev[s.id]?.direction || s.direction || 'Baqarah-to-Nas',
+        const savedEntry = saved?.entries?.[s.id];
+        next[s.id] = savedEntry ?? {
+          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
+          startAyah: s.start?.ayah || 1,
+          endSurah: s.current?.surah || 0,
+          endAyah: s.current?.ayah || 0,
+          direction: s.direction || 'Baqarah-to-Nas',
+        };
+        if (dbEval) {
+          next[s.id] = {
+            startSurah: Number(dbEval.from_surah), startAyah: Number(dbEval.from_ayah),
+            endSurah: Number(dbEval.to_surah), endAyah: Number(dbEval.to_ayah),
+            direction: savedEntry?.direction || s.direction || 'Baqarah-to-Nas',
           };
-          // Only update if something actually changed
-          const cur = prev[s.id];
-          if (!cur || cur.startSurah !== fromDB.startSurah || cur.startAyah !== fromDB.startAyah || cur.endSurah !== fromDB.endSurah || cur.endAyah !== fromDB.endAyah) {
-            next[s.id] = fromDB;
-            changed = true;
-          }
         }
-        // No DB record → leave prev[s.id] untouched (preserves teacher's input)
       }
-      return changed ? next : prev;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evaluations]);
+
+      setHistEntries(next);
+      if (saved?.targetPages) setHistTargetPages(Number(saved.targetPages));
+      setHistSavedAt(saved?.updatedAt || '');
+      setHistHydratedFor(hydrationKey);
+
+      // If this browser has a newer draft than the server, immediately bring the
+      // server copy up to date so the teacher can continue from another device too.
+      if (localSaved && localTime > cloudTime) {
+        void saveHistDraftCloud(histTermId, localSaved.entries, Number(localSaved.targetPages || histTargetPages));
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [histTermId, students, me?.id, evaluations, histHydratedFor]);
+
+  // Auto-save locally immediately and to the server after the teacher pauses typing/selecting.
+  useEffect(() => {
+    if (!histTermId || !me?.id || !Object.keys(histEntries).length) return;
+    if (histHydratedFor !== `${me.id}:${histTermId}`) return;
+
+    writeHistDraftLocal(histTermId, histEntries, histTargetPages);
+    const timer = window.setTimeout(() => {
+      void saveHistDraftCloud(histTermId, histEntries, histTargetPages);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [histEntries, histTargetPages, histTermId, me?.id, histHydratedFor]);
 
   const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
 
@@ -224,6 +277,17 @@ export default function TeacherDashboard() {
     const rubric = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 45 ? 2 : 1;
     const grade  = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 45 ? 'D' : 'F';
     return { ...prog, score, rubric, grade };
+  }
+
+  async function saveHistoricalProgress() {
+    const localOk = writeHistDraftLocal(histTermId, histEntries, histTargetPages);
+    if (!localOk) {
+      setHistMsg('Could not save the draft on this browser.');
+      return;
+    }
+    const cloudSaved = await saveHistDraftCloud(histTermId, histEntries, histTargetPages);
+    if (cloudSaved) setHistMsg('✓ Progress saved to this device and the school system. You can refresh, log out, or return later and continue where you stopped.');
+    else setHistMsg('✓ Progress saved on this device. Cloud save could not be completed right now; your work is still protected on this browser.');
   }
 
   function getHistEval3(studentId: string) {
@@ -279,37 +343,68 @@ export default function TeacherDashboard() {
   }
 
   async function submitClassBatch() {
-    if (!histTermId || !students.length) return;
+    // Only submit students who are complete and not already submitted.
+    // Teachers may submit 1 student or any partial group and continue later.
     const ready = students.filter(s => {
       const e = histEntries[s.id];
-      return e && computeHistMetrics(e, histTargetPages) !== null;
+      return e && computeHistMetrics(e, histTargetPages) !== null && !getHistEval3(s.id);
     });
-    if (ready.length !== students.length) {
-      setHistMsg(`⚠ Complete the End-of-Term position for all ${students.length} students before submitting the class.`);
+    if (!ready.length) {
+      setHistMsg('No new students are ready to submit. Fill in a valid Current Position for at least one student, then try again.');
       return;
     }
-    setHistMsg('');
-    setHistSubmitting(new Set(students.map(s => s.id)));
-    try {
-      const count = await teacherSubmitHistoricalClass(histTermId, students[0]?.classId || '', ready.map(s => {
+    writeHistDraftLocal(histTermId, histEntries, histTargetPages);
+    void saveHistDraftCloud(histTermId, histEntries, histTargetPages);
+    setHistMsg('Submitting saved students…');
+    const failed: string[] = [];
+    for (let i = 0; i < ready.length; i += 5) {
+      const chunk = ready.slice(i, i + 5);
+      const results = await Promise.allSettled(chunk.map(async s => {
         const e = histEntries[s.id];
-        const m = computeHistMetrics(e, histTargetPages)!;
-        return { studentId: s.id, endSurah: e.endSurah, endAyah: e.endAyah, score: m.score };
+        const m = computeHistMetrics(e, histTargetPages);
+        if (!m || !histTermId) throw new Error('Not ready');
+        const termId = histTermId;
+        setHistSubmitting(prev => new Set(prev).add(s.id));
+        try {
+          await teacherSubmitHistoricalEval3({
+            studentId: s.id, termId,
+            startSurah: e.startSurah, startAyah: e.startAyah,
+            endSurah: e.endSurah, endAyah: e.endAyah,
+            score: m.score, rubric: m.rubric, grade: m.grade,
+            ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
+          });
+          try {
+            const raw = localStorage.getItem(histDraftKey(termId));
+            if (raw) {
+              const draft = JSON.parse(raw) as HistDraft;
+              delete draft.entries[s.id];
+              draft.updatedAt = new Date().toISOString();
+              localStorage.setItem(histDraftKey(termId), JSON.stringify(draft));
+            }
+          } catch {}
+        } finally {
+          setHistSubmitting(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+        }
+        return s.id;
       }));
-      await refresh();
-      setHistMsg(`✓ Class submitted successfully — ${count} student${count !== 1 ? 's' : ''}. Eval 1 and Eval 2 were derived automatically. Admin can now review and approve the class.`);
-    } catch (err: any) {
-      setHistMsg(`⚠ Class was not submitted. Nothing was partially saved. ${err?.message || 'Please check the entries and try again.'}`);
-    } finally {
-      setHistSubmitting(new Set());
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === 'rejected') failed.push(chunk[j].name);
+      }
+    }
+    await refresh();
+    if (failed.length === 0) {
+      // Preserve all unfinished students in the browser draft.
+      setHistMsg(`✓ ${ready.length} student${ready.length !== 1 ? 's' : ''} submitted to Admin. Your remaining entries are still saved — you can continue later.`);
+    } else {
+      setHistMsg(`⚠ ${ready.length - failed.length} submitted successfully. Failed: ${failed.join(', ')}. Your remaining entries are still saved.`);
     }
   }
 
   const histReadyCount = students.filter(s => {
     const e = histEntries[s.id];
-    return e && computeHistMetrics(e, histTargetPages) !== null;
+    return e && computeHistMetrics(e, histTargetPages) !== null && !getHistEval3(s.id);
   }).length;
-  const histIncompleteCount = students.length - histReadyCount;
+  const histIncompleteCount = students.filter(s => !getHistEval3(s.id)).length - histReadyCount;
   const histAllReady = histTermId && students.length > 0 && histIncompleteCount === 0;
 
   const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;
@@ -385,10 +480,10 @@ export default function TeacherDashboard() {
       >
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-base font-black text-amber-900">📋 First Term 2026/27 — Historical Evaluation</span>
+            <span className="text-base font-black text-amber-900">📋 Historical Records — First Term Setup</span>
             <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800">Temporary</span>
           </div>
-          <p className="mt-1 text-xs text-amber-700/80">Enter only each student's First Term ending Surah and Ayah. The historical start is fixed automatically and Eval 1–2 are derived from Eval 3.</p>
+          <p className="mt-1 text-xs text-amber-700/80">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
         </div>
         <span className="ml-4 shrink-0 text-amber-500 font-bold text-sm">{histOpen ? '▲ Hide' : '▼ Open'}</span>
       </button>
@@ -406,29 +501,33 @@ export default function TeacherDashboard() {
                 ))}
               </select>
             </label>
-            <div className="rounded-lg border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600">
-              <span className="font-bold text-slate-800">How it works:</span> teacher enters the end position only. Eval 1 and Eval 2 are calculated automatically; Admin approves the whole class.
-            </div>
+            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
+              <input type="number" min={1} max={200} value={histTargetPages}
+                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
+                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            </label>
           </div>
 
           {/* Batch submit panel */}
           {histTermId && students.length > 0 && (
             <div className={`flex flex-col gap-2 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${histAllReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
               <div>
-                {histAllReady ? (
-                  <div className="text-sm font-bold text-emerald-800">✓ All {students.length} students have positions filled in — ready to submit class</div>
+                {histReadyCount > 0 ? (
+                  <div className="text-sm font-bold text-emerald-800">✓ {histReadyCount} student{histReadyCount !== 1 ? 's are' : ' is'} ready to submit</div>
                 ) : (
-                  <div className="text-sm font-bold text-amber-800">
-                    {histReadyCount}/{students.length} students ready
-                    {histIncompleteCount > 0 && <span className="ml-2 font-normal text-amber-700">— {histIncompleteCount} still need end position</span>}
-                  </div>
+                  <div className="text-sm font-bold text-amber-800">0 new students ready</div>
                 )}
-                <div className="mt-0.5 text-xs text-slate-500">All students must be complete before you can submit. Admin will review and approve the entire class.</div>
+                <div className="mt-0.5 text-xs text-slate-500">You can submit one student or any completed group. The rest stays saved and can be completed later.</div>
+                {histSavedAt && <div className="mt-1 text-[11px] text-emerald-700">Draft saved {new Date(histSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={submitClassBatch} disabled={!histAllReady || histSubmitting.size > 0}
-                  className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${histAllReady ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}>
-                  {histSubmitting.size > 0 ? 'Submitting class…' : `Submit class (${students.length})`}
+                <button onClick={saveHistoricalProgress}
+                  className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-bold text-amber-800 hover:bg-amber-50 transition-colors">
+                  Save progress
+                </button>
+                <button onClick={submitClassBatch} disabled={histReadyCount === 0 || histSubmitting.size > 0}
+                  className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-emerald-700 transition-colors">
+                  {histSubmitting.size > 0 ? 'Submitting…' : `Submit ready (${histReadyCount})`}
                 </button>
               </div>
             </div>
@@ -448,8 +547,8 @@ export default function TeacherDashboard() {
                   <th className="px-4 py-3">#</th>
                   <th className="px-4 py-3">Student</th>
                   <th className="px-3 py-3 text-center">Direction</th>
-                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700">Historical Start</th>
-                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>End of First Term ✏️</th>
+                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
+                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
                   <th className="px-3 py-3 text-center">Score</th>
                   <th className="px-3 py-3 text-center">Status</th>
                 </tr>
@@ -479,12 +578,26 @@ export default function TeacherDashboard() {
                         </div>
                       </td>
                       <td className="px-2 py-2.5 text-center">
-                        <span className="text-[10px] font-bold text-slate-500">{e.direction === 'Nas-to-Baqarah' ? 'N → B' : 'B → N'}</span>
+                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
+                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
+                          <option value="Baqarah-to-Nas">↓ B→N</option>
+                          <option value="Nas-to-Baqarah">↑ N→B</option>
+                        </select>
                       </td>
-                      <td className="px-2 py-2.5 bg-emerald-50/20 text-center">
-                        <span className="inline-flex rounded-md bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-800">
-                          {e.direction === 'Nas-to-Baqarah' ? 'An-Nās 114:1' : 'Al-Baqarah 2:1'}
-                        </span>
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          <option value={0}>— Surah —</option>
+                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
+                        </select>
+                      </td>
+                      <td className="px-1 py-2.5 bg-emerald-50/20">
+                        <select value={e.startAyah || ''}
+                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Number(ev.target.value) } }))}
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          <option value="">Ayah</option>
+                          {Array.from({ length: maxStartAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
                       </td>
                       <td className="px-1 py-2.5 bg-teal-50/20">
                         <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
