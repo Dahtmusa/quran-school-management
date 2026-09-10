@@ -48,7 +48,7 @@ export async function loadParentStudents(): Promise<Student[]> {
 
 export async function loadEvaluations(): Promise<Evaluation[]> {
   const db = supabase();
-  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name,admission_no,photo_url,class_id,section,memorization_direction,current_page,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false});
+  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name,admission_no,photo_url,class_id,section,memorization_direction,current_page,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false}).limit(10000);
   if (error || !data) return [];
   return data.map((e:any) => ({
     id:e.id, studentId:e.student_id, student:e.students?.full_name ?? 'Student',
@@ -337,7 +337,7 @@ export async function getUnassignedStudents() {
 }
 
 export async function loadTeacherEvaluations() {
-  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb,memorization_direction),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false});
+  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb,memorization_direction),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false}).limit(10000);
   if (error || !data) return [];
   return data;
 }

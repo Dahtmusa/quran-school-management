@@ -19,11 +19,12 @@ export default function EvaluationsAdmin(){
   const approved=evals.filter(e=>e.status==='Approved');
   const currentCampaign=campaigns.find(c=>c.term_id===termId&&c.evaluation_number===number);
   const evalsByClass=useMemo(()=>{
-    const actionable=evals.filter(e=>e.status==='Pending Approval'||e.status==='Returned');
+    const termName=terms.find(t=>t.id===termId)?.name;
+    const actionable=evals.filter(e=>(e.status==='Pending Approval'||e.status==='Returned')&&(!termName||e.term===termName));
     const map=new Map<string,{className:string,evals:any[]}>();
     for(const ev of actionable){const key=ev.classId||'unassigned';const name=ev.className||'Unassigned';if(!map.has(key))map.set(key,{className:name,evals:[]});map.get(key)!.evals.push(ev);}
     return [...map.entries()].map(([classId,v])=>({classId,...v,evals:v.evals.sort((a,b)=>(b.score||0)-(a.score||0))}));
-  },[evals]);
+  },[evals,termId,terms]);
   async function createCampaign(){
     if(!termId||!opensAt||!closesAt||new Date(closesAt)<=new Date(opensAt)||!selectedClasses.length){setMessage('Choose the operational term, evaluation, opening and closing date/time, and at least one class.');return;}
     setBusy(true);setMessage('');try{await createEvaluationCampaign({termId,evaluationNumber:number,title,opensAt,closesAt,classIds:selectedClasses});setMessage(`Evaluation ${number} created for ${selectedClasses.length} class${selectedClasses.length===1?'':'es'}. Teachers will see it automatically at the opening time.`);await refresh();}catch(e:any){setMessage(e?.message||'Unable to create evaluation.')}finally{setBusy(false)}
