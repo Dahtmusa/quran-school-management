@@ -7,6 +7,7 @@ import { Student } from '@/lib/data';
 import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { loadCMSSettings } from '@/lib/cms-live-store';
+import { loadSignaturesForReportCards } from '@/lib/live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
 import { label, SURAHS } from '@/lib/quran';
 
@@ -24,6 +25,10 @@ const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,n
 export default function Students(){
  const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
+ const [schoolName,setSchoolName]=useState('ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION');
+ const [shortName,setShortName]=useState('AMQM');
+ const [directorSignatureUrl,setDirectorSignatureUrl]=useState<string|null>(null);
+ const [directorName,setDirectorName]=useState('School Director');
  const [selected,setSelected]=useState<Student|null>(null);
  const [extProfile,setExtProfile]=useState<ExtProfile>(blankExt);
  const [edit,setEdit]=useState<Student|null>(null);
@@ -47,7 +52,7 @@ export default function Students(){
  const [removeNotes,setRemoveNotes]=useState('');
  const [removeBusy,setRemoveBusy]=useState(false);
 
- async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null)}
+ async function refresh(){const [students,cls,quran,settings,sigs]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings(),loadSignaturesForReportCards()]);setAll(students);setClasses(cls);setSurahs(quran);const st:any=settings||{};setLogoUrl(st.logo_url?.value||st.logo_url?.url||st.logo_url||null);setSchoolName(st.school_name?.value||'ALIYU AND MAIMUNA CENTER FOR QUR\'ANIC MEMORIZATION');setShortName(st.short_name?.value||'AMQM');setDirectorSignatureUrl((sigs as any)?.director?.signature_data||null);setDirectorName((sigs as any)?.director?.signer_name||'School Director')}
  useEffect(()=>{refresh()},[]);
 
  useEffect(()=>{
@@ -89,7 +94,7 @@ export default function Students(){
    }catch(e:any){setMessage(e?.message??'Unable to create student.')}finally{setSaving(false)}
  }
 
- async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.id,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl});}
+ async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.studentIdNumber||s.id,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl,directorSignatureUrl,directorName,schoolName,shortName});}
 
  function openEdit(s:Student){setEdit(s);loadStudentExtended(s.id).then(d=>setEditExt(d||blankExt));}
 
@@ -123,16 +128,25 @@ export default function Students(){
    finally{setReinstating(null);}
  }
 
- /* Duplicate detection — client-side: group by normalised name, show groups with 2+ */
+ /* Potential duplicate detection — conservative, automatic, admin-reviewed.
+    Exact duplicate names are grouped after removing punctuation/extra spaces.
+    Exact admission/student ID collisions are also grouped when present. */
  const duplicateGroups=useMemo(()=>{
-   const groups:Record<string,Student[]>={};
+   const normalize=(v:string)=>v.trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+   const byKey:Record<string,{reason:string;students:Student[]}>={};
+   const add=(key:string,reason:string,s:Student)=>{if(!key)return; if(!byKey[key])byKey[key]={reason,students:[]}; if(!byKey[key].students.some(x=>x.id===s.id))byKey[key].students.push(s);};
    for(const s of all){
-     const key=s.name.trim().toLowerCase();
-     if(!groups[key])groups[key]=[];
-     groups[key].push(s);
+     add(`name:${normalize(s.name)}`,'Same normalized name',s);
+     if(s.admissionNo) add(`admission:${normalize(s.admissionNo)}`,'Same admission number',s);
+     if((s as any).studentIdNumber) add(`student-id:${normalize((s as any).studentIdNumber)}`,'Same student ID number',s);
    }
-   return Object.values(groups).filter(g=>g.length>1);
+   const seen=new Set<string>();
+   return Object.entries(byKey)
+     .filter(([,g])=>g.students.length>1)
+     .map(([key,g])=>({key,reason:g.reason,students:g.students}))
+     .filter(g=>{const ids=g.students.map(s=>s.id).sort().join('|'); if(seen.has(ids))return false; seen.add(ids); return true;});
  },[all]);
+ const duplicateStudentIds=useMemo(()=>new Set(duplicateGroups.flatMap(g=>g.students.map(s=>s.id))),[duplicateGroups]);
 
  return <AdminShell title="Students"><div className="space-y-4">
   {message&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 cursor-pointer" onClick={()=>setMessage('')}>{message} <span className="float-right text-emerald-600">✕</span></div>}
@@ -144,7 +158,7 @@ export default function Students(){
          <button key={t} onClick={()=>t==='removed'?openRemovedTab():setPageTab(t)}
            className={`rounded-lg px-4 py-2 text-sm font-bold capitalize transition-colors ${pageTab===t?'bg-emerald-700 text-white':'text-slate-500 hover:bg-slate-100'}`}>
            {t==='active'?`Active (${all.length})`:t==='removed'?`Removed (${removed.length}${!removedLoaded?'…':''})`:
-             `Duplicates${duplicateGroups.length?` (${duplicateGroups.length})`:''}`}
+             `Potential duplicates${duplicateGroups.length?` (${duplicateGroups.length})`:''}`}
          </button>
        ))}
      </div>
@@ -211,16 +225,16 @@ export default function Students(){
 
    {/* ── Duplicates tab ── */}
    {pageTab==='duplicates'&&<>
-   {duplicateGroups.length===0&&<div className="p-8 text-center text-sm text-slate-400">No duplicate names found. All student names are unique.</div>}
+   {duplicateGroups.length===0&&<div className="p-8 text-center text-sm text-slate-400">No potential duplicate records detected.</div>}
    {duplicateGroups.length>0&&<>
-   <div className="border-b bg-amber-50 px-5 py-3 text-sm text-amber-800"><b>{duplicateGroups.length} duplicate name group{duplicateGroups.length!==1?'s':''} found.</b> Review each group and edit or remove the incorrect record.</div>
+   <div className="border-b bg-amber-50 px-5 py-3 text-sm text-amber-900"><b>{duplicateGroups.length} potential duplicate group{duplicateGroups.length!==1?'s':''} detected automatically.</b> Matching records are never removed automatically — review the records and choose the correct one to keep.</div>
    <div className="divide-y">
    {duplicateGroups.map((group,gi)=>(
-     <div key={gi} className="p-5">
-       <div className="mb-2 text-xs font-black uppercase tracking-wide text-amber-700">⚠ Duplicate — {group.length} records with same name</div>
+     <div key={group.key} className="p-5">
+       <div className="mb-2 flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wide text-amber-700"><span>⚠ Potential duplicate — {group.students.length} records</span><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] normal-case tracking-normal text-amber-800">{group.reason}</span></div>
        <div className="overflow-x-auto"><table className="w-full text-left text-sm">
          <thead className="text-xs text-slate-400 uppercase"><tr><th className="pb-2">Student</th><th>Section</th><th>Class</th><th>Year</th><th></th></tr></thead>
-         <tbody>{group.map(s=>(
+         <tbody>{group.students.map(s=>(
            <tr key={s.id} className="border-t">
              <td className="py-3 pr-4"><div className="flex items-center gap-3">{s.photoUrl?<img src={s.photoUrl} alt={s.name} className="h-9 w-9 rounded-full object-cover"/>:<div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 font-black text-amber-700">{s.name.slice(0,1)}</div>}<div><b>{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo}</div></div></div></td>
              <td><SectionBadge section={s.section}/></td>
@@ -228,7 +242,7 @@ export default function Students(){
              <td className="text-xs">{s.year}</td>
              <td><div className="flex gap-2">
                <button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button>
-               <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('withdrawn');setRemoveReason('Duplicate record');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove duplicate</button>
+               <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('withdrawn');setRemoveReason('Duplicate student record');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove duplicate</button>
              </div></td>
            </tr>
          ))}</tbody>
@@ -248,7 +262,7 @@ export default function Students(){
      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-slate-100">{selected.photoUrl?<img src={selected.photoUrl} alt={selected.name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{selected.name.charAt(0)}</div>}</div>
      <div className="flex-1 min-w-0">
        <div className="text-xs font-black uppercase tracking-wider text-slate-400">{selected.admissionNo}</div>
-       <h2 className="mt-0.5 text-2xl font-black">{selected.name}</h2>
+       <h2 className="mt-0.5 flex flex-wrap items-center gap-2 text-2xl font-black">{selected.name}{duplicateStudentIds.has(selected.id)&&<span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-800">Potential duplicate</span>}</h2>
        <div className="mt-1 flex flex-wrap gap-2"><SectionBadge section={selected.section}/><MemorizationBadge direction={selected.direction}/><span className="pill bg-slate-100 text-slate-600">{selected.year}</span></div>
        <div className="mt-1 text-xs text-slate-500">{selected.className??'Unassigned'} · {selected.teacher}</div>
      </div>
@@ -400,7 +414,15 @@ export default function Students(){
          </select>
        </label>
        <label className="block text-sm font-semibold">Reason <span className="text-rose-600">*</span>
-         <input className="input mt-1 w-full" placeholder="e.g. Serious disciplinary violation" value={removeReason} onChange={e=>setRemoveReason(e.target.value)}/>
+         <select className="input mt-1 w-full" value={removeReason} onChange={e=>setRemoveReason(e.target.value)}>
+           <option value="">Select reason</option>
+           <option value="Duplicate student record">Duplicate student record</option>
+           <option value="Student transferred to another school">Student transferred to another school</option>
+           <option value="Family withdrawal">Family withdrawal</option>
+           <option value="Disciplinary action">Disciplinary action</option>
+           <option value="Other">Other</option>
+         </select>
+         {removeReason==='Other'&&<input className="input mt-2 w-full" placeholder="Enter removal reason" onChange={e=>setRemoveReason(e.target.value)}/>}
        </label>
        <label className="block text-sm font-semibold">Additional notes <span className="text-xs font-normal text-slate-400">(optional)</span>
          <textarea className="input mt-1 w-full resize-none" rows={3} placeholder="Any extra context for the record…" value={removeNotes} onChange={e=>setRemoveNotes(e.target.value)}/>
