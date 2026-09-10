@@ -214,23 +214,23 @@ const PRINT_CSS = `
   .sec-lbl{font-size:6.5px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;flex-shrink:0;margin-top:1px}
 
   /* ── S3: Academic Performance (flex:3, ~24% of available) ── */
-  .s3{flex:3 1 0;display:flex;flex-direction:column;min-height:0}
-  .s3-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;min-height:0}
-  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:5px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;overflow:hidden}
+  .s3{flex:0 0 auto;display:flex;flex-direction:column;min-height:0}
+  .s3-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;min-height:0}
+  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:4px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:1px;min-height:0;overflow:hidden}
   .ec-miss{opacity:.4;justify-content:center;gap:3px}
   .ec-avg{background:#ecfdf5;border-color:#34d399;border-width:1.5px}
   .ec-num{font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:1px}
-  .ec-score{font-size:19px;font-weight:900;color:#062d2a;line-height:1}
+  .ec-score{font-size:17px;font-weight:900;color:#062d2a;line-height:1}
   .ec-grade{font-size:9px;font-weight:700;color:#475569}
   .ec-mem{font-size:6px;color:#94a3b8}
-  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:2px}
-  .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:2px 1px}
+  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:1px}
+  .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:1.5px 1px}
   .rl{display:block;font-size:5px;color:#9ca3af;text-transform:uppercase;letter-spacing:.03em}
   .rv{display:block;font-size:7px;font-weight:700;color:#065f46}
   .ec-none{font-size:8px;color:#9ca3af}
 
   /* ── S4: Hifz Journey (flex:6, ~46% of available after S3 reduction) ── */
-  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:9px 13px;flex:6 1 0;display:flex;flex-direction:column;gap:5px;min-height:0}
+  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:8px 12px;flex:1 1 auto;display:flex;flex-direction:column;gap:4px;min-height:0}
   /* Ring + info row */
   .s4-header{display:flex;align-items:center;gap:12px;flex-shrink:0}
   .s4-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
@@ -246,14 +246,14 @@ const PRINT_CSS = `
   .s4-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#34d399,#fbbf24)}
   .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.5);margin-top:2px}
   /* 8-stat grid */
-  .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;flex:1;min-height:0}
-  .s4-stat{border-radius:7px;padding:4px 3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+  .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;min-height:0}
+  .s4-stat{border-radius:7px;padding:3px 3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:28px}
   .s4-stat-m{background:rgba(255,255,255,.08)}
   .s4-stat-r{background:rgba(251,191,36,.12)}
   .s4-sl{font-size:5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:600}
   .s4-sl-m{color:#6ee7b7}
   .s4-sl-r{color:#fcd34d}
-  .s4-sv{font-size:13px;font-weight:900;line-height:1}
+  .s4-sv{font-size:12px;font-weight:900;line-height:1}
   .s4-sv-m{color:#fff}
   .s4-sv-r{color:#fde68a}
   .s4-sv-sub{font-size:7px;font-weight:400;opacity:.65}
@@ -277,7 +277,7 @@ const PRINT_CSS = `
   .sd{font-size:6.5px;color:#94a3b8;margin-top:3px}
 
   /* ── S7: Verification Footer ── */
-  .ft{font-size:7px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:5px;flex-shrink:0;letter-spacing:.01em}
+  .ft{font-size:7.2px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:5px;flex-shrink:0;letter-spacing:.01em;line-height:1.35}
 `;
 
 function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {
