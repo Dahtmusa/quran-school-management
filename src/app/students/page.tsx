@@ -25,7 +25,7 @@ const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,n
 export default function Students(){
  const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
- const [schoolName,setSchoolName]=useState('ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION');
+ const [schoolName,setSchoolName]=useState('ALIYU AND MAIMUNA CENTER FOR QUR\'ANIC MEMORIZATION');
  const [shortName,setShortName]=useState('AMQM');
  const [directorSignatureUrl,setDirectorSignatureUrl]=useState<string|null>(null);
  const [directorName,setDirectorName]=useState('School Director');
