@@ -1,23 +1,230 @@
 import QRCode from 'qrcode';
-function esc(v:any){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF';name:string;id:string;admissionNo?:string;photoUrl?:string|null;year?:string;section?:string;className?:string|null;jobTitle?:string;department?:string;phone?:string;expiry?:string|null;logoUrl?:string|null;directorSignatureUrl?:string|null;directorName?:string;schoolName?:string;shortName?:string;contactPhone1?:string;contactPhone2?:string;}){
- const qr=await QRCode.toDataURL(JSON.stringify({institution:'AMQM',type:input.type,id:input.id}),{width:220,margin:1,errorCorrectionLevel:'M'});
- const schoolName=input.schoolName||'ALIYU AND MAIMUNA CENTER FOR QUR’ANIC MEMORIZATION';
- const shortName=input.shortName||'AMQM';
- const contactPhone1=input.contactPhone1||'08035443519';
- const contactPhone2=input.contactPhone2||'08038889690';
- const directorName=input.directorName||'School Director';
- const frontMeta=input.type==='STUDENT'
-   ? `<div class="facts"><div><span>PROGRAM YEAR</span><b>${esc(input.year||'—')}</b></div><div><span>SECTION</span><b>${esc(input.section||'—')}</b></div><div><span>CLASS</span><b>${esc(input.className||'Unassigned')}</b></div></div>`
-   : `<div class="facts"><div><span>POSITION</span><b>${esc(input.jobTitle||'Staff')}</b></div><div><span>DEPARTMENT</span><b>${esc(input.department||'—')}</b></div><div><span>PHONE</span><b>${esc(input.phone||'—')}</b></div></div>`;
- const extra=input.type==='STUDENT'?`<div class="line"><span>ADMISSION NO.</span><b>${esc(input.admissionNo||'—')}</b></div>`:`<div class="line"><span>STAFF ID</span><b>${esc(input.id)}</b></div>`;
- const logo=input.logoUrl ? `<img class="logo" src="${esc(input.logoUrl)}" alt="School logo"/>` : `<div class="logoFallback">${esc(shortName.slice(0,3))}</div>`;
- const directorSig=input.directorSignatureUrl ? `<img class="directorSig" src="${esc(input.directorSignatureUrl)}" alt="Director signature"/>` : `<div class="signatureLine"></div>`;
- const html=`<!doctype html><html><head><title>${esc(shortName)} ${input.type} ID — ${esc(input.name)}</title><style>
-*{box-sizing:border-box}body{margin:0;background:#e9efec;font-family:Inter,Arial,sans-serif;color:#11251f}.sheet{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:34px}.card{width:540px;height:340px;border-radius:28px;overflow:hidden;position:relative;box-shadow:0 18px 55px rgba(16,37,31,.18);page-break-inside:avoid}.front{background:linear-gradient(145deg,#fffdf7 0%,#f5f8f3 100%);border:1px solid #d4b15b}.band{height:94px;background:linear-gradient(105deg,#043a33,#0a5146);color:#fff;padding:16px 20px;display:flex;gap:14px;align-items:center;position:relative}.band:after{content:'';position:absolute;right:-30px;top:-70px;width:180px;height:180px;border-radius:50%;border:1px solid rgba(231,194,104,.35)}.logo,.logoFallback{width:62px;height:62px;border-radius:18px;background:#fff;object-fit:contain;flex:0 0 auto;border:2px solid rgba(238,199,103,.9);padding:4px}.logoFallback{display:grid;place-items:center;color:#075144;font-weight:900;font-size:18px}.brand{min-width:0}.brand strong{display:block;font:900 24px Georgia,serif;letter-spacing:1.2px;color:#f4d985}.brand small{display:block;font-size:9px;line-height:1.35;margin-top:4px;letter-spacing:.28px;max-width:355px}.arabic{color:#e7c46c;font-size:12px;margin-top:3px}.frontBody{display:grid;grid-template-columns:118px minmax(0,1fr) 78px;grid-template-rows:auto auto auto;gap:10px 14px;padding:14px 20px 10px}.frontBody>div:nth-child(2){min-width:0;align-self:start}.frontBody>div:nth-child(3){align-self:start}.frontBody>.facts{grid-column:1 / -1;grid-row:2}.frontBody>.line{grid-column:1 / -1;grid-row:3;position:static;width:auto;margin:0;padding:6px 9px;display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dce5df;border-radius:9px}.frontBody>.line span{display:inline-block}.frontBody>.line b{margin-top:0}.photo{width:118px;height:148px;object-fit:cover;border:3px solid #dcb75b;border-radius:16px;background:#e8eee9}.photoPh{width:118px;height:148px;display:grid;place-items:center;border:3px solid #dcb75b;border-radius:16px;background:#edf3ef;color:#2c5c52;font-weight:900;font-size:30px}.label{font-size:9px;letter-spacing:1.6px;color:#6d8179;font-weight:800}.name{font-size:23px;line-height:1.0;font-weight:900;margin:4px 0 8px;color:#073d33;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}.type{display:inline-block;background:#e6be63;color:#173028;border-radius:999px;padding:5px 12px;font-size:9px;font-weight:900;letter-spacing:1px}.facts{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,.85fr) minmax(0,1.5fr);gap:6px;margin-top:9px;grid-column:1 / -1}.facts div{background:rgba(224,236,230,.72);border:1px solid rgba(195,213,204,.8);border-radius:9px;padding:6px 6px;min-width:0}.facts span,.line span{display:block;font-size:6.7px;letter-spacing:.85px;color:#70827b;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.facts b,.line b{display:block;font-size:9px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.line{min-width:0}.qr{width:70px;height:70px;background:#fff;border-radius:12px;padding:4px;border:1px solid #d4dfd8}.scan{text-align:center;font-size:7px;line-height:1.3;font-weight:800;color:#61746d;margin-top:6px}.idline{position:absolute;right:21px;bottom:13px;font-size:9px;font-weight:900;color:#073d33}.idline span{font-size:7px;color:#71827c;margin-right:4px}.back{background:linear-gradient(145deg,#043a33,#0a5146 60%,#0a453d);color:#fff;border:1px solid #d4b15b;padding:26px}.back:before{content:'';position:absolute;inset:10px;border:1px solid rgba(235,194,94,.55);border-radius:20px}.backContent{position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between}.back h2{font:900 24px Georgia,serif;margin:7px 0;color:#f2ce78}.schoolmark{font-size:8px;letter-spacing:1.7px;color:#e8bf64;font-weight:900}.back p{font-size:10px;line-height:1.6;color:#d9e8e2;max-width:400px;margin:0}.expiry{display:inline-block;margin-top:12px;padding:6px 9px;border:1px solid rgba(232,191,100,.45);border-radius:999px;font-size:9px;color:#f0cb72;font-weight:900}.signBlock{position:relative;z-index:2;width:220px}.directorSig{display:block;width:195px;height:48px;object-fit:contain;object-position:left bottom;filter:brightness(0) invert(1);margin-bottom:1px}.signatureLine{width:195px;border-bottom:1px solid #e8bd5b;height:48px}.director{font-size:9px;color:#fff;font-weight:800;letter-spacing:.5px}.instructions{font-size:8px;color:#b8cec5;max-width:340px;margin-top:6px}.contact{font-size:8px;color:#d9e8e2;margin-top:7px;letter-spacing:.2px}.contact b{color:#f0cb72}.backQr{position:absolute;right:20px;bottom:22px;width:86px;height:86px;background:#fff;padding:4px;border-radius:12px}.valid{font-size:8px;letter-spacing:1.2px;color:#b7d1c7;margin-top:4px}@media print{body{background:#fff}.sheet{padding:0;gap:10mm;flex-direction:row}.card{box-shadow:none;width:85.6mm;height:54mm;border-radius:3.5mm}.band{height:14.9mm;padding:2.6mm 3.3mm}.logo,.logoFallback{width:9.8mm;height:9.8mm;border-radius:2.7mm}.logoFallback{font-size:3mm}.brand strong{font-size:4.6mm}.brand small{font-size:1.7mm;max-width:61mm}.arabic{font-size:2.2mm}.frontBody{grid-template-columns:18.8mm minmax(0,1fr) 12.4mm;grid-template-rows:auto auto auto;gap:1.8mm 2mm;padding:2.4mm 3.2mm 2.2mm}.frontBody>div:nth-child(2){min-width:0;align-self:start}.frontBody>div:nth-child(3){align-self:start}.frontBody>.facts{grid-column:1 / -1;grid-row:2}.frontBody>.line{grid-column:1 / -1;grid-row:3;position:static;width:auto;margin:0;padding:6px 9px;display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #dce5df;border-radius:9px}.frontBody>.line span{display:inline-block}.frontBody>.line b{margin-top:0}.photo,.photoPh{width:18.8mm;height:23.5mm}.name{font-size:4.5mm;line-height:1.0;margin:1.2mm 0 1.8mm}.type{font-size:1.8mm}.facts{grid-template-columns:minmax(0,.9fr) minmax(0,.9fr) minmax(0,1.7fr);gap:1.1mm;margin-top:0;grid-column:1 / -1;grid-row:2}.frontBody>.line{grid-column:1 / -1;grid-row:3;position:static;width:auto;margin:0;padding:1mm 1.2mm;display:flex;align-items:center;justify-content:space-between}.facts div{padding:1mm .9mm;min-width:0}.facts span,.line span{font-size:1.2mm;letter-spacing:.2mm}.facts b,.line b{font-size:1.6mm;margin-top:.35mm}.line{min-width:0}.qr{width:11.2mm;height:11.2mm}.scan{font-size:1.3mm}.idline{right:3mm;bottom:1.8mm;font-size:1.8mm}.idline span{font-size:1.4mm}.back{padding:4.2mm}.back h2{font-size:4.5mm;margin:1.2mm 0}.schoolmark{font-size:1.5mm}.back p{font-size:1.8mm;max-width:65mm}.expiry{font-size:1.6mm;margin-top:2.2mm;padding:1mm 1.5mm}.signBlock{width:40mm}.directorSig,.signatureLine{width:34mm;height:8.5mm}.director{font-size:1.8mm}.instructions{font-size:1.45mm}.contact{font-size:1.45mm;margin-top:1.2mm}.backQr{width:13.5mm;height:13.5mm;right:3.1mm;bottom:3.5mm}.valid{font-size:1.45mm}}
-</style></head><body><div class="sheet">
-<div class="card front"><div class="band">${logo}<div class="brand"><strong>${esc(shortName)}</strong><small>${esc(schoolName)}</small><div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div></div></div><div class="frontBody"><div>${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt=""/>`:`<div class="photoPh">${esc((input.name||'?').charAt(0).toUpperCase())}</div>`}</div><div><div class="label">${input.type==='STUDENT'?'STUDENT ID CARD':'STAFF ID CARD'}</div><div class="name">${esc(input.name)}</div><div class="type">${input.type==='STUDENT'?'STUDENT':'STAFF'}</div></div><div><img class="qr" src="${qr}" alt="QR"/><div class="scan">SCAN TO VERIFY<br/>ATTENDANCE & ID</div></div>${frontMeta}${extra}</div><div class="idline"><span>ID</span>${esc(input.id)}</div></div>
-<div class="card back"><div class="backContent"><div><div class="schoolmark">${esc(shortName)} · OFFICIAL IDENTIFICATION</div><h2>Trusted School Identity</h2><p>This card is issued by ${esc(schoolName)} for identification, attendance scanning, school access and approved academic services. If found, please return it to the school office.</p><div class="expiry">VALID UNTIL: ${esc(input.expiry||'—')}</div></div><div><div class="signBlock">${directorSig}<div class="director">${esc(directorName)}</div><div class="valid">DIRECTOR AUTHORISATION</div><div class="instructions">QR = digital verification & attendance · Present this card when requested by the school.</div><div class="contact"><b>CONTACT SCHOOL:</b> ${esc(contactPhone1)} &nbsp;|&nbsp; ${esc(contactPhone2)}</div></div></div></div><img class="backQr" src="${qr}" alt="QR"/></div></div></body></html>`;
- const w=window.open('','_blank','width=1160,height=720'); if(!w) throw new Error('Please allow pop-ups to print the ID card.'); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),300);
+function esc(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function nameClass(name: string) {
+  const length = name.trim().length;
+  if (length > 32) return 'name name-xs';
+  if (length > 24) return 'name name-sm';
+  if (length > 17) return 'name name-md';
+  return 'name';
+}
+
+export async function printAcademicIdCard(input: {
+  type: 'STUDENT' | 'STAFF';
+  name: string;
+  id: string;
+  admissionNo?: string;
+  photoUrl?: string | null;
+  year?: string;
+  section?: string;
+  className?: string | null;
+  jobTitle?: string;
+  department?: string;
+  phone?: string;
+  expiry?: string | null;
+  logoUrl?: string | null;
+  directorSignatureUrl?: string | null;
+  directorName?: string;
+  schoolName?: string;
+  shortName?: string;
+  contactPhone1?: string;
+  contactPhone2?: string;
+}) {
+  const qr = await QRCode.toDataURL(
+    JSON.stringify({ institution: 'AMQM', type: input.type, id: input.id }),
+    { width: 260, margin: 1, errorCorrectionLevel: 'M' },
+  );
+
+  const schoolName = input.schoolName || "ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION";
+  const shortName = input.shortName || 'AMQM';
+  const contactPhone1 = input.contactPhone1 || '08035443519';
+  const contactPhone2 = input.contactPhone2 || '08038889690';
+  const directorName = input.directorName || 'School Director';
+  const displayName = input.name.trim() || 'Unnamed';
+  const isStudent = input.type === 'STUDENT';
+
+  const facts = isStudent
+    ? `
+      <div class="fact"><span>PROGRAM YEAR</span><strong>${esc(input.year || '—')}</strong></div>
+      <div class="fact"><span>SECTION</span><strong>${esc(input.section || '—')}</strong></div>
+      <div class="fact wide"><span>CLASS</span><strong>${esc(input.className || 'Unassigned')}</strong></div>
+    `
+    : `
+      <div class="fact wide"><span>POSITION</span><strong>${esc(input.jobTitle || 'Staff')}</strong></div>
+      <div class="fact"><span>DEPARTMENT</span><strong>${esc(input.department || '—')}</strong></div>
+      <div class="fact"><span>PHONE</span><strong>${esc(input.phone || '—')}</strong></div>
+    `;
+
+  const primaryNumber = isStudent ? input.admissionNo || '—' : input.id;
+  const primaryLabel = isStudent ? 'ADMISSION NO.' : 'STAFF ID';
+  const logo = input.logoUrl
+    ? `<img class="logo" src="${esc(input.logoUrl)}" alt="School logo" />`
+    : `<div class="logo logo-fallback">${esc(shortName.slice(0, 3))}</div>`;
+  const photo = input.photoUrl
+    ? `<img class="photo" src="${esc(input.photoUrl)}" alt="${esc(displayName)}" />`
+    : `<div class="photo photo-fallback">${esc(displayName.charAt(0).toUpperCase())}</div>`;
+  const signature = input.directorSignatureUrl
+    ? `<img class="signature" src="${esc(input.directorSignatureUrl)}" alt="Director signature" />`
+    : `<div class="signature signature-empty"></div>`;
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>${esc(shortName)} ${isStudent ? 'Student' : 'Staff'} ID — ${esc(displayName)}</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:Inter,Arial,Helvetica,sans-serif;background:#edf2ef;color:#11342d}
+  .sheet{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:28px}
+  .card{position:relative;width:560px;height:352px;border-radius:27px;overflow:hidden;page-break-inside:avoid;box-shadow:0 16px 50px rgba(16,52,45,.16)}
+  .front{background:#fbfcf8;border:1px solid #d5b45e}
+  .header{height:100px;background:linear-gradient(115deg,#063c34 0%,#0b5448 100%);color:white;display:flex;align-items:center;gap:15px;padding:17px 23px;position:relative}
+  .header:after{content:"";position:absolute;width:190px;height:190px;border:1px solid rgba(230,192,100,.35);border-radius:50%;right:-55px;top:-88px}
+  .logo{width:70px;height:70px;object-fit:contain;background:white;border:2px solid #edca73;border-radius:17px;padding:5px;flex:none}
+  .logo-fallback{display:grid;place-items:center;color:#075044;font-weight:900;font-size:20px}
+  .brand{min-width:0;position:relative;z-index:1}
+  .brand-mark{font-family:Georgia,serif;font-size:30px;line-height:1;color:#f3d580;font-weight:900;letter-spacing:1.4px}
+  .school-name{margin-top:7px;font-size:10px;line-height:1.3;font-weight:800;letter-spacing:.25px;max-width:405px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arabic{margin-top:4px;font-family:serif;font-size:13px;color:#ebc96c}
+
+  .front-main{display:grid;grid-template-columns:143px minmax(0,1fr) 88px;gap:17px;padding:17px 22px 0}
+  .photo,.photo-fallback{width:143px;height:164px;border-radius:17px;border:3px solid #dcb75b;background:#eaf0ec;object-fit:cover;display:block}
+  .photo-fallback{display:grid;place-items:center;color:#2d6357;font-size:42px;font-weight:900}
+  .title{font-size:10px;letter-spacing:2.1px;color:#71837d;font-weight:900;margin:2px 0 4px}
+  .name{font-size:28px;line-height:1.02;color:#063f34;font-weight:950;letter-spacing:-.3px;max-width:210px;overflow-wrap:anywhere}
+  .name.name-md{font-size:25px}.name.name-sm{font-size:22px}.name.name-xs{font-size:19px}
+  .status{display:inline-flex;margin-top:9px;padding:7px 15px;border-radius:999px;background:#e7be62;color:#18392f;font-size:10px;font-weight:950;letter-spacing:1.1px}
+  .qr-wrap{text-align:center}
+  .qr{width:82px;height:82px;border-radius:13px;padding:4px;background:white;border:1px solid #d5e0da;display:block;margin:0 auto}
+  .scan{font-size:7px;line-height:1.32;font-weight:900;color:#647871;margin-top:7px;letter-spacing:.15px}
+
+  .facts{position:absolute;left:22px;right:22px;bottom:53px;display:grid;grid-template-columns:1.05fr .95fr 1.85fr;gap:8px}
+  .fact{min-width:0;padding:7px 9px;border:1px solid #cbdcd4;border-radius:11px;background:#eef4f0}
+  .fact span{display:block;font-size:6.8px;letter-spacing:1px;color:#73847e;font-weight:900;white-space:nowrap}
+  .fact strong{display:block;margin-top:3px;font-size:10px;line-height:1.08;color:#1b443b;white-space:normal;overflow-wrap:anywhere}
+  .fact.wide strong{font-size:10px}
+
+  .bottom-row{position:absolute;left:22px;right:22px;bottom:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center}
+  .identifier{border:1px solid #d3e0da;border-radius:10px;background:#fff;padding:6px 9px;min-width:0}
+  .identifier span{display:block;font-size:6.8px;letter-spacing:1px;color:#71827c;font-weight:900}
+  .identifier strong{display:block;margin-top:2px;font-size:11px;color:#0b463a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .school-id{font-size:8.6px;font-weight:950;color:#0b463a;white-space:nowrap}
+  .school-id span{color:#73847e;font-size:7px;margin-right:4px}
+
+  .back{background:linear-gradient(135deg,#063d35,#0b5247 72%,#0a483f);border:1px solid #d5b45e;color:white;padding:25px}
+  .back:before{content:"";position:absolute;inset:10px;border:1px solid rgba(235,196,103,.52);border-radius:21px;pointer-events:none}
+  .back-content{position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;z-index:1}
+  .eyebrow{font-size:8px;letter-spacing:1.8px;color:#edc971;font-weight:950}
+  .back-title{font-family:Georgia,serif;color:#f3d17b;font-size:28px;line-height:1.1;font-weight:900;margin:8px 0 10px}
+  .statement{max-width:420px;font-size:10.5px;line-height:1.55;color:#e1eee9;margin:0}
+  .expiry{display:inline-flex;margin-top:13px;border:1px solid rgba(236,198,104,.55);border-radius:999px;padding:7px 10px;color:#f0cd75;font-size:9px;font-weight:950;letter-spacing:.25px}
+  .back-lower{display:grid;grid-template-columns:1fr 105px;gap:20px;align-items:end}
+  .director-label{font-size:8px;letter-spacing:1.2px;color:#b9d0c7;font-weight:900;margin-top:1px}
+  .signature{display:block;width:200px;height:54px;object-fit:contain;object-position:left center;filter:brightness(0) invert(1);margin-bottom:2px}
+  .signature-empty{border-bottom:1px solid #e6be62;filter:none}
+  .director-name{font-size:11px;font-weight:900;color:white}
+  .contact{margin-top:8px;font-size:8.5px;color:#d8e8e1}
+  .contact b{color:#f0cc73}
+  .back-qr{width:94px;height:94px;background:#fff;border-radius:13px;padding:4px;display:block}
+  .qr-note{font-size:7px;line-height:1.35;color:#bcd2c9;margin-top:6px;max-width:94px}
+
+  @media print{
+    body{background:white}
+    .sheet{padding:0;gap:7mm}
+    .card{width:86mm;height:54mm;border-radius:3.8mm;box-shadow:none}
+    .header{height:15.2mm;padding:2.6mm 3.4mm;gap:2.5mm}
+    .header:after{width:46mm;height:46mm;right:-14mm;top:-21mm}
+    .logo{width:10.6mm;height:10.6mm;border-radius:2.7mm;padding:.7mm}
+    .brand-mark{font-size:5.2mm}.school-name{font-size:1.75mm;margin-top:1.2mm;max-width:72mm}.arabic{font-size:2.2mm;margin-top:.7mm}
+    .front-main{grid-template-columns:22mm minmax(0,1fr) 13.5mm;gap:2.6mm;padding:2.7mm 3.4mm 0}
+    .photo,.photo-fallback{width:22mm;height:25.4mm;border-radius:2.8mm}
+    .photo-fallback{font-size:7mm}.title{font-size:1.55mm;letter-spacing:.45mm;margin:.3mm 0 .7mm}
+    .name{font-size:5.2mm;line-height:1.02;max-width:34mm}.name.name-md{font-size:4.7mm}.name.name-sm{font-size:4.2mm}.name.name-xs{font-size:3.7mm}
+    .status{margin-top:1.5mm;padding:1.3mm 2.8mm;font-size:1.8mm;letter-spacing:.25mm}
+    .qr{width:12.6mm;height:12.6mm;border-radius:2.1mm;padding:.7mm}.scan{font-size:1.35mm;margin-top:1.1mm}
+    .facts{left:3.4mm;right:3.4mm;bottom:8.6mm;grid-template-columns:1.05fr .95fr 1.85fr;gap:1.4mm}
+    .fact{padding:1.2mm 1.6mm;border-radius:1.8mm}.fact span{font-size:1.15mm;letter-spacing:.18mm}.fact strong{font-size:1.72mm;margin-top:.5mm;line-height:1.08}.fact.wide strong{font-size:1.72mm}
+    .bottom-row{left:3.4mm;right:3.4mm;bottom:2mm;gap:2.5mm}.identifier{padding:1mm 1.5mm;border-radius:1.6mm}.identifier span{font-size:1.15mm;letter-spacing:.18mm}.identifier strong{font-size:1.9mm;margin-top:.3mm}.school-id{font-size:1.5mm}.school-id span{font-size:1.2mm}
+    .back{padding:4.2mm}.back:before{inset:1.6mm;border-radius:3mm}.eyebrow{font-size:1.35mm;letter-spacing:.3mm}.back-title{font-size:5mm;margin:1.3mm 0 1.7mm}.statement{font-size:1.75mm;line-height:1.55;max-width:68mm}.expiry{margin-top:2mm;padding:1.2mm 1.7mm;font-size:1.45mm}.back-lower{grid-template-columns:1fr 16mm;gap:3.5mm}.signature{width:31mm;height:8.5mm}.director-label{font-size:1.35mm}.director-name{font-size:1.75mm}.contact{margin-top:1.3mm;font-size:1.4mm}.back-qr{width:14mm;height:14mm;border-radius:2.1mm;padding:.7mm}.qr-note{font-size:1.2mm;margin-top:1mm;max-width:14mm}
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <section class="card front">
+    <div class="header">
+      ${logo}
+      <div class="brand">
+        <div class="brand-mark">${esc(shortName)}</div>
+        <div class="school-name">${esc(schoolName)}</div>
+        <div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div>
+      </div>
+    </div>
+
+    <div class="front-main">
+      <div>${photo}</div>
+      <div>
+        <div class="title">${isStudent ? 'STUDENT ID CARD' : 'STAFF ID CARD'}</div>
+        <div class="${nameClass(displayName)}">${esc(displayName)}</div>
+        <div class="status">${isStudent ? 'STUDENT' : 'STAFF'}</div>
+      </div>
+      <div class="qr-wrap">
+        <img class="qr" src="${qr}" alt="Verification QR" />
+        <div class="scan">SCAN TO VERIFY<br/>ID &amp; ATTENDANCE</div>
+      </div>
+    </div>
+
+    <div class="facts">${facts}</div>
+
+    <div class="bottom-row">
+      <div class="identifier">
+        <span>${primaryLabel}</span>
+        <strong>${esc(primaryNumber)}</strong>
+      </div>
+      <div class="school-id"><span>ID</span>${esc(input.id)}</div>
+    </div>
+  </section>
+
+  <section class="card back">
+    <div class="back-content">
+      <div>
+        <div class="eyebrow">${esc(shortName)} · OFFICIAL IDENTIFICATION</div>
+        <div class="back-title">Trusted School Identity</div>
+        <p class="statement">This card is issued by ${esc(schoolName)} for identification, attendance, school access and approved school services. If found, please return it to the school office.</p>
+        <div class="expiry">VALID UNTIL: ${esc(input.expiry || '—')}</div>
+      </div>
+
+      <div class="back-lower">
+        <div>
+          ${signature}
+          <div class="director-name">${esc(directorName)}</div>
+          <div class="director-label">DIRECTOR AUTHORISATION</div>
+          <div class="contact"><b>CONTACT SCHOOL</b> · ${esc(contactPhone1)} &nbsp;|&nbsp; ${esc(contactPhone2)}</div>
+        </div>
+        <div>
+          <img class="back-qr" src="${qr}" alt="Verification QR" />
+          <div class="qr-note">Digital verification &amp; attendance. Present this card when requested by the school.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+</body>
+</html>`;
+
+  const win = window.open('', '_blank', 'width=1180,height=760');
+  if (!win) throw new Error('Please allow pop-ups to print the ID card.');
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+  window.setTimeout(() => win.print(), 350);
 }
