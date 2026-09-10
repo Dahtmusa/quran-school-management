@@ -554,20 +554,6 @@ export async function reinstateStudent(studentId: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function loadTeacherHistoricalEvalDraft(termId: string): Promise<any | null> {
-  const { data, error } = await supabase().rpc('teacher_load_historical_eval_draft', { p_term_id: termId });
-  if (error) throw error;
-  return data && Object.keys(data).length ? data : null;
-}
-
-export async function saveTeacherHistoricalEvalDraft(termId: string, draft: any): Promise<string> {
-  const { data, error } = await supabase().rpc('teacher_save_historical_eval_draft', {
-    p_term_id: termId, p_draft: draft,
-  });
-  if (error) throw error;
-  return String(data);
-}
-
 export async function teacherSubmitHistoricalEval3(p: {
   studentId: string; termId: string;
   startSurah: number; startAyah: number;

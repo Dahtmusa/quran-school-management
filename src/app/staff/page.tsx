@@ -1,9 +1,7 @@
 'use client';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
-import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow, loadSignaturesForReportCards } from '@/lib/live-store';
-import { loadCMSSettings } from '@/lib/cms-live-store';
-import { printAcademicIdCard } from '@/lib/id-card';
+import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
 import { useEffect, useState, useMemo } from 'react';
 
@@ -20,8 +18,6 @@ export default function StaffPage(){
  const [classes,setClasses]=useState<LiveClass[]>([]);
  const [team,setTeam]=useState<TeamProfile[]>([]);
  const [message,setMessage]=useState('');
- const [logoUrl,setLogoUrl]=useState<string|null>(null);
- const [directorSignature,setDirectorSignature]=useState<{name:string;signature:string|null}>({name:'Musa',signature:null});
  const [busy,setBusy]=useState(false);
 
  /* ── teaching edit ── */
@@ -58,8 +54,8 @@ export default function StaffPage(){
  const [sigPreview,setSigPreview]=useState<StaffSignatureRow|null>(null);
 
  const refresh=async()=>{
-   const [s,c,t,settings,sigs]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam(),loadCMSSettings(),loadSignaturesForReportCards()]);
-   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url?.value?.url||(settings as any).logo_url?.value?.value||(settings as any).logo_url?.value||(settings as any).logo_url||null);if(sigs?.director)setDirectorSignature({name:sigs.director.signer_name||'Musa',signature:sigs.director.signature_data||null});
+   const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
+   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
  };
  useEffect(()=>{refresh()},[]);
 
@@ -200,7 +196,6 @@ export default function StaffPage(){
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
-           <button className="btn bg-emerald-50 text-emerald-700 text-sm py-1.5" onClick={()=>printAcademicIdCard({type:'STAFF',name:t.full_name,id:t.staff_id||t.id,photoUrl:t.avatar_url,jobTitle:t.job_title||undefined,department:t.department||undefined,phone:t.phone||undefined,expiry:null,logoUrl,directorName:directorSignature.name,directorSignatureUrl:directorSignature.signature})}>Print ID</button>
            <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
          </div>
        </article>)}

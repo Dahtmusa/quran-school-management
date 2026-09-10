@@ -7,7 +7,6 @@ import { Student } from '@/lib/data';
 import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { loadCMSSettings } from '@/lib/cms-live-store';
-import { loadSignaturesForReportCards } from '@/lib/live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
 import { label, SURAHS } from '@/lib/quran';
 
@@ -25,7 +24,6 @@ const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,n
 export default function Students(){
  const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
- const [directorSignature,setDirectorSignature]=useState<{name:string;signature:string|null}>({name:'Musa',signature:null});
  const [selected,setSelected]=useState<Student|null>(null);
  const [extProfile,setExtProfile]=useState<ExtProfile>(blankExt);
  const [edit,setEdit]=useState<Student|null>(null);
@@ -49,7 +47,7 @@ export default function Students(){
  const [removeNotes,setRemoveNotes]=useState('');
  const [removeBusy,setRemoveBusy]=useState(false);
 
- async function refresh(){const [students,cls,quran,settings,sigs]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings(),loadSignaturesForReportCards()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url?.value?.url||(settings as any).logo_url?.value?.value||(settings as any).logo_url?.value||(settings as any).logo_url||null);if(sigs?.director)setDirectorSignature({name:sigs.director.signer_name||'Musa',signature:sigs.director.signature_data||null});}
+ async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null)}
  useEffect(()=>{refresh()},[]);
 
  useEffect(()=>{
@@ -91,7 +89,7 @@ export default function Students(){
    }catch(e:any){setMessage(e?.message??'Unable to create student.')}finally{setSaving(false)}
  }
 
- async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.id,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl,directorName:directorSignature.name,directorSignatureUrl:directorSignature.signature});}
+ async function printStudentId(s:any){await printAcademicIdCard({type:'STUDENT',name:s.name,id:s.id,admissionNo:s.admissionNo,photoUrl:s.photoUrl,year:s.year,section:s.section,className:s.className,expiry:s.idExpiresOn,logoUrl});}
 
  function openEdit(s:Student){setEdit(s);loadStudentExtended(s.id).then(d=>setEditExt(d||blankExt));}
 

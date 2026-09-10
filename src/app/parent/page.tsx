@@ -201,21 +201,16 @@ export default function ParentPortal() {
       const schoolName = feeSummary.school_name || 'AMQM';
       const schoolAddress = feeSummary.school_address || '';
 
-      // Current-term fees
       const termFees: any[] = (feeSummary.fees || []).filter((f: any) =>
-        f.term_id === currentTermId || (!f.term_id && f.year_is_current)
+        f.term_id === (feeSummary.current_term_id || currentTermId) || (!f.term_id && f.year_is_current)
       );
-      const currentDue = termFees.reduce((s: number, f: any) => s + Number(f.amount_due || 0), 0);
-      const currentPaid = termFees.reduce((s: number, f: any) => s + Number(f.amount_paid || 0), 0);
+      const currentDue = Number(feeSummary.current_term_fee ?? termFees.reduce((s: number, f: any) => s + Number(f.amount_due || 0), 0));
+      const currentPaid = Number(feeSummary.current_term_paid ?? termFees.reduce((s: number, f: any) => s + Number(f.amount_paid || 0), 0));
       const currentBalance = Math.max(0, currentDue - currentPaid);
+      const prevBalance = Number(feeSummary.previous_balance ?? 0);
+      const totalPayable = Number(feeSummary.total_payable ?? (currentDue + prevBalance));
+      const totalOutstanding = Number(feeSummary.total_outstanding ?? (currentBalance + prevBalance));
 
-      // Outstanding from previous terms
-      const prevFees: any[] = (feeSummary.fees || []).filter((f: any) =>
-        f.term_id !== currentTermId && !(f.term_id === null && f.year_is_current)
-      );
-      const prevBalance = prevFees.reduce((s: number, f: any) => s + Math.max(0, Number(f.amount_due || 0) - Number(f.amount_paid || 0)), 0);
-
-      // Next term fees (find fee structure for next term_number)
       const currentTermNum = termFees[0]?.term_number || null;
       const feeStructures: any[] = feeSummary.fee_structures || [];
       const nextTermFee = currentTermNum
@@ -240,21 +235,12 @@ export default function ParentPortal() {
               </p>
             </div>
             {currentDue > 0 ? (
-              <div className="grid grid-cols-3 divide-x border-b">
-                <div className="p-4 text-center">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Total Due</div>
-                  <div className="mt-1 text-xl font-black">{currency} {currentDue.toLocaleString()}</div>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Paid</div>
-                  <div className="mt-1 text-xl font-black text-emerald-700">{currency} {currentPaid.toLocaleString()}</div>
-                </div>
-                <div className="p-4 text-center">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Balance</div>
-                  <div className={`mt-1 text-xl font-black ${currentBalance > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
-                    {currentBalance > 0 ? `${currency} ${currentBalance.toLocaleString()}` : 'Cleared'}
-                  </div>
-                </div>
+              <div className="grid grid-cols-2 divide-x border-b sm:grid-cols-5">
+                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Current term</div><div className="mt-1 text-xl font-black">{currency} {currentDue.toLocaleString()}</div></div>
+                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Paid this term</div><div className="mt-1 text-xl font-black text-emerald-700">{currency} {currentPaid.toLocaleString()}</div></div>
+                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Previous balance</div><div className="mt-1 text-xl font-black text-rose-600">{prevBalance > 0 ? `${currency} ${prevBalance.toLocaleString()}` : 'None'}</div></div>
+                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Total payable</div><div className="mt-1 text-xl font-black">{currency} {totalPayable.toLocaleString()}</div></div>
+                <div className="p-4 text-center col-span-2 sm:col-span-1"><div className="text-[10px] font-bold uppercase text-slate-400">Total outstanding</div><div className={`mt-1 text-xl font-black ${totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{totalOutstanding > 0 ? `${currency} ${totalOutstanding.toLocaleString()}` : 'Cleared'}</div></div>
               </div>
             ) : (
               <div className="p-6 text-center text-sm text-slate-400">No fee allocation for the current term yet.</div>
@@ -263,7 +249,7 @@ export default function ParentPortal() {
             {/* Outstanding from previous terms */}
             {prevBalance > 0 && (
               <div className="border-b bg-rose-50 px-5 py-3 flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-rose-800">Outstanding from previous terms</div>
+                <div><div className="text-sm font-semibold text-rose-800">Previous balance carried forward</div><div className="text-xs text-rose-600 mt-0.5">Earlier-term fees remain separate and are settled first when a payment is recorded.</div></div>
                 <div className="font-black text-rose-700">{currency} {prevBalance.toLocaleString()}</div>
               </div>
             )}
