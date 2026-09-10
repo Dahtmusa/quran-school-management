@@ -164,7 +164,8 @@ export default function TeacherDashboard() {
         next[s.id] = {
           startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
           startAyah:  s.start?.ayah  || 1,
-          endSurah: 0, endAyah: 0,
+          endSurah: s.current?.surah || 0,
+          endAyah:  s.current?.ayah  || 0,
           direction: s.direction || 'Baqarah-to-Nas',
         };
       }
@@ -282,15 +283,43 @@ export default function TeacherDashboard() {
       const e = histEntries[s.id];
       return e && computeHistMetrics(e, histTargetPages) !== null;
     });
-    if (!ready.length) return;
+    if (!ready.length) {
+      setHistMsg('⚠ No students are ready to submit. Fill in the Current Position (teal dropdowns) for each student first.');
+      return;
+    }
     setHistMsg('');
-    // Submit all in parallel batches of 5 to avoid overwhelming the DB
+    const failed: string[] = [];
     for (let i = 0; i < ready.length; i += 5) {
       const chunk = ready.slice(i, i + 5);
-      await Promise.all(chunk.map(s => submitHistStudent(s.id, true)));
+      const results = await Promise.allSettled(chunk.map(async s => {
+        const e = histEntries[s.id];
+        const m = computeHistMetrics(e, histTargetPages);
+        if (!m || !histTermId) throw new Error('Not ready');
+        const termId = histTermId;
+        setHistSubmitting(prev => new Set(prev).add(s.id));
+        try {
+          await teacherSubmitHistoricalEval3({
+            studentId: s.id, termId,
+            startSurah: e.startSurah, startAyah: e.startAyah,
+            endSurah: e.endSurah, endAyah: e.endAyah,
+            score: m.score, rubric: m.rubric, grade: m.grade,
+            ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
+          });
+        } finally {
+          setHistSubmitting(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+        }
+        return s.id;
+      }));
+      for (let j = 0; j < results.length; j++) {
+        if (results[j].status === 'rejected') failed.push(chunk[j].name);
+      }
     }
     await refresh();
-    setHistMsg(`Class submitted — ${ready.length} student${ready.length !== 1 ? 's' : ''} sent to Admin for review. They can edit individual records above if corrections are needed.`);
+    if (failed.length === 0) {
+      setHistMsg(`✓ All ${ready.length} student${ready.length !== 1 ? 's' : ''} submitted — Admin will review and approve.`);
+    } else {
+      setHistMsg(`⚠ ${ready.length - failed.length} submitted successfully. Failed: ${failed.join(', ')}. Please try those again.`);
+    }
   }
 
   const histReadyCount = students.filter(s => {
