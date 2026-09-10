@@ -1,20 +1,11 @@
 import QRCode from 'qrcode';
 
-function esc(value: unknown) {
-  return String(value ?? '')
+function esc(v: any) {
+  return String(v ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function nameClass(name: string) {
-  const length = name.trim().length;
-  if (length > 34) return 'name name-xs';
-  if (length > 27) return 'name name-sm';
-  if (length > 21) return 'name name-md';
-  return 'name';
+    .replace(/"/g, '&quot;');
 }
 
 export async function printAcademicIdCard(input: {
@@ -35,214 +26,137 @@ export async function printAcademicIdCard(input: {
   directorName?: string;
   schoolName?: string;
   shortName?: string;
-  contactPhone1?: string;
-  contactPhone2?: string;
+  contact1?: string;
+  contact2?: string;
 }) {
   const qr = await QRCode.toDataURL(
     JSON.stringify({ institution: 'AMQM', type: input.type, id: input.id }),
-    { width: 280, margin: 1, errorCorrectionLevel: 'M' },
+    { width: 220, margin: 1, errorCorrectionLevel: 'M' }
   );
 
   const schoolName = input.schoolName || "ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION";
   const shortName = input.shortName || 'AMQM';
-  const contactPhone1 = input.contactPhone1 || '08035443519';
-  const contactPhone2 = input.contactPhone2 || '08038889690';
   const directorName = input.directorName || 'School Director';
-  const displayName = input.name.trim() || 'Unnamed';
-  const isStudent = input.type === 'STUDENT';
-
-  const facts = isStudent
-    ? `
-      <div class="fact"><span>PROGRAM YEAR</span><strong>${esc(input.year || '—')}</strong></div>
-      <div class="fact"><span>SECTION</span><strong>${esc(input.section || '—')}</strong></div>
-      <div class="fact fact-wide"><span>CLASS</span><strong>${esc(input.className || 'Unassigned')}</strong></div>
-    `
-    : `
-      <div class="fact fact-wide"><span>POSITION</span><strong>${esc(input.jobTitle || 'Staff')}</strong></div>
-      <div class="fact"><span>DEPARTMENT</span><strong>${esc(input.department || '—')}</strong></div>
-      <div class="fact"><span>PHONE</span><strong>${esc(input.phone || '—')}</strong></div>
-    `;
-
-  const primaryNumber = isStudent ? input.admissionNo || '—' : input.id;
-  const primaryLabel = isStudent ? 'ADMISSION NO.' : 'STAFF ID';
+  const contact1 = input.contact1 || '08035443519';
+  const contact2 = input.contact2 || '08038889690';
 
   const logo = input.logoUrl
-    ? `<img class="logo" src="${esc(input.logoUrl)}" alt="School logo" />`
-    : `<div class="logo logo-fallback">${esc(shortName.slice(0, 3))}</div>`;
+    ? `<img class="logo" src="${esc(input.logoUrl)}" alt="School logo"/>`
+    : `<div class="logoFallback">${esc(shortName.slice(0, 3))}</div>`;
+
+  const directorSig = input.directorSignatureUrl
+    ? `<img class="directorSig" src="${esc(input.directorSignatureUrl)}" alt="Director signature"/>`
+    : `<div class="signatureLine"></div>`;
 
   const photo = input.photoUrl
-    ? `<img class="photo" src="${esc(input.photoUrl)}" alt="${esc(displayName)}" />`
-    : `<div class="photo photo-fallback">${esc(displayName.charAt(0).toUpperCase())}</div>`;
+    ? `<img class="photo" src="${esc(input.photoUrl)}" alt=""/>`
+    : `<div class="photoPh">${esc((input.name || '?').charAt(0).toUpperCase())}</div>`;
 
-  const signature = input.directorSignatureUrl
-    ? `<img class="signature" src="${esc(input.directorSignatureUrl)}" alt="Director signature" />`
-    : `<div class="signature signature-empty"></div>`;
+  const frontFields = input.type === 'STUDENT'
+    ? `
+      <div class="fieldRow">
+        <div class="field"><span>Program Year:</span><b>${esc(input.year || '—')}</b></div>
+        <div class="field"><span>Section:</span><b>${esc(input.section || '—')}</b></div>
+      </div>
+      <div class="fieldRow">
+        <div class="field wide"><span>Class:</span><b>${esc(input.className || 'Unassigned')}</b></div>
+      </div>
+      <div class="admission"><span>Admission No:</span><b>${esc(input.admissionNo || '—')}</b></div>
+    `
+    : `
+      <div class="fieldRow">
+        <div class="field"><span>Position:</span><b>${esc(input.jobTitle || 'Staff')}</b></div>
+        <div class="field"><span>Department:</span><b>${esc(input.department || '—')}</b></div>
+      </div>
+      <div class="fieldRow">
+        <div class="field wide"><span>Phone:</span><b>${esc(input.phone || '—')}</b></div>
+      </div>
+      <div class="admission"><span>Staff ID:</span><b>${esc(input.id)}</b></div>
+    `;
 
   const html = `<!doctype html>
-<html>
-<head>
-<meta charset="utf-8" />
-<title>${esc(shortName)} ${isStudent ? 'Student' : 'Staff'} ID — ${esc(displayName)}</title>
+<html><head><title>${esc(shortName)} ${input.type} ID — ${esc(input.name)}</title>
 <style>
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{font-family:Inter,Arial,Helvetica,sans-serif;background:#edf2ef;color:#12372f}
-  .sheet{display:flex;gap:24px;justify-content:center;align-items:flex-start;padding:28px}
-  .card{position:relative;width:560px;height:352px;border-radius:28px;overflow:hidden;page-break-inside:avoid;box-shadow:0 16px 48px rgba(16,52,45,.16)}
-
-  /* OPTION 3 — FRONT */
-  .front{background:#fff;border:1px solid #d6b35b}
-  .front-header{height:108px;background:linear-gradient(112deg,#06483b 0%,#08705a 72%,#075746 100%);color:#fff;display:flex;align-items:flex-start;gap:15px;padding:18px 22px;position:relative;overflow:hidden}
-  .front-header:before{content:'';position:absolute;width:280px;height:160px;border-radius:50%;right:-100px;bottom:-82px;background:#fff;border-top:2px solid #d9b65c;transform:rotate(-9deg)}
-  .front-header:after{content:'';position:absolute;width:180px;height:180px;border-radius:50%;right:-48px;top:-104px;border:1px solid rgba(231,194,104,.42)}
-  .logo{width:72px;height:72px;object-fit:contain;background:#fff;border:2px solid #e7c36d;border-radius:17px;padding:5px;flex:none;position:relative;z-index:2}
-  .logo-fallback{display:grid;place-items:center;color:#075144;font-weight:900;font-size:20px}
-  .brand{min-width:0;position:relative;z-index:2;padding-top:1px}
-  .brand-mark{font-family:Georgia,serif;font-size:31px;line-height:1;color:#f5d47e;font-weight:900;letter-spacing:1.4px}
-  .school-name{margin-top:6px;font-size:10.5px;line-height:1.25;font-weight:850;max-width:420px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .arabic{margin-top:4px;font-family:serif;font-size:13px;color:#ebc96c}
-  .card-badge{position:absolute;right:24px;top:72px;z-index:4;background:#08704f;color:#fff;border:1px solid rgba(255,255,255,.55);border-radius:10px;padding:8px 15px;font-size:9px;font-weight:950;letter-spacing:1px}
-
-  .front-content{display:grid;grid-template-columns:154px minmax(0,1fr) 96px;gap:16px;padding:18px 22px 0;position:relative;z-index:3}
-  .photo,.photo-fallback{width:154px;height:158px;border-radius:17px;border:3px solid #dcb75b;background:#eaf0ec;object-fit:cover;display:block}
-  .photo-fallback{display:grid;place-items:center;color:#2d6357;font-size:42px;font-weight:900}
-  .title{font-size:10px;letter-spacing:2px;color:#6f817b;font-weight:900;margin:4px 0 7px}
-  .name{font-size:25px;line-height:1.06;color:#073f34;font-weight:900;letter-spacing:-.15px;max-width:240px;overflow-wrap:break-word;word-break:normal}
-  .name.name-md{font-size:22px}.name.name-sm{font-size:19px}.name.name-xs{font-size:16px}
-  .status{display:inline-flex;margin-top:10px;padding:7px 16px;border-radius:999px;background:#e8bd5d;color:#17372f;font-size:9.5px;font-weight:950;letter-spacing:1px}
-  .qr-wrap{text-align:center;padding-top:2px}
-  .qr{width:88px;height:88px;border-radius:12px;padding:4px;background:#fff;border:1px solid #d2ded8;display:block;margin:0 auto}
-  .scan{font-size:7px;line-height:1.35;font-weight:900;color:#5f746c;margin-top:7px;letter-spacing:.1px}
-
-  .facts{position:absolute;left:22px;right:22px;bottom:52px;display:grid;grid-template-columns:1fr 1fr 1.65fr;gap:9px;z-index:5}
-  .fact{min-width:0;padding:8px 10px;border:1px solid #c8dbd3;border-radius:11px;background:#eef4f0}
-  .fact span{display:block;font-size:6.8px;letter-spacing:1px;color:#71847c;font-weight:900;white-space:nowrap}
-  .fact strong{display:block;margin-top:3px;font-size:10px;line-height:1.12;color:#17483d;white-space:normal;overflow-wrap:anywhere}
-  .fact-wide strong{font-size:10px}
-
-  .bottom-row{position:absolute;left:22px;right:22px;bottom:11px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center;z-index:6}
-  .identifier{border:1px solid #d2e0da;border-radius:10px;background:#fff;padding:6px 9px;min-width:0}
-  .identifier span{display:block;font-size:6.8px;letter-spacing:1px;color:#71827c;font-weight:900}
-  .identifier strong{display:block;margin-top:2px;font-size:10.5px;color:#0b463a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .school-id{font-size:8.6px;font-weight:950;color:#0b463a;white-space:nowrap}
-  .school-id span{color:#73847e;font-size:7px;margin-right:4px}
-
-  /* OPTION 2 — BACK */
-  .back{background:linear-gradient(145deg,#fff 0%,#fbfcf9 72%,#f2f7f4 100%);border:1px solid #d5e0da;padding:27px;color:#12372f}
-  .back:before{content:'';position:absolute;inset:10px;border:1px solid #cbdcd5;border-radius:20px;pointer-events:none}
-  .back:after{content:'';position:absolute;left:-40px;right:-40px;bottom:-68px;height:105px;background:#075746;border-top:3px solid #d7b55d;border-radius:50% 50% 0 0/55% 55% 0 0;transform:rotate(-2deg);pointer-events:none}
-  .back-content{position:relative;height:100%;display:flex;flex-direction:column;justify-content:space-between;z-index:2}
-  .eyebrow{font-size:8px;letter-spacing:1.8px;color:#075746;font-weight:950}
-  .back-title{font-family:Georgia,serif;color:#06483b;font-size:29px;line-height:1.1;font-weight:900;margin:8px 0 11px}
-  .tagline{font-size:13px;font-weight:800;color:#1a4d42;margin:-6px 0 14px}
-  .statement{max-width:420px;font-size:10.2px;line-height:1.55;color:#284d44;margin:0}
-  .expiry{display:inline-flex;margin-top:13px;border:1px solid #d1ab51;border-radius:999px;padding:7px 11px;color:#075746;background:#fffdf6;font-size:9px;font-weight:950;letter-spacing:.25px}
-  .back-lower{display:grid;grid-template-columns:1fr 108px;gap:18px;align-items:end;position:relative;z-index:3}
-  .director-block{padding-bottom:7px}
-  .signature{display:block;width:205px;height:56px;object-fit:contain;object-position:left center;filter:none;margin-bottom:2px}
-  .signature-empty{border-bottom:1px solid #d3ad55;filter:none}
-  .director-name{font-size:11px;font-weight:900;color:#12372f}
-  .director-label{font-size:8px;letter-spacing:1.2px;color:#59746c;font-weight:900;margin-top:2px}
-  .contact{margin-top:9px;font-size:8.5px;color:#31554c}
-  .contact b{color:#075746}
-  .back-qr{width:96px;height:96px;background:#fff;border-radius:12px;padding:4px;display:block;border:1px solid #d6e1dc}
-  .qr-note{font-size:7px;line-height:1.35;color:#5d756d;margin-top:6px;max-width:98px}
-
-  @media print{
-    body{background:white}
-    .sheet{padding:0;gap:7mm}
-    .card{width:86mm;height:54mm;border-radius:3.8mm;box-shadow:none}
-    .front-header{height:16.2mm;padding:2.8mm 3.5mm;gap:2.5mm}
-    .front-header:before{width:45mm;height:25mm;right:-16mm;bottom:-13mm}
-    .front-header:after{width:46mm;height:46mm;right:-13mm;top:-26mm}
-    .logo{width:11mm;height:11mm;border-radius:2.7mm;padding:.7mm}
-    .logo-fallback{font-size:3mm}
-    .brand-mark{font-size:5.2mm}.school-name{font-size:1.72mm;margin-top:1.1mm;max-width:68mm}.arabic{font-size:2.15mm;margin-top:.65mm}
-    .card-badge{right:3.5mm;top:11mm;padding:1.3mm 2.5mm;border-radius:1.7mm;font-size:1.55mm;letter-spacing:.2mm}
-    .front-content{grid-template-columns:23.5mm minmax(0,1fr) 14.2mm;gap:2.5mm;padding:2.9mm 3.5mm 0}
-    .photo,.photo-fallback{width:23.5mm;height:24.1mm;border-radius:2.8mm}.photo-fallback{font-size:7mm}
-    .title{font-size:1.5mm;letter-spacing:.42mm;margin:.5mm 0 .9mm}
-    .name{font-size:4.35mm;line-height:1.06;max-width:37mm}.name.name-md{font-size:3.85mm}.name.name-sm{font-size:3.35mm}.name.name-xs{font-size:2.9mm}
-    .status{margin-top:1.7mm;padding:1.25mm 2.7mm;font-size:1.55mm;letter-spacing:.2mm}
-    .qr-wrap{padding-top:.2mm}.qr{width:13.5mm;height:13.5mm;border-radius:2mm;padding:.65mm}.scan{font-size:1.2mm;margin-top:1mm}
-    .facts{left:3.5mm;right:3.5mm;bottom:7.9mm;grid-template-columns:1fr 1fr 1.65fr;gap:1.35mm}
-    .fact{padding:1.2mm 1.5mm;border-radius:1.8mm}.fact span{font-size:1.08mm;letter-spacing:.16mm}.fact strong{font-size:1.6mm;margin-top:.45mm;line-height:1.12}.fact-wide strong{font-size:1.6mm}
-    .bottom-row{left:3.5mm;right:3.5mm;bottom:1.8mm;gap:2.5mm}.identifier{padding:1mm 1.45mm;border-radius:1.6mm}.identifier span{font-size:1.08mm;letter-spacing:.16mm}.identifier strong{font-size:1.7mm}.school-id{font-size:1.42mm}.school-id span{font-size:1.15mm}
-    .back{padding:4.2mm}.back:before{inset:1.6mm;border-radius:3mm}.back:after{height:17mm;bottom:-11mm;left:-10mm;right:-10mm}
-    .eyebrow{font-size:1.32mm;letter-spacing:.3mm}.back-title{font-size:4.7mm;margin:1.3mm 0 1.7mm}.tagline{font-size:2.05mm;margin:-.9mm 0 2.3mm}.statement{font-size:1.68mm;line-height:1.55;max-width:66mm}.expiry{margin-top:2mm;padding:1.2mm 1.7mm;font-size:1.45mm}
-    .back-lower{grid-template-columns:1fr 16mm;gap:3mm}.director-block{padding-bottom:1.2mm}.signature{width:31mm;height:8.5mm}.director-name{font-size:1.72mm}.director-label{font-size:1.25mm;letter-spacing:.2mm}.contact{margin-top:1.3mm;font-size:1.38mm}.back-qr{width:14mm;height:14mm;border-radius:2mm;padding:.65mm}.qr-note{font-size:1.18mm;margin-top:1mm;max-width:14mm}
-  }
-</style>
-</head>
-<body>
-<div class="sheet">
-  <section class="card front">
-    <div class="front-header">
-      ${logo}
-      <div class="brand">
-        <div class="brand-mark">${esc(shortName)}</div>
-        <div class="school-name">${esc(schoolName)}</div>
-        <div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div>
-      </div>
-      <div class="card-badge">${isStudent ? 'STUDENT ID' : 'STAFF ID'}</div>
-    </div>
-
-    <div class="front-content">
-      <div>${photo}</div>
-      <div>
-        <div class="title">${isStudent ? 'STUDENT ID CARD' : 'STAFF ID CARD'}</div>
-        <div class="${nameClass(displayName)}">${esc(displayName)}</div>
-        <div class="status">${isStudent ? 'STUDENT' : 'STAFF'}</div>
-      </div>
-      <div class="qr-wrap">
-        <img class="qr" src="${qr}" alt="Verification QR" />
-        <div class="scan">SCAN TO VERIFY<br/>ID &amp; ATTENDANCE</div>
-      </div>
-    </div>
-
-    <div class="facts">${facts}</div>
-
-    <div class="bottom-row">
-      <div class="identifier">
-        <span>${primaryLabel}</span>
-        <strong>${esc(primaryNumber)}</strong>
-      </div>
-      <div class="school-id"><span>ID</span>${esc(input.id)}</div>
-    </div>
-  </section>
-
-  <section class="card back">
-    <div class="back-content">
-      <div>
-        <div class="eyebrow">${esc(shortName)} · OFFICIAL IDENTIFICATION</div>
-        <div class="back-title">Trusted School Identity</div>
-        <div class="tagline">Trusted Islamic Education for a Brighter Ummah</div>
-        <p class="statement">This card is issued by ${esc(schoolName)} for identification, attendance scanning, school access and approved academic services. If found, please return it to the school office.</p>
-        <div class="expiry">VALID UNTIL: ${esc(input.expiry || '—')}</div>
-      </div>
-
-      <div class="back-lower">
-        <div class="director-block">
-          ${signature}
-          <div class="director-name">${esc(directorName)}</div>
-          <div class="director-label">DIRECTOR AUTHORISATION</div>
-          <div class="contact"><b>CONTACT SCHOOL</b> · ${esc(contactPhone1)} &nbsp;|&nbsp; ${esc(contactPhone2)}</div>
-        </div>
-        <div>
-          <img class="back-qr" src="${qr}" alt="Verification QR" />
-          <div class="qr-note">Digital verification &amp; attendance. Present this card when requested by the school.</div>
-        </div>
-      </div>
-    </div>
-  </section>
+*{box-sizing:border-box}
+@page{size:auto;margin:8mm}
+body{margin:0;background:#edf2ef;font-family:Arial,Helvetica,sans-serif;color:#12342c}
+.sheet{display:flex;gap:18px;justify-content:center;align-items:flex-start;padding:24px}
+.card{width:540px;height:340px;border-radius:22px;overflow:hidden;position:relative;box-shadow:0 12px 35px rgba(18,52,44,.16);page-break-inside:avoid}
+.front{background:#fff;border:1px solid #d9b65d}
+.band{height:104px;background:linear-gradient(110deg,#075546 0%,#08604f 68%,#075546 100%);color:#fff;padding:14px 20px;display:flex;gap:13px;align-items:flex-start;position:relative;overflow:hidden}
+.band:after{content:'';position:absolute;right:-75px;top:-72px;width:260px;height:170px;border-radius:50%;border:2px solid rgba(227,190,91,.72);background:#fff;transform:rotate(-8deg)}
+.band:before{content:'';position:absolute;right:-82px;top:38px;width:270px;height:150px;border-radius:50%;border-top:2px solid #d9b65d;transform:rotate(-10deg)}
+.logo,.logoFallback{width:64px;height:64px;border-radius:15px;background:#fff;object-fit:contain;flex:0 0 auto;border:2px solid #e2bd62;padding:4px;position:relative;z-index:2}
+.logoFallback{display:grid;place-items:center;color:#075546;font-weight:900;font-size:18px}
+.brand{min-width:0;position:relative;z-index:2;padding-top:2px}
+.brand strong{display:block;font:900 34px/1 Georgia,serif;letter-spacing:.8px;color:#f4d67d}
+.brand small{display:block;font-size:11px;line-height:1.25;margin-top:7px;font-weight:800;letter-spacing:.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:360px}
+.arabic{color:#e7c46c;font-size:12px;margin-top:4px}
+.idBadge{position:absolute;right:24px;bottom:12px;z-index:4;background:#087055;color:#fff;border-radius:11px;padding:8px 17px;font-size:10px;font-weight:900;letter-spacing:1.1px;border:1px solid rgba(255,255,255,.2)}
+.frontBody{display:grid;grid-template-columns:102px 1fr 72px;gap:14px;padding:20px 20px 10px;height:236px;position:relative}
+.photo,.photoPh{width:102px;height:126px;object-fit:cover;border:3px solid #ddb75b;border-radius:15px;background:#edf3ef}
+.photoPh{display:grid;place-items:center;color:#2c5c52;font-weight:900;font-size:30px}
+.identity{min-width:0}
+.label{font-size:10px;line-height:1.05;letter-spacing:2px;color:#61766e;font-weight:900;margin-top:1px;text-transform:uppercase;max-width:110px}
+.name{font-size:24px;line-height:1.02;font-weight:900;margin:9px 0 7px;color:#073d33;overflow-wrap:anywhere;word-break:break-word}
+.type{display:inline-block;background:#e7bf63;color:#173028;border-radius:999px;padding:6px 13px;font-size:9px;font-weight:900;letter-spacing:1.1px;margin-bottom:7px}
+.fieldRow{display:flex;gap:8px;margin-top:5px;min-width:0}
+.field{min-width:0;flex:1;border-bottom:1px solid #d6e0db;padding:3px 0 4px;display:flex;gap:4px;align-items:baseline;overflow:hidden}
+.field.wide{flex-basis:100%}
+.field span,.admission span{font-size:7px;color:#73857e;font-weight:800;white-space:nowrap}
+.field b{font-size:9px;color:#173c33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admission{position:absolute;left:122px;bottom:10px;width:230px;padding:6px 8px;border:1px solid #d5e0db;border-radius:9px;background:#fff;display:flex;gap:5px;align-items:baseline;overflow:hidden}
+.admission b{font-size:9px;color:#173c33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qrWrap{text-align:center;position:relative;z-index:5}
+.qr{width:72px;height:72px;background:#fff;border-radius:10px;padding:3px;border:1px solid #d2ddd7}
+.scan{font-size:7px;line-height:1.25;font-weight:900;color:#65766f;margin-top:6px}
+.idline{position:absolute;right:20px;bottom:11px;font-size:9px;font-weight:900;color:#073d33;z-index:5;white-space:nowrap}
+.idline span{font-size:7px;color:#71827c;margin-right:4px}
+.back{background:#fdfefc;border:1px solid #d4b15b;padding:24px 25px;color:#173b33}
+.back:after{content:'';position:absolute;left:-20px;right:-20px;bottom:-48px;height:100px;border-radius:50% 50% 0 0;border-top:5px solid #d9b65d;background:#075546;transform:rotate(-1deg)}
+.back:before{content:'';position:absolute;left:-20px;right:-20px;bottom:-57px;height:82px;border-radius:50% 50% 0 0;border-top:2px solid #e5c46d;z-index:1}
+.backContent{position:relative;height:100%;z-index:3}
+.back h1{font:900 24px/1 Georgia,serif;margin:0;color:#0a4d41}
+.back h2{font:900 17px/1.15 Arial,Helvetica,sans-serif;margin:4px 0 14px;color:#123d35}
+.back p{font-size:10px;line-height:1.55;color:#284f47;max-width:355px;margin:0}
+.backQr{position:absolute;right:22px;top:23px;width:76px;height:76px;background:#fff;padding:4px;border-radius:10px;border:1px solid #d4dfd9;z-index:4}
+.backScan{position:absolute;right:22px;top:104px;width:76px;text-align:center;font-size:7px;line-height:1.25;font-weight:900;color:#5e726a}
+.expiry{display:inline-block;margin-top:14px;padding:6px 10px;border:1px solid #0b654f;border-radius:999px;background:#0b654f;color:#f2ce78;font-size:9px;font-weight:900;letter-spacing:.5px}
+.signBlock{position:absolute;right:120px;bottom:18px;width:160px;z-index:4}
+.directorSig{display:block;width:125px;height:45px;object-fit:contain;object-position:left bottom;margin-bottom:1px}
+.signatureLine{width:125px;height:45px;border-bottom:1px solid #0a5a49}
+.director{font-size:10px;color:#173b33;font-weight:900}
+.valid{font-size:7px;letter-spacing:.6px;color:#647870;margin-top:2px;font-weight:800}
+.contact{position:absolute;left:0;bottom:14px;font-size:8px;font-weight:900;color:#174239;z-index:5}
+.contact b{color:#0b5c4b}
+@media print{
+body{background:#fff}.sheet{padding:0;gap:5mm;flex-direction:row}.card{width:85.6mm;height:54mm;border-radius:3.5mm;box-shadow:none}.band{height:26.4mm;padding:2.9mm 3.8mm;gap:2.5mm}.band:after{right:-12mm;top:-18mm;width:42mm;height:29mm}.band:before{right:-13mm;top:10mm;width:44mm;height:25mm}.logo,.logoFallback{width:16.8mm;height:16.8mm;border-radius:4mm;padding:1.1mm}.brand strong{font-size:9mm}.brand small{font-size:2.2mm;margin-top:1.7mm;max-width:62mm}.arabic{font-size:2.4mm;margin-top:.9mm}.idBadge{right:4mm;bottom:2.5mm;padding:2mm 4mm;font-size:2.1mm;border-radius:3mm}.frontBody{grid-template-columns:16.2mm 1fr 11.5mm;gap:2.2mm;padding:5mm 3.8mm 1.5mm;height:27.6mm}.photo,.photoPh{width:16.2mm;height:20mm;border-radius:3.6mm;border-width:.55mm}.label{font-size:1.7mm;letter-spacing:.6mm}.name{font-size:6.1mm;margin:1.6mm 0 1.2mm}.type{font-size:1.7mm;padding:1.1mm 2.4mm;margin-bottom:1mm}.fieldRow{gap:1.5mm;margin-top:.8mm}.field{padding:.6mm 0 .7mm}.field span,.admission span{font-size:1.35mm}.field b{font-size:1.75mm}.admission{left:22.5mm;bottom:1.8mm;width:38mm;padding:1mm 1.3mm;border-radius:2mm}.admission b{font-size:1.75mm}.qr{width:11.4mm;height:11.4mm;border-radius:2mm;padding:.5mm}.scan{font-size:1.25mm;margin-top:1mm}.idline{right:3.8mm;bottom:1.9mm;font-size:1.7mm}.idline span{font-size:1.35mm}.back{padding:3.8mm 4.2mm}.back h1{font-size:6.1mm}.back h2{font-size:4.3mm;margin:.9mm 0 3mm}.back p{font-size:1.8mm;line-height:1.55;max-width:56mm}.backQr{right:4mm;top:4mm;width:12.3mm;height:12.3mm;padding:.6mm;border-radius:2mm}.backScan{right:4mm;top:17mm;width:12.3mm;font-size:1.25mm}.expiry{margin-top:3mm;padding:1.2mm 2mm;font-size:1.65mm}.signBlock{right:20mm;bottom:3.2mm;width:29mm}.directorSig,.signatureLine{width:24mm;height:8.5mm}.director{font-size:1.8mm}.valid{font-size:1.3mm}.contact{left:4.2mm;bottom:2.5mm;font-size:1.65mm}
+}
+</style></head><body><div class="sheet">
+<div class="card front">
+  <div class="band">${logo}<div class="brand"><strong>${esc(shortName)}</strong><small>${esc(schoolName)}</small><div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div></div><div class="idBadge">${input.type==='STUDENT'?'STUDENT ID':'STAFF ID'}</div></div>
+  <div class="frontBody">
+    <div>${photo}</div>
+    <div class="identity"><div class="label">${input.type==='STUDENT'?'STUDENT ID CARD':'STAFF ID CARD'}</div><div class="name">${esc(input.name)}</div><div class="type">${input.type==='STUDENT'?'STUDENT':'STAFF'}</div>${frontFields}</div>
+    <div class="qrWrap"><img class="qr" src="${qr}" alt="QR"/><div class="scan">SCAN TO VERIFY<br/>ID &amp; ATTENDANCE</div></div>
+  </div>
+  <div class="idline"><span>ID</span>${esc(input.id)}</div>
 </div>
-</body>
-</html>`;
+<div class="card back">
+  <div class="backContent">
+    <h1>${esc(shortName)}</h1><h2>Trusted Islamic Education<br/>for a Brighter Ummah</h2>
+    <p>This card is issued by ${esc(schoolName)} for identification, attendance scanning, school access and approved academic services. If found, please return it to the school office.</p>
+    <div class="expiry">VALID UNTIL: ${esc(input.expiry || '—')}</div>
+    <img class="backQr" src="${qr}" alt="QR"/><div class="backScan">SCAN TO VERIFY</div>
+    <div class="signBlock">${directorSig}<div class="director">${esc(directorName)}</div><div class="valid">DIRECTOR AUTHORISATION</div></div>
+    <div class="contact">CONTACT SCHOOL: <b>${esc(contact1)} &nbsp;|&nbsp; ${esc(contact2)}</b></div>
+  </div>
+</div>
+</div></body></html>`;
 
-  const win = window.open('', '_blank', 'width=1180,height=760');
-  if (!win) throw new Error('Please allow pop-ups to print the ID card.');
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-  window.setTimeout(() => win.print(), 350);
+  const w = window.open('', '_blank', 'width=1160,height=720');
+  if (!w) throw new Error('Please allow pop-ups to print the ID card.');
+  w.document.write(html);
+  w.document.close();
+  setTimeout(() => w.print(), 300);
 }
