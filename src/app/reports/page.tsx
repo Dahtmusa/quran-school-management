@@ -21,11 +21,12 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
   const hizb       = hizbForPosition(s.current);
   const mushafPg   = pageForPosition(s.current);
   const evals      = [1, 2, 3].map(n => { const e = s.es.find((x: any) => x.number === n); return e && e.status === 'Approved' ? e : null; });
-  const classSig   = s.classId ? signatures.teachers[s.classId] : null;
+  const classSig        = s.classId ? signatures.teachers[s.classId] : null;
+  const classTeacherName = classSig?.signer_name || s.teacher || null;
   const sigBoxes   = [
-    { lbl: 'Class Teacher',   sig: classSig },
-    { lbl: 'Supervisor',      sig: signatures.supervisor },
-    { lbl: 'School Director', sig: signatures.director },
+    { lbl: 'Class Teacher',     sig: classSig,              fallback: classTeacherName },
+    { lbl: 'School Supervisor', sig: signatures.supervisor, fallback: null },
+    { lbl: 'School Director',   sig: signatures.director,   fallback: null },
   ];
   const sBg   = avg !== null && avg >= 90 ? '#d1fae5' : avg !== null && avg >= 75 ? '#dbeafe' : avg !== null && avg >= 60 ? '#fef3c7' : '#ffe4e6';
   const sClr  = avg !== null && avg >= 90 ? '#065f46' : avg !== null && avg >= 75 ? '#1e40af' : avg !== null && avg >= 60 ? '#92400e' : '#be123c';
@@ -51,10 +52,10 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
     : `<div class="ec ec-miss"><div class="ec-num">Eval ${i + 1}</div><div class="ec-none">Not recorded</div></div>`
   ).join('');
 
-  const sigs = sigBoxes.map(({ lbl: sl, sig }) =>
+  const sigs = sigBoxes.map(({ lbl: sl, sig, fallback }) =>
     `<div class="sb">
       <div class="sa">${sig?.signature_data ? `<img src="${sig.signature_data}" class="si"/>` : ''}</div>
-      <div class="sn">${sig?.signer_name || '&nbsp;'}</div>
+      <div class="sn">${sig?.signer_name || fallback || '&nbsp;'}</div>
       <div class="sl-role">${sl}</div>
       <div class="sd">Date: ________________</div>
     </div>`
@@ -212,24 +213,24 @@ const PRINT_CSS = `
   /* ── Section labels ── */
   .sec-lbl{font-size:6.5px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;flex-shrink:0;margin-top:1px}
 
-  /* ── S3: Academic Performance (flex:4, ~30% of available) ── */
-  .s3{flex:4 1 0;display:flex;flex-direction:column;min-height:0}
-  .s3-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;flex:1;min-height:0}
-  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 5px;text-align:center;display:flex;flex-direction:column;justify-content:space-around;min-height:0;overflow:hidden}
-  .ec-miss{opacity:.4;justify-content:center;gap:4px}
+  /* ── S3: Academic Performance (flex:3, ~24% of available) ── */
+  .s3{flex:3 1 0;display:flex;flex-direction:column;min-height:0}
+  .s3-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;min-height:0}
+  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:5px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;overflow:hidden}
+  .ec-miss{opacity:.4;justify-content:center;gap:3px}
   .ec-avg{background:#ecfdf5;border-color:#34d399;border-width:1.5px}
-  .ec-num{font-size:6.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8}
-  .ec-score{font-size:23px;font-weight:900;color:#062d2a;line-height:1}
-  .ec-grade{font-size:10px;font-weight:700;color:#475569}
-  .ec-mem{font-size:6.5px;color:#94a3b8;margin-top:1px}
-  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:3px}
+  .ec-num{font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:1px}
+  .ec-score{font-size:19px;font-weight:900;color:#062d2a;line-height:1}
+  .ec-grade{font-size:9px;font-weight:700;color:#475569}
+  .ec-mem{font-size:6px;color:#94a3b8}
+  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:2px}
   .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:2px 1px}
   .rl{display:block;font-size:5px;color:#9ca3af;text-transform:uppercase;letter-spacing:.03em}
-  .rv{display:block;font-size:7.5px;font-weight:700;color:#065f46}
+  .rv{display:block;font-size:7px;font-weight:700;color:#065f46}
   .ec-none{font-size:8px;color:#9ca3af}
 
-  /* ── S4: Hifz Journey (flex:6, ~45% of available) ── */
-  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:10px 13px;flex:6 1 0;display:flex;flex-direction:column;gap:6px;min-height:0}
+  /* ── S4: Hifz Journey (flex:6, ~46% of available after S3 reduction) ── */
+  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:9px 13px;flex:6 1 0;display:flex;flex-direction:column;gap:5px;min-height:0}
   /* Ring + info row */
   .s4-header{display:flex;align-items:center;gap:12px;flex-shrink:0}
   .s4-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
@@ -245,17 +246,17 @@ const PRINT_CSS = `
   .s4-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#34d399,#fbbf24)}
   .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.5);margin-top:2px}
   /* 8-stat grid */
-  .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;flex:1;min-height:0}
-  .s4-stat{border-radius:8px;padding:4px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
+  .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;flex:1;min-height:0}
+  .s4-stat{border-radius:7px;padding:4px 3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
   .s4-stat-m{background:rgba(255,255,255,.08)}
   .s4-stat-r{background:rgba(251,191,36,.12)}
-  .s4-sl{font-size:5.5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;font-weight:600}
+  .s4-sl{font-size:5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:600}
   .s4-sl-m{color:#6ee7b7}
   .s4-sl-r{color:#fcd34d}
-  .s4-sv{font-size:15px;font-weight:900;line-height:1}
+  .s4-sv{font-size:13px;font-weight:900;line-height:1}
   .s4-sv-m{color:#fff}
   .s4-sv-r{color:#fde68a}
-  .s4-sv-sub{font-size:8px;font-weight:400;opacity:.65}
+  .s4-sv-sub{font-size:7px;font-weight:400;opacity:.65}
 
   /* ── S5: Final Term Result ── */
   .s5{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f0fdf4;border:1.5px solid #34d399;border-radius:10px;padding:9px 13px;flex-shrink:0}
@@ -276,7 +277,7 @@ const PRINT_CSS = `
   .sd{font-size:6.5px;color:#94a3b8;margin-top:3px}
 
   /* ── S7: Verification Footer ── */
-  .ft{font-size:6px;color:#cbd5e1;text-align:center;border-top:1px solid #f1f5f9;padding-top:4px;flex-shrink:0}
+  .ft{font-size:7px;color:#94a3b8;text-align:center;border-top:1px solid #e2e8f0;padding-top:5px;flex-shrink:0;letter-spacing:.01em}
 `;
 
 function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {

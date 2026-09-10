@@ -510,7 +510,7 @@ export async function adminClearStaffSignature(staffId: string): Promise<void> {
   if (error) throw error;
 }
 
-export type ReportCardSig = { signer_name: string; signature_data: string };
+export type ReportCardSig = { signer_name: string; signature_data: string | null };
 export type ReportCardSignatures = {
   teachers: Record<string, ReportCardSig>;
   supervisor: ReportCardSig | null;
