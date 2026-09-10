@@ -177,108 +177,106 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
 
 const PRINT_CSS = `
   *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  html,body{margin:0;padding:0;background:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:10px;color:#1a1a1a;line-height:1.35}
+  html,body{margin:0;padding:0;background:#fff;font-family:'Segoe UI',Arial,sans-serif;font-size:10px;color:#1a1a1a;line-height:1.3}
   @page{size:A4 portrait;margin:0}
 
-  /* ── A4 canvas: flex column, all sections fill exact 297mm ── */
-  .page{width:210mm;height:297mm;padding:7mm 10mm;display:flex;flex-direction:column;gap:3px;page-break-after:always;break-after:page;overflow:hidden}
+  /* One canonical A4 composition. Heights are intentional so cards do not stretch. */
+  .page{width:210mm;height:297mm;padding:6.5mm 10mm;display:flex;flex-direction:column;gap:2.5px;page-break-after:always;break-after:page;overflow:hidden}
 
-  /* ── S1: School Header ── */
-  .s1{display:flex;align-items:center;gap:10px;padding-bottom:7px;border-bottom:2.5px solid #062d2a;flex-shrink:0}
-  .s1-logo{width:56px;height:56px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0}
+  /* Header */
+  .s1{height:24mm;display:flex;align-items:center;gap:10px;padding-bottom:6px;border-bottom:2.5px solid #062d2a;flex-shrink:0}
+  .s1-logo{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1.5px solid #e2e8f0}
   .s1-info{flex:1;min-width:0}
-  .s1-sn{font-size:7px;font-weight:800;letter-spacing:.22em;color:#b45309;text-transform:uppercase;margin-bottom:1px}
-  .s1-name{font-size:17px;font-weight:900;color:#062d2a;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .s1-addr{font-size:7.5px;color:#6b7280;margin-top:2px}
-  .s1-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
-  .s1-badge{background:#062d2a;color:#fff;padding:3px 10px;border-radius:18px;font-size:6.5px;font-weight:700;letter-spacing:.07em;white-space:nowrap}
+  .s1-sn{font-size:6.5px;font-weight:800;letter-spacing:.2em;color:#b45309;text-transform:uppercase;margin-bottom:2px}
+  .s1-name{font-size:16px;font-weight:900;color:#062d2a;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .s1-addr{font-size:7px;color:#6b7280;margin-top:3px}
+  .s1-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+  .s1-badge{background:#062d2a;color:#fff;padding:3px 9px;border-radius:18px;font-size:6px;font-weight:800;letter-spacing:.07em;white-space:nowrap}
   .s1-qr{text-align:center}
-  .s1-qr img{width:52px;height:52px;border-radius:5px;display:block}
-  .s1-qrl{font-size:5.5px;color:#9ca3af;text-align:center;display:block;margin-top:1px}
+  .s1-qr img{width:48px;height:48px;border-radius:4px;display:block}
+  .s1-qrl{font-size:5px;color:#9ca3af;text-align:center;display:block;margin-top:1px}
 
-  /* ── S2: Student Profile ── */
-  .s2{display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:7px 11px;flex-shrink:0}
-  .s2-photo{width:54px;height:54px;border-radius:8px;object-fit:cover;border:1.5px solid #e2e8f0;flex-shrink:0}
-  .s2-photo-ph{width:54px;height:54px;border-radius:8px;background:#cbd5e1;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;color:#94a3b8}
+  /* Student profile */
+  .s2{height:22mm;display:flex;align-items:center;gap:10px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:9px;padding:6px 10px;flex-shrink:0}
+  .s2-photo,.s2-photo-ph{width:50px;height:50px;border-radius:8px;flex-shrink:0}
+  .s2-photo{object-fit:cover;border:1.5px solid #e2e8f0}
+  .s2-photo-ph{background:#cbd5e1;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:900;color:#94a3b8}
   .s2-info{flex:1;min-width:0}
-  .s2-name{font-size:15px;font-weight:900;color:#062d2a;line-height:1.1}
-  .s2-row{font-size:7.5px;color:#6b7280;margin-top:2px;line-height:1.5}
+  .s2-name{font-size:14px;font-weight:900;color:#062d2a;line-height:1.1}
+  .s2-row{font-size:7px;color:#6b7280;margin-top:2px;line-height:1.45}
   .s2-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
-
-  /* ── Chips (shared) ── */
-  .chip{font-size:6.5px;font-weight:700;padding:2px 7px;border-radius:11px;white-space:nowrap}
+  .chip{font-size:6px;font-weight:700;padding:2px 6px;border-radius:11px;white-space:nowrap}
   .chip-dir{background:#d1fae5;color:#065f46}
   .chip-att{background:#e0f2fe;color:#0369a1}
 
-  /* ── Section labels ── */
-  .sec-lbl{font-size:6.5px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;flex-shrink:0;margin-top:1px}
+  /* Section labels */
+  .sec-lbl{font-size:6px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:#94a3b8;flex-shrink:0;margin-top:1px;line-height:1.2}
 
-  /* ── S3: Academic Performance (flex:3, ~24% of available) ── */
-  .s3{flex:0 0 auto;display:flex;flex-direction:column;min-height:0}
-  .s3-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;min-height:0}
-  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:4px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:1px;min-height:0;overflow:hidden}
+  /* Academic performance: compact, fixed-height cards */
+  .s3{height:43mm;display:block;flex-shrink:0}
+  .s3-grid{height:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .ec{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:5px 4px;text-align:center;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;min-height:0;overflow:hidden}
   .ec-miss{opacity:.4;justify-content:center;gap:3px}
   .ec-avg{background:#ecfdf5;border-color:#34d399;border-width:1.5px}
-  .ec-num{font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:1px}
-  .ec-score{font-size:17px;font-weight:900;color:#062d2a;line-height:1}
-  .ec-grade{font-size:9px;font-weight:700;color:#475569}
-  .ec-mem{font-size:6px;color:#94a3b8}
-  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:1px}
-  .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:1.5px 1px}
-  .rl{display:block;font-size:5px;color:#9ca3af;text-transform:uppercase;letter-spacing:.03em}
-  .rv{display:block;font-size:7px;font-weight:700;color:#065f46}
+  .ec-num{font-size:5.8px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:#94a3b8;margin-bottom:1px}
+  .ec-score{font-size:18px;font-weight:900;color:#062d2a;line-height:1}
+  .ec-grade{font-size:8.5px;font-weight:800;color:#475569}
+  .ec-mem{font-size:5.8px;color:#94a3b8;white-space:nowrap}
+  .ec-rub{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;margin-top:3px}
+  .ec-rub-cell{background:#f0fdf4;border-radius:3px;text-align:center;padding:2px 1px}
+  .rl{display:block;font-size:4.6px;color:#9ca3af;text-transform:uppercase;letter-spacing:.03em}
+  .rv{display:block;font-size:6.8px;font-weight:800;color:#065f46}
   .ec-none{font-size:8px;color:#9ca3af}
 
-  /* ── S4: Hifz Journey (flex:6, ~46% of available after S3 reduction) ── */
-  .s4{background:#062d2a;color:#fff;border-radius:11px;padding:8px 12px;flex:1 1 auto;display:flex;flex-direction:column;gap:4px;min-height:0}
-  /* Ring + info row */
-  .s4-header{display:flex;align-items:center;gap:12px;flex-shrink:0}
-  .s4-ring-wrap{position:relative;width:72px;height:72px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-  .s4-ring{position:absolute;top:0;left:0;width:72px;height:72px}
+  /* Hifz journey: generous overall panel, compact stat tiles */
+  .s4{height:95mm;background:#062d2a;color:#fff;border-radius:11px;padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;overflow:hidden}
+  .s4-header{height:52mm;display:flex;align-items:center;gap:12px;flex-shrink:0}
+  .s4-ring-wrap{position:relative;width:68px;height:68px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+  .s4-ring{position:absolute;top:0;left:0;width:68px;height:68px}
   .s4-ring-inner{position:relative;z-index:1;text-align:center}
   .s4-ring-pct{font-size:12px;font-weight:900;color:#6ee7b7;line-height:1}
-  .s4-ring-lbl{font-size:4.5px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;line-height:1.4}
-  .s4-info{flex:1;display:flex;flex-direction:column;gap:3px;min-width:0}
-  .s4-eyebrow{font-size:7px;font-weight:800;letter-spacing:.18em;color:#b45309;text-transform:uppercase}
-  .s4-pos{font-size:16px;font-weight:900;line-height:1.1;color:#fff}
+  .s4-ring-lbl{font-size:4.3px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.06em;margin-top:2px;line-height:1.4}
+  .s4-info{flex:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+  .s4-eyebrow{font-size:6.5px;font-weight:800;letter-spacing:.18em;color:#fbbf24;text-transform:uppercase}
+  .s4-pos{font-size:15px;font-weight:900;line-height:1.1;color:#fff}
   .s4-sub{font-size:6.5px;color:#a7f3d0}
   .s4-bar-track{height:7px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;margin-top:2px}
   .s4-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#34d399,#fbbf24)}
-  .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.5);margin-top:2px}
-  /* 8-stat grid */
-  .s4-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;min-height:0}
-  .s4-stat{border-radius:7px;padding:3px 3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:28px}
+  .s4-bar-meta{display:flex;justify-content:space-between;font-size:5.5px;color:rgba(255,255,255,.55);margin-top:1px}
+  .s4-grid{height:29mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr);gap:4px;flex-shrink:0}
+  .s4-stat{border-radius:7px;padding:3px;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0}
   .s4-stat-m{background:rgba(255,255,255,.08)}
   .s4-stat-r{background:rgba(251,191,36,.12)}
-  .s4-sl{font-size:5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:600}
+  .s4-sl{font-size:5px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:2px;font-weight:600;white-space:nowrap}
   .s4-sl-m{color:#6ee7b7}
   .s4-sl-r{color:#fcd34d}
   .s4-sv{font-size:12px;font-weight:900;line-height:1}
   .s4-sv-m{color:#fff}
   .s4-sv-r{color:#fde68a}
-  .s4-sv-sub{font-size:7px;font-weight:400;opacity:.65}
+  .s4-sv-sub{font-size:6.5px;font-weight:400;opacity:.65}
 
-  /* ── S5: Final Term Result ── */
-  .s5{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f0fdf4;border:1.5px solid #34d399;border-radius:10px;padding:9px 13px;flex-shrink:0}
-  .s5-lbl-text{font-size:6.5px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#065f46}
-  .s5-standing{font-size:15px;font-weight:900;color:#062d2a;line-height:1.2;margin-top:1px}
-  .s5-detail{font-size:7px;color:#6b7280;margin-top:2px}
+  /* Final result */
+  .s5{height:22mm;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#f0fdf4;border:1.5px solid #34d399;border-radius:10px;padding:7px 12px;flex-shrink:0}
+  .s5-lbl-text{font-size:6px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:#065f46}
+  .s5-standing{font-size:14px;font-weight:900;color:#062d2a;line-height:1.2;margin-top:1px}
+  .s5-detail{font-size:6.5px;color:#6b7280;margin-top:2px}
   .s5-right{text-align:right;flex-shrink:0}
-  .s5-avg{font-size:26px;font-weight:900;color:#065f46;line-height:1}
-  .s5-avg-lbl{font-size:7px;color:#065f46;font-weight:700;margin-top:1px}
+  .s5-avg{font-size:24px;font-weight:900;color:#065f46;line-height:1}
+  .s5-avg-lbl{font-size:6.5px;color:#065f46;font-weight:700;margin-top:1px}
 
-  /* ── S6: Official Approval (3 signatures, always visible) ── */
-  .sigrow{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex-shrink:0}
-  .sb{text-align:center;border:1px solid #e2e8f0;border-radius:8px;padding:6px 8px}
-  .sa{height:44px;display:flex;align-items:flex-end;justify-content:center;border-bottom:1.5px solid #94a3b8;margin-bottom:4px;padding-bottom:3px}
-  .si{max-height:40px;max-width:100%;object-fit:contain}
-  .sn{font-size:8px;font-weight:700;color:#062d2a}
-  .sl-role{font-size:6.5px;color:#6b7280;text-transform:uppercase;letter-spacing:.09em;margin-top:2px}
-  .sd{font-size:6.5px;color:#94a3b8;margin-top:3px}
+  /* Official approval: fixed, balanced signature blocks */
+  .sigrow{height:34mm;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;flex-shrink:0}
+  .sb{text-align:center;border:1px solid #e2e8f0;border-radius:8px;padding:5px 7px;display:flex;flex-direction:column;min-width:0}
+  .sa{height:18mm;display:flex;align-items:flex-end;justify-content:center;border-bottom:1.5px solid #94a3b8;margin-bottom:3px;padding-bottom:2px;flex-shrink:0}
+  .si{max-height:16mm;max-width:100%;object-fit:contain}
+  .sn{font-size:7.5px;font-weight:800;color:#062d2a;line-height:1.2;min-height:9px}
+  .sl-role{font-size:5.8px;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-top:2px;white-space:nowrap}
+  .sd{font-size:6px;color:#94a3b8;margin-top:3px}
 
-  /* ── S7: Verification Footer ── */
-  .ft{font-size:7.2px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:5px;flex-shrink:0;letter-spacing:.01em;line-height:1.35}
+  /* Verification footer */
+  .ft{font-size:6.5px;color:#64748b;text-align:center;border-top:1px solid #e2e8f0;padding-top:4px;flex-shrink:0;line-height:1.25;white-space:nowrap}
 `;
+
 
 function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {
   const printScript = autoPrint
