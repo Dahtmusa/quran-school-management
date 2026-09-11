@@ -38,26 +38,6 @@ export default function CalendarAdmin() {
     setEvents(cal);
     setTerms(t);
     setCurrent(cur);
-
-    // Hydrate the planner from the persisted calendar instead of resetting it
-    // to blank inputs every time the page loads. This makes the planner a true
-    // view/edit surface for the school's existing configuration.
-    const sortedTerms = [...t].sort((a, b) => (a.term_number || 0) - (b.term_number || 0));
-    const sessionOpening = cal.find((e: any) => e.event_type === 'school_opening');
-    const sessionClosing = cal.find((e: any) => e.event_type === 'school_closing');
-    const yearName = sortedTerms[0]?.academic_years?.name || plan.yearName;
-    const yearStart = sessionOpening?.starts_on || sortedTerms.map((x: any) => x.starts_on).filter(Boolean).sort()[0] || '';
-    const yearEnd = sessionClosing?.ends_on || sortedTerms.map((x: any) => x.ends_on).filter(Boolean).sort().slice(-1)[0] || '';
-    const hydratedTerms: TermDates[] = [0, 1, 2].map((idx) => {
-      const term = sortedTerms.find((x: any) => Number(x.term_number) === idx + 1);
-      const evals = [1, 2, 3].map((n) => {
-        const ev = cal.find((x: any) => x.event_type === `evaluation_${n}` && x.term_id === term?.id);
-        return { open: toDateTimeLocal(ev?.starts_at), close: toDateTimeLocal(ev?.ends_at) };
-      });
-      return { start: term?.starts_on || '', end: term?.ends_on || '', evals };
-    });
-    setPlan({ yearName, yearStart, yearEnd, terms: hydratedTerms });
-
     const settings = await loadCMSSettings();
     setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));
   };
@@ -125,7 +105,7 @@ export default function CalendarAdmin() {
       ends_on: endsOn ? endsOn.slice(0, 10) : null,
       starts_at: startsOn ? new Date(startsOn).toISOString() : null,
       ends_at: endsOn ? new Date(endsOn).toISOString() : null,
-      term_id: null, academic_year_id: null, evaluation_number: null,
+      term_id: null, evaluation_number: null,
     });
   }
 
@@ -285,9 +265,9 @@ export default function CalendarAdmin() {
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
         <select className="input" defaultValue={current?.term_id || ''} onChange={e => setCurrentTerm(e.target.value)}>
           <option value="">Select active term…</option>
-          {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <option key={t.id} value={t.id}>{t.academic_years?.name} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
+          {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <option key={t.id} value={t.id}>{academicYearName(t.academic_years)} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
         </select>
-        <span className="pill bg-emerald-50 text-emerald-700 self-center">Manual term closure</span>
+        <span className="pill bg-emerald-50 text-emerald-700 self-center">Auto-advances by date</span>
       </div>
     </section>}
 
@@ -302,7 +282,7 @@ export default function CalendarAdmin() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <div key={t.id} className={`rounded-2xl p-4 border ${current?.term_id === t.id ? 'border-emerald-500 bg-emerald-50' : 'bg-slate-50'}`}>
               <div className="flex items-center justify-between">
-                <div className="text-xs font-black uppercase tracking-wide text-slate-500">{t.academic_years?.name}</div>
+                <div className="text-xs font-black uppercase tracking-wide text-slate-500">{academicYearName(t.academic_years)}</div>
                 {current?.term_id === t.id && <span className="pill bg-emerald-600 text-white text-[10px]">Active</span>}
               </div>
               <div className="mt-1 font-black">{t.name}</div>
@@ -343,14 +323,6 @@ export default function CalendarAdmin() {
     </section>}
 
   </div></AdminShell>;
-}
-
-function toDateTimeLocal(value?: string | null) {
-  if (!value) return '';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 function EventRow({ event, onDelete }: { event: any; onDelete: () => void }) {
