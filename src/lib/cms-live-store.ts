@@ -51,8 +51,12 @@ export async function loadPublicTeam() {
 }
 
 export async function loadPublicAlumni() {
-  const { data, error } = await db().from('alumni_profiles').select('*').eq('published', true).order('display_order');
-  return error || !data ? [] : data;
+  const { data, error } = await db().from('alumni_profiles').select('*,graduation_certificates(certificate_number,status,issued_at)').eq('published', true).order('display_order');
+  if (error || !data) return [];
+  return data.map((row: any) => ({
+    ...row,
+    certificate_number: row.graduation_certificates?.find((c: any) => c.status === 'issued')?.certificate_number ?? null,
+  }));
 }
 
 export async function loadAdminTeam() {
