@@ -348,13 +348,6 @@ export default function Fees() {
 
   const classNames = useMemo(() => [...new Set(students.map(s => s.className || 'Unassigned'))].sort(), [students]);
   const byClass = useMemo(() => classFilter ? students.filter(s => (s.className || 'Unassigned') === classFilter) : students, [students, classFilter]);
-  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter]);
-  const ledgerStudents = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter(s => `${s.name} ${s.admissionNo} ${s.className || ''}`.toLowerCase().includes(q));
-  }, [filtered, searchTerm]);
-  const selectedStudents = useMemo(() => ledgerStudents.filter(s => selectedIds.has(s.id)), [ledgerStudents, selectedIds]);
   const previousOutstandingByStudent = useMemo(() => {
     const map = new Map<string, number>();
     for (const s of byClass) map.set(s.id, outstandingBeforeTerm(s.id, currentTerm, summary.fees || [], terms));
@@ -384,6 +377,17 @@ export default function Fees() {
     if (v.paidThisTerm > 0) return 'partial';
     return 'unpaid';
   }
+
+  // Keep status filtering after the account map is initialized. Previously clicking
+  // Paid in Full / Partial / Not Paid could evaluate getStatus() before
+  // byStudentAccount existed, crashing the client page at runtime.
+  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudentAccount]);
+  const ledgerStudents = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return filtered;
+    return filtered.filter(s => `${s.name} ${s.admissionNo} ${s.className || ''}`.toLowerCase().includes(q));
+  }, [filtered, searchTerm]);
+  const selectedStudents = useMemo(() => ledgerStudents.filter(s => selectedIds.has(s.id)), [ledgerStudents, selectedIds]);
 
   const expected = useMemo(() => byClass.reduce((t, s) => t + (byStudentAccount.get(s.id)?.payable || 0), 0), [byClass, byStudentAccount]);
   const collected = useMemo(() => byClass.reduce((t, s) => t + (byStudentAccount.get(s.id)?.paidThisTerm || 0), 0), [byClass, byStudentAccount]);
