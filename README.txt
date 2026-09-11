@@ -1,27 +1,14 @@
-AMQM Finance Carry-Forward Ledger
+AMQM Finance & Fees v3 patch
 
-Files:
-- src/app/fees/page.tsx
-- src/lib/admin-management-store.ts
-- supabase/migrations/095_term_carry_forward_ledger.sql
+Replace:
+src/app/fees/page.tsx
 
-INSTALL:
-1. Back up the database first.
-2. Run migration 095_term_carry_forward_ledger.sql once in Supabase SQL Editor.
-3. Replace the two source files above.
-4. Run: npm run build
-5. Test a student with a previous outstanding balance and record a partial payment in the new term.
+Fixes:
+- Removes the byStudentAccount temporal-dead-zone/runtime crash caused by status filtering before the map declaration.
+- Finance invoice generation/printing uses the currently selected term rather than requiring a future next term.
+- Quick invoice actions are no longer disabled simply because there is no next term.
+- Finance currency display is normalized to the ₦ symbol instead of NGN.
+- Keeps the selected-term carry-forward calculations.
+- Keeps the Actions column visible/sticky on narrower screens so Invoice/History/Receipt/Pay are not cut off.
 
-BEHAVIOUR:
-- Previous term balances remain in their original term.
-- The next term shows them as Balance Brought Forward.
-- Current term fees are added separately.
-- Total Payable = Brought Forward + Current Term Fees.
-- Payments recorded in the new term settle the oldest outstanding fee first.
-- Outstanding is the remaining balance across brought-forward + current-term obligations.
-- No historical fee rows are duplicated.
-- Existing term-aware payments are backfilled into payment_allocations without changing existing student_fees amounts.
-- Overpayments are retained as student credits rather than silently discarded.
-
-IMPORTANT:
-This migration adds an allocation ledger. Do not delete existing student_fees or payments.
+Do not run or modify the carry-forward SQL again for this UI patch.
