@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { loadStudents, loadCurrentAcademicTerm } from '@/lib/live-store';
-import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, voidPayment, syncStudentFeeAllocations, syncTermInvoices } from '@/lib/admin-management-store';
+import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, voidPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
 import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useState } from 'react';
@@ -55,18 +55,12 @@ function printReceipt(student: any, payment: any, bank: any, currency: string, s
   w.document.close();
 }
 
-function printInvoice(student: any, nextTerm: any, structs: any[], allFees: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
   if (!nextTerm) { alert('Could not determine next term. Set up terms in the school calendar first.'); return; }
   const sec = String(student.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
   const feeRow = getStudentFee(structs, nextTerm.id, nextTerm.academic_year_id, sec);
   if (!feeRow) { alert(`No fee structure found for ${sec} students in ${tLabel(nextTerm)}. Please configure fee structures first.`); return; }
   const feeAmount = Number(feeRow.amount);
-  const priorBalance = (allFees || []).filter((f:any) => {
-    const fs = f.fee_structures || {};
-    const ft = fs.terms || {};
-    return f.student_id === student.id && fs.term_id && fs.term_id !== nextTerm.id && ft.starts_on && ft.starts_on < nextTerm.starts_on;
-  }).reduce((sum:number, f:any) => sum + Math.max(0, Number(f.amount_due || 0) - Number(f.amount_paid || 0)), 0);
-  const totalPayable = feeAmount + priorBalance;
   const dueDate = feeRow.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
   const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
   const invoiceNo = `INV-${String(student.admissionNo||student.admission_no||'').toUpperCase()}-T${nextTerm.term_number||''}`;
@@ -78,8 +72,7 @@ function printInvoice(student: any, nextTerm: any, structs: any[], allFees: any[
   </head><body>
   ${schoolHeader(logoUrl, schoolName, schoolAddress, 'SCHOOL FEES INVOICE', accent)}
   <div class="term-box">For: ${nextTermName}</div>
-  <div class="ab"><div class="al">Total Expected / Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div>
-  <div class="st">Fee breakdown</div><table><tr><td>Second Term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${priorBalance>0?`<tr><td>Balance carried forward from First Term</td><td>${currency} ${priorBalance.toLocaleString()}</td></tr>`:''}<tr><td><b>Total expected / payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr></table>
+  <div class="ab"><div class="al">Total Fees Due</div><div class="av">${currency} ${feeAmount.toLocaleString()}</div></div>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table>
   <div class="st">Invoice</div>
@@ -108,9 +101,9 @@ function bulkPrintReceipts(students: Student[], payments: any[], bank: any, curr
   w.document.close();
 }
 
-function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], allFees: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
-  const nextTerm = currentTerm;
-  if (!nextTerm) { alert('Could not determine selected term. Set up terms in the school calendar first.'); return; }
+function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+  const nextTerm = findNextTerm(currentTerm, terms);
+  if (!nextTerm) { alert('Could not determine next term. Set up terms in school calendar first.'); return; }
   const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
   const accent = '#062d2a';
   const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
@@ -121,12 +114,10 @@ function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], 
     const feeRow = getStudentFee(structs, nextTerm.id, nextTerm.academic_year_id, sec);
     if (!feeRow) return '';
     const feeAmount = Number(feeRow.amount);
-    const prior = (allFees||[]).filter((f:any)=>f.student_id===s.id && f.fee_structures?.term_id && f.fee_structures.term_id!==nextTerm.id && f.fee_structures?.terms?.starts_on && f.fee_structures.terms.starts_on<nextTerm.starts_on).reduce((sum:number,f:any)=>sum+Math.max(0,Number(f.amount_due||0)-Number(f.amount_paid||0)),0);
-    const total = feeAmount + prior;
     const invoiceNo = `INV-${String(s.admissionNo||'').toUpperCase()}-T${nextTerm.term_number||''}`;
-    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Total Expected / Payable</div><div class="av">${currency} ${total.toLocaleString()}</div></div><table><tr><td>Second Term fee</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>${prior?`<tr><td>Balance carried forward from First Term</td><td>${currency} ${prior.toLocaleString()}</td></tr>`:''}<tr><td><b>Total expected / payable</b></td><td><b>${currency} ${total.toLocaleString()}</b></td></tr></table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Due date</td><td>${feeRow?.due_date ? new Date(feeRow.due_date).toLocaleDateString('en-NG') : '—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
+    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Fees Due</div><div class="av">${currency} ${feeAmount.toLocaleString()}</div></div><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG')}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td><b>${bank.account_number||'—'}</b></td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
   }).filter(Boolean);
-  if (!pages.length) { w.close(); alert('No fee structures configured for the selected term yet.'); return; }
+  if (!pages.length) { w.close(); alert('No fee structures configured for the next term yet.'); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;font-size:11px;color:#166534;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
@@ -192,13 +183,6 @@ export default function Fees() {
   useEffect(() => { if (selectedTermId) syncStudentFeeAllocations(selectedTermId).then(() => refresh()).catch(() => {}); }, [selectedTermId]);
 
   const currentTerm = useMemo(() => terms.find(t => t.id === selectedTermId) || null, [terms, selectedTermId]);
-  // While First Term is active, invoices are issued for the upcoming Second Term.
-  // Once Second Term is active, its invoice is the active invoice.
-  const invoiceTerm = useMemo(() => {
-    if (!currentTerm) return null;
-    if ((currentTerm.term_number || 0) === 1) return findNextTerm(currentTerm, terms);
-    return currentTerm;
-  }, [currentTerm, terms]);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
 
   const termFees = useMemo(() => summary.fees.filter((x: any) =>
@@ -216,49 +200,45 @@ export default function Fees() {
     return map;
   }, [termFees]);
 
-  const priorByStudent = useMemo(() => {
-    const map = new Map<string, number>();
-    const currentStart = currentTerm?.starts_on || '';
-    for (const x of summary.fees) {
-      const fs = x.fee_structures || {};
-      const ft = fs.terms || {};
-      if (!fs.term_id || fs.term_id === selectedTermId || !currentStart || !ft.starts_on || ft.starts_on >= currentStart) continue;
-      const balance = Math.max(0, Number(x.amount_due || 0) - Number(x.amount_paid || 0));
-      if (balance > 0) map.set(x.student_id, (map.get(x.student_id) || 0) + balance);
-    }
-    return map;
-  }, [summary.fees, selectedTermId, currentTerm]);
-
   function getStatus(s: Student): 'full'|'partial'|'unpaid'|'none' {
     const v = byStudent.get(s.id) || { due: 0, paid: 0 };
-    const prior = priorByStudent.get(s.id) || 0;
-    const totalBalance = Math.max(0, v.due - v.paid) + prior;
-    if (v.due <= 0 && prior <= 0) return 'none';
-    if (totalBalance <= 0) return 'full';
-    if (v.paid > 0 || prior > 0) return 'partial';
+    if (v.due <= 0) return 'none';
+    if (v.paid >= v.due) return 'full';
+    if (v.paid > 0) return 'partial';
     return 'unpaid';
   }
 
   const classNames = useMemo(() => [...new Set(students.map(s => s.className || 'Unassigned'))].sort(), [students]);
   const byClass = useMemo(() => classFilter ? students.filter(s => (s.className || 'Unassigned') === classFilter) : students, [students, classFilter]);
-  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudent, priorByStudent]);
+  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudent]);
 
   const expected = useMemo(() => byClass.reduce((t, s) => t + (byStudent.get(s.id)?.due || 0), 0), [byClass, byStudent]);
-  const priorExpected = useMemo(() => byClass.reduce((t, s) => t + (priorByStudent.get(s.id) || 0), 0), [byClass, priorByStudent]);
-  const totalPayable = expected + priorExpected;
   const collected = useMemo(() => byClass.reduce((t, s) => t + (byStudent.get(s.id)?.paid || 0), 0), [byClass, byStudent]);
-  const outstanding = Math.max(0, totalPayable - collected - priorExpected);
+  const outstanding = Math.max(0, expected - collected);
+  const previousOutstanding = useMemo(() => {
+    const currentStart = currentTerm?.starts_on ? String(currentTerm.starts_on) : '';
+    const allowed = new Set(byClass.map(s => s.id));
+    return (summary.fees || []).reduce((total: number, row: any) => {
+      if (!allowed.has(row.student_id)) return total;
+      const fs = row.fee_structures;
+      const termId = fs?.term_id;
+      if (!termId || termId === selectedTermId) return total;
+      const priorTerm = terms.find((t: any) => t.id === termId);
+      if (!priorTerm?.starts_on || !currentStart || String(priorTerm.starts_on) >= currentStart) return total;
+      return total + Math.max(0, Number(row.amount_due || 0) - Number(row.amount_paid || 0));
+    }, 0);
+  }, [summary.fees, byClass, selectedTermId, currentTerm, terms]);
+  const totalPayable = expected + previousOutstanding;
   const totalOutstanding = Math.max(0, totalPayable - collected);
   const counts = useMemo(() => {
     let full = 0, partial = 0, unpaid = 0;
     for (const s of byClass) { const st = getStatus(s); if (st === 'full') full++; else if (st === 'partial') partial++; else if (st === 'unpaid') unpaid++; }
     return { full, partial, unpaid };
-  }, [byClass, byStudent, priorByStudent]);
+  }, [byClass, byStudent]);
 
   function openPay(s: Student) {
     const v = byStudent.get(s.id) || { due: 0, paid: 0 };
-    const prior = priorByStudent.get(s.id) || 0;
-    setPayAmount(String(Math.max(0, v.due - v.paid + prior) || ''));
+    setPayAmount(String(Math.max(0, v.due - v.paid) || ''));
     setPayMethod('Cash'); setPayRef(''); setPayTarget(s);
   }
 
@@ -276,8 +256,7 @@ export default function Fees() {
 
   async function markFullyPaid(s: Student) {
     const v = byStudent.get(s.id) || { due: 0, paid: 0 };
-    const prior = priorByStudent.get(s.id) || 0;
-    const bal = Math.max(0, v.due - v.paid + prior);
+    const bal = Math.max(0, v.due - v.paid);
     if (bal <= 0 || !selectedTermId) return;
     if (!confirm(`Mark ${s.name} as fully paid?\nAmount: ${currency} ${bal.toLocaleString()}`)) return;
     try {
@@ -292,7 +271,7 @@ export default function Fees() {
     [summary.payments, selectedTermId]
   );
   const hasPaid = (s: Student) => termPayments.some((p: any) => p.student_id === s.id);
-  const allPaymentsForStudent = (s: Student) => summary.payments.filter((p: any) => p.student_id === s.id && p.term_id === selectedTermId);
+  const allPaymentsForStudent = (s: Student) => summary.payments.filter((p: any) => p.student_id === s.id);
 
   async function handleVoid(paymentId: string) {
     if (!confirm('Void this payment? The student\'s balance will be recalculated from remaining payments.')) return;
@@ -302,19 +281,6 @@ export default function Fees() {
       await refresh();
     } catch (e: any) { setMessage(e?.message || 'Failed to void payment'); }
     finally { setVoiding(null); }
-  }
-
-  async function generateInvoices() {
-    if (!selectedTermId) return;
-    setBusy(true); setMessage('');
-    try {
-      const targetTermId = invoiceTerm?.id;
-      if (!targetTermId) throw new Error('Could not determine the Second Term invoice term. Set up the school calendar first.');
-      const n = await syncTermInvoices(targetTermId);
-      setMessage(`${n} invoice(s) are now synchronized for ${tLabel(invoiceTerm)}.`);
-      await refresh();
-    } catch (e: any) { setMessage(e?.message || 'Failed to synchronize invoices'); }
-    finally { setBusy(false); }
   }
 
   async function saveBank() { setBusy(true); try { await saveCMSSetting('school_payment', bank); setMessage('Bank account saved.'); } catch (e: any) { setMessage(e?.message || 'Failed'); } finally { setBusy(false); } }
@@ -406,32 +372,24 @@ export default function Fees() {
                 {classNames.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
-            {nextTerm && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 self-end">Next term: {tLabel(nextTerm)} · Any previous balance is carried forward</div>}
+            {nextTerm && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 self-end">Next term: {tLabel(nextTerm)}</div>}
           </div>
         </section>
 
         {/* Financial overview */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-3">
           <div className="card p-5">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Current term fees{classFilter ? ` · ${classFilter}` : ''}</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Expected{classFilter ? ` · ${classFilter}` : ''}</div>
             <div className="mt-1 text-3xl font-black">{currency} {expected.toLocaleString()}</div>
           </div>
           <div className="card p-5">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Paid this term</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Collected</div>
             <div className="mt-1 text-3xl font-black text-emerald-700">{currency} {collected.toLocaleString()}</div>
             {expected > 0 && <div className="mt-1 text-xs text-slate-400">{Math.round((collected / expected) * 100)}% of expected</div>}
           </div>
           <div className="card p-5">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Previous balance</div>
-            <div className="mt-1 text-3xl font-black text-rose-600">{currency} {priorExpected.toLocaleString()}</div>
-          </div>
-          <div className="card p-5">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Total payable</div>
-            <div className="mt-1 text-3xl font-black">{currency} {totalPayable.toLocaleString()}</div>
-          </div>
-          <div className="card p-5">
-            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Total outstanding</div>
-            <div className={`mt-1 text-3xl font-black ${totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{currency} {totalOutstanding.toLocaleString()}</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-400">Outstanding</div>
+            <div className={`mt-1 text-3xl font-black ${outstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{currency} {outstanding.toLocaleString()}</div>
           </div>
         </div>
 
@@ -454,21 +412,6 @@ export default function Fees() {
           ))}
         </div>
 
-        {/* Finance actions */}
-        {selectedTermId && (
-          <section className="card p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="font-black text-slate-900">Term finance controls</div>
-                <div className="text-xs text-slate-500 mt-0.5">Fee allocations follow the student’s current section. Payments are recorded under the selected term and automatically settle the oldest outstanding previous balance first.</div>
-              </div>
-              <button className="btn bg-amber-50 border border-amber-200 text-amber-800" disabled={busy} onClick={generateInvoices}>
-                {busy ? 'Working…' : 'Sync term invoices'}
-              </button>
-            </div>
-          </section>
-        )}
-
         {/* Bulk actions — visible when class is selected */}
         {classFilter && (
           <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -480,7 +423,7 @@ export default function Fees() {
               All receipts for class
             </button>
             <button
-              onClick={() => bulkPrintInvoices(byClass, currentTerm, terms, structures, summary.fees, bank, currency, schoolName, logoUrl, schoolAddress)}
+              onClick={() => bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress)}
               className="btn bg-white border border-amber-200 text-amber-800 text-sm py-2 px-4 hover:bg-amber-50"
             >
               All invoices for class
@@ -507,10 +450,9 @@ export default function Fees() {
                 <tr>
                   <th className="p-4">Student</th>
                   <th>Class / Section</th>
-                  <th className="text-right pr-3">Current fee</th>
-                  <th className="text-right pr-3">Previous</th>
-                  <th className="text-right pr-3">Paid this term</th>
-                  <th className="text-right pr-3">Total outstanding</th>
+                  <th className="text-right pr-3">Due</th>
+                  <th className="text-right pr-3">Paid</th>
+                  <th className="text-right pr-3">Balance</th>
                   <th>Status</th>
                   <th className="pr-4 text-right">Actions</th>
                 </tr>
@@ -518,53 +460,241 @@ export default function Fees() {
               <tbody>
                 {filtered.map(s => {
                   const v = byStudent.get(s.id) || { due: 0, paid: 0 };
-                  const prior = priorByStudent.get(s.id) || 0;
                   const bal = Math.max(0, v.due - v.paid);
-                  const totalBal = bal + prior;
                   const st = getStatus(s);
                   return (
-                    <tr key={s.id} className="border-t hover:bg-slate-50/60 transition-colors">
-                      <td className="p-4">
+    <AdminShell title="Finance & Fees">
+      <div className="space-y-6 pb-8">
+        {/* Page heading */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="mb-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700">AMQM · Finance</div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">Finance & Fees</h1>
+            <p className="mt-1 max-w-2xl text-sm text-slate-500">
+              Monitor fee collection, student balances, payments and term fee structures from one place.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm">
+              {currentTerm ? `${currentTerm.academic_years?.name || ''} · ${tLabel(currentTerm)}` : 'No active term'}
+            </div>
+            {nextTerm && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                Next: {tLabel(nextTerm)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {message && (
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-left text-sm font-semibold text-emerald-800 shadow-sm"
+            onClick={() => setMessage('')}
+          >
+            <span>✓ {message}</span><span className="text-lg leading-none">×</span>
+          </button>
+        )}
+
+        {/* Filters */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">View controls</div>
+              <div className="mt-0.5 text-xs text-slate-400">Choose a term and class to update the finance dashboard.</div>
+            </div>
+            <span className="hidden rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:inline">
+              Live data
+            </span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-[1fr_260px_auto] md:items-end">
+            <label className="block text-[11px] font-black uppercase tracking-wide text-slate-500">
+              Term
+              <select className="input mt-1.5 h-11 w-full rounded-xl" value={selectedTermId} onChange={e => setSelectedTermId(e.target.value)}>
+                <option value="">Select term</option>
+                {terms.map(t => <option key={t.id} value={t.id}>{t.academic_years?.name} · {tLabel(t)}</option>)}
+              </select>
+            </label>
+            <label className="block text-[11px] font-black uppercase tracking-wide text-slate-500">
+              Class
+              <select className="input mt-1.5 h-11 w-full rounded-xl" value={classFilter} onChange={e => { setClassFilter(e.target.value); setStatusFilter('all'); }}>
+                <option value="">All classes</option>
+                {classNames.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600">
+              <span className="font-bold text-slate-800">Selected:</span> {classFilter || 'All students'}
+            </div>
+          </div>
+        </section>
+
+        {selectedTermId && termFees.length === 0 && structures.length > 0 && (
+          <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
+            <span className="mt-0.5 text-base">⚠</span>
+            <div><b>No fees configured for this term.</b> Existing fee structures do not match the selected term. Review and configure fees below.</div>
+          </div>
+        )}
+        {selectedTermId && structures.length === 0 && (
+          <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 shadow-sm">
+            <span className="mt-0.5">ⓘ</span>
+            <div>No fee structures have been set up yet. Configure day and boarding fees in <b>Fee structures</b> below.</div>
+          </div>
+        )}
+
+        {/* Financial overview */}
+        <section>
+          <div className="mb-3 flex items-end justify-between">
+            <div>
+              <h2 className="text-sm font-black text-slate-900">Term financial overview</h2>
+              <p className="mt-0.5 text-xs text-slate-400">{classFilter || 'All classes'} · {currentTerm ? tLabel(currentTerm) : 'Selected term'}</p>
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {[
+              { label: 'Current term fees', value: expected, cls: 'text-slate-950', icon: '₦', bg: 'bg-slate-100 text-slate-700' },
+              { label: 'Paid this term', value: collected, cls: 'text-emerald-700', icon: '✓', bg: 'bg-emerald-100 text-emerald-700', sub: expected > 0 ? `${Math.round((collected / expected) * 100)}% of expected` : '' },
+              { label: 'Previous balance', value: previousOutstanding, cls: 'text-rose-600', icon: '↗', bg: 'bg-rose-100 text-rose-700' },
+              { label: 'Total payable', value: totalPayable, cls: 'text-slate-950', icon: '≡', bg: 'bg-slate-100 text-slate-700' },
+              { label: 'Total outstanding', value: totalOutstanding, cls: totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-700', icon: '!', bg: totalOutstanding > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700' },
+            ].map((m: any) => (
+              <div key={m.label} className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+                <div className="flex items-start justify-between">
+                  <div className="text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">{m.label}</div>
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${m.bg}`}>{m.icon}</span>
+                </div>
+                <div className={`mt-3 text-2xl font-black tracking-tight ${m.cls}`}>{currency} {Number(m.value || 0).toLocaleString()}</div>
+                {m.sub && <div className="mt-1 text-[11px] font-semibold text-slate-400">{m.sub}</div>}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Collection status */}
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-sm font-black text-slate-900">Collection status</h2>
+              <p className="text-xs text-slate-400">Click a status to filter the student ledger.</p>
+            </div>
+            {statusFilter !== 'all' && (
+              <button className="text-xs font-bold text-emerald-700 hover:text-emerald-900" onClick={() => setStatusFilter('all')}>Clear status filter ×</button>
+            )}
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {([
+              { key: 'full' as const, label: 'Paid in full', count: counts.full, note: 'Fully settled', icon: '✓', cls: 'border-emerald-200 bg-emerald-50/70 text-emerald-900', iconCls: 'bg-emerald-600 text-white' },
+              { key: 'partial' as const, label: 'Partial payments', count: counts.partial, note: 'Balance remaining', icon: '◔', cls: 'border-amber-200 bg-amber-50/70 text-amber-900', iconCls: 'bg-amber-500 text-white' },
+              { key: 'unpaid' as const, label: 'Not paid', count: counts.unpaid, note: 'Action required', icon: '!', cls: 'border-rose-200 bg-rose-50/70 text-rose-900', iconCls: 'bg-rose-600 text-white' },
+            ] as const).map(c => (
+              <button key={c.key} onClick={() => setStatusFilter(statusFilter === c.key ? 'all' : c.key)}
+                className={`rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 hover:shadow-sm ${c.cls} ${statusFilter === c.key ? 'ring-2 ring-offset-1 ring-slate-900/20' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.12em] opacity-60">{c.label}</div>
+                    <div className="mt-1 text-3xl font-black">{c.count}</div>
+                    <div className="mt-0.5 text-[11px] font-medium opacity-60">{c.note}</div>
+                  </div>
+                  <span className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg font-black shadow-sm ${c.iconCls}`}>{c.icon}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {/* Bulk actions */}
+        {classFilter && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-black text-slate-900">{classFilter}</div>
+              <div className="text-xs text-slate-400">Bulk documents for this class</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => bulkPrintReceipts(byClass.filter(hasPaid), summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)}
+                className="btn border border-emerald-200 bg-emerald-50 text-sm font-bold text-emerald-800 hover:bg-emerald-100">
+                Print receipts
+              </button>
+              <button onClick={() => bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress)}
+                className="btn border border-amber-200 bg-amber-50 text-sm font-bold text-amber-800 hover:bg-amber-100">
+                Print invoices
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Student ledger */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black tracking-tight text-slate-950">Student ledger</h2>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500">{filtered.length}</span>
+              </div>
+              <p className="mt-0.5 text-xs text-slate-400">
+                {classFilter || 'All classes'}{statusFilter !== 'all' ? ` · ${pillLabel(statusFilter as any)}` : ''} · Current term
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              <span className="font-bold text-slate-700">Outstanding:</span> {currency} {outstanding.toLocaleString()}
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[980px] text-left text-sm">
+              <thead className="bg-slate-50/90 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3.5">Student</th>
+                  <th className="px-3 py-3.5">Class / Section</th>
+                  <th className="px-3 py-3.5 text-right">Due</th>
+                  <th className="px-3 py-3.5 text-right">Paid</th>
+                  <th className="px-3 py-3.5 text-right">Balance</th>
+                  <th className="px-3 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(s => {
+                  const v = byStudent.get(s.id) || { due: 0, paid: 0 };
+                  const bal = Math.max(0, v.due - v.paid);
+                  const st = getStatus(s);
+                  return (
+                    <tr key={s.id} className="border-t border-slate-100 transition-colors hover:bg-emerald-50/30">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 overflow-hidden rounded-xl bg-slate-100 shrink-0 flex items-center justify-center">
-                            {s.photoUrl ? <img src={s.photoUrl} className="h-full w-full object-cover" alt="" /> : <span className="text-xs font-black text-slate-400">{s.name.charAt(0)}</span>}
+                          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm">
+                            {s.photoUrl ? <img src={s.photoUrl} className="h-full w-full object-cover" alt="" /> : <span className="flex h-full w-full items-center justify-center text-sm font-black text-slate-400">{s.name.charAt(0)}</span>}
                           </div>
-                          <div>
-                            <div className="font-semibold leading-tight">{s.name}</div>
-                            <div className="text-xs text-slate-400">{s.admissionNo}</div>
+                          <div className="min-w-0">
+                            <div className="truncate font-bold text-slate-900">{s.name}</div>
+                            <div className="mt-0.5 text-[10px] font-medium text-slate-400">{s.admissionNo}</div>
                           </div>
                         </div>
                       </td>
-                      <td>
-                        <div className="text-sm">{s.className || 'Unassigned'}</div>
+                      <td className="px-3 py-3">
+                        <div className="max-w-[180px] text-xs font-semibold text-slate-700">{s.className || 'Unassigned'}</div>
                         <SectionBadge section={s.section} />
                       </td>
-                      <td className="text-right pr-3 font-mono tabular-nums text-slate-600">{v.due > 0 ? `${currency} ${v.due.toLocaleString()}` : '—'}</td>
-                      <td className="text-right pr-3 font-mono tabular-nums text-rose-600">{prior > 0 ? `${currency} ${prior.toLocaleString()}` : '—'}</td>
-                      <td className="text-right pr-3 font-mono tabular-nums text-emerald-700">{v.paid > 0 ? `${currency} ${v.paid.toLocaleString()}` : '—'}</td>
-                      <td className="text-right pr-3 font-mono tabular-nums font-bold text-rose-600">{totalBal > 0 ? `${currency} ${totalBal.toLocaleString()}` : '—'}</td>
-                      <td><span className={`pill ${pillCls(st)}`}>{pillLabel(st)}</span></td>
-                      <td className="pr-3">
-                        <div className="flex justify-end gap-1.5 flex-wrap">
-                          {st !== 'full' && totalBal > 0 && (
-                            <button onClick={() => markFullyPaid(s)} className="btn bg-emerald-600 text-white text-xs py-1.5 px-3 hover:bg-emerald-700">
-                              ✓ Mark Paid
-                            </button>
+                      <td className="px-3 py-3 text-right font-mono text-xs tabular-nums text-slate-600">{v.due > 0 ? `${currency} ${v.due.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-3 text-right font-mono text-xs font-bold tabular-nums text-emerald-700">{v.paid > 0 ? `${currency} ${v.paid.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-3 text-right font-mono text-xs font-bold tabular-nums text-rose-600">{bal > 0 ? `${currency} ${bal.toLocaleString()}` : '—'}</td>
+                      <td className="px-3 py-3"><span className={`pill ${pillCls(st)}`}>{pillLabel(st)}</span></td>
+                      <td className="px-4 py-3">
+                        <div className="flex justify-end gap-1.5">
+                          {st !== 'full' && bal > 0 && (
+                            <button onClick={() => markFullyPaid(s)} className="btn bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700">✓ Mark Paid</button>
                           )}
-                          <button onClick={() => openPay(s)} className="btn btn-primary text-xs py-1.5 px-3">
+                          <button onClick={() => openPay(s)} className="btn btn-primary px-3 py-1.5 text-xs font-bold">
                             {st === 'full' ? '+ Pay' : 'Pay'}
                           </button>
                           {hasPaid(s) && (
-                            <button onClick={() => printReceipt(s, termPayments.find((p: any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-emerald-50 text-emerald-800 border border-emerald-100 text-xs py-1.5 px-3">
+                            <button onClick={() => printReceipt(s, termPayments.find((p: any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="btn border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100">
                               Receipt
                             </button>
                           )}
                           {allPaymentsForStudent(s).length > 0 && (
-                            <button onClick={() => setHistoryTarget(s)} className="btn bg-slate-100 text-slate-700 text-xs py-1.5 px-3">
+                            <button onClick={() => setHistoryTarget(s)} className="btn bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200">
                               History
                             </button>
                           )}
-                          {invoiceTerm && <button onClick={() => printInvoice(s, invoiceTerm, structures, summary.fees, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn bg-amber-50 text-amber-800 border border-amber-100 text-xs py-1.5 px-3">
+                          {nextTerm && <button onClick={() => printInvoice(s, nextTerm, structures, bank, currency, schoolName, logoUrl, schoolAddress)} className="btn border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-800 hover:bg-amber-100">
                             Invoice
                           </button>}
                         </div>
@@ -573,7 +703,7 @@ export default function Fees() {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="p-10 text-center text-slate-400">No students match this selection.</td></tr>
+                  <tr><td colSpan={7} className="p-12 text-center text-sm text-slate-400">No students match this selection.</td></tr>
                 )}
               </tbody>
             </table>
@@ -768,24 +898,12 @@ export default function Fees() {
               <div className="text-[10px] font-black uppercase tracking-widest text-emerald-700">Record payment</div>
               <div className="mt-1 text-xl font-black">{payTarget.name}</div>
               <div className="text-xs text-slate-500">{payTarget.admissionNo} · {payTarget.className} · {payTarget.section}</div>
-              {(() => {
-                const v = byStudent.get(payTarget.id) || { due: 0, paid: 0 };
-                const currentBalance = Math.max(0, v.due - v.paid);
-                const priorBalance = priorByStudent.get(payTarget.id) || 0;
-                const totalBalance = currentBalance + priorBalance;
-                return (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <div className="rounded-xl bg-slate-50 border border-slate-200 p-2.5"><div className="text-[10px] font-bold uppercase text-slate-400">Current fee</div><div className="mt-0.5 text-sm font-black">{currency} {v.due.toLocaleString()}</div></div>
-                    <div className="rounded-xl bg-rose-50 border border-rose-100 p-2.5"><div className="text-[10px] font-bold uppercase text-rose-500">Previous balance</div><div className="mt-0.5 text-sm font-black text-rose-700">{currency} {priorBalance.toLocaleString()}</div></div>
-                    <div className="rounded-xl bg-amber-50 border border-amber-100 p-2.5"><div className="text-[10px] font-bold uppercase text-amber-600">Total outstanding</div><div className="mt-0.5 text-sm font-black text-amber-800">{currency} {totalBalance.toLocaleString()}</div></div>
-                  </div>
-                );
-              })()}
+              {(() => { const v = byStudent.get(payTarget.id) || { due: 0, paid: 0 }; const b = Math.max(0, v.due - v.paid); return b > 0 ? <div className="mt-1.5 inline-block rounded-lg bg-rose-50 px-2 py-1 text-sm font-bold text-rose-700">Balance: {currency} {b.toLocaleString()}</div> : null; })()}
             </div>
             <div className="space-y-3">
               <label className="block text-xs font-bold">
                 Amount ({currency})
-                <input className="input mt-1 w-full text-xl font-bold py-3" type="number" min="0" max={String(Math.max(0, (byStudent.get(payTarget.id)?.due || 0) - (byStudent.get(payTarget.id)?.paid || 0) + (priorByStudent.get(payTarget.id) || 0)))} value={payAmount} onChange={e => setPayAmount(e.target.value)} autoFocus placeholder="0" />
+                <input className="input mt-1 w-full text-xl font-bold py-3" type="number" min="0" value={payAmount} onChange={e => setPayAmount(e.target.value)} autoFocus placeholder="0" />
               </label>
               <label className="block text-xs font-bold">
                 Payment method
