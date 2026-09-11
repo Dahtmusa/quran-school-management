@@ -9,6 +9,13 @@ import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
 
 const TERM_LABELS = ['First Term', 'Second Term', 'Third Term'];
 
+// Supabase relation fields can be returned as either a single object or a one-item array.
+// Normalize both shapes so the Calendar page remains type-safe during Vercel builds.
+function academicYearName(value: any): string {
+  if (Array.isArray(value)) return value[0]?.name ?? '';
+  return value?.name ?? '';
+}
+
 type TermDates = { start: string; end: string; evals: { open: string; close: string }[] };
 type YearPlan = { yearName: string; yearStart: string; yearEnd: string; terms: TermDates[] };
 
@@ -267,7 +274,7 @@ export default function CalendarAdmin() {
           <option value="">Select active term…</option>
           {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <option key={t.id} value={t.id}>{academicYearName(t.academic_years)} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
         </select>
-        <span className="pill bg-emerald-50 text-emerald-700 self-center">Auto-advances by date</span>
+        <span className="pill bg-emerald-50 text-emerald-700 self-center">Manual term closure</span>
       </div>
     </section>}
 
