@@ -46,10 +46,9 @@ export async function loadParentStudents(): Promise<Student[]> {
   return (data as any[]).map((r:any)=>{const st=r.students;return {id:st.id,admissionNo:st.admission_no,name:st.full_name,studentIdNumber:st.student_id_number??null,idExpiresOn:st.id_expires_on??null,section:st.section==='boarding'?'Boarding':'Day',year:mapYear(st.program_year),attendance:0,fees:0,teacher:'',start:{surah:st.start_surah??114,ayah:st.start_ayah??1},current:{surah:st.current_surah??st.start_surah??114,ayah:st.current_ayah??st.start_ayah??1},direction:mapDirection(st.memorization_direction),className:st.classes?.name??null,photoUrl:st.photo_url??null} satisfies Student});
 }
 
-export async function loadEvaluations(): Promise<Evaluation[]> {
-  const db = supabase();
-  const { data, error } = await db.from('evaluations').select('*, students:student_id(full_name,admission_no,photo_url,class_id,section,memorization_direction,current_page,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('submitted_at',{ascending:false}).limit(10000);
-  if (error || !data) return [];
+const evaluationSelect = '*, students:student_id(full_name,admission_no,photo_url,class_id,section,memorization_direction,current_page,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)';
+
+function mapEvaluations(data: any[]): Evaluation[] {
   return data.map((e:any) => ({
     id:e.id, studentId:e.student_id, student:e.students?.full_name ?? 'Student',
     admissionNo:e.students?.admission_no ?? '', photoUrl:e.students?.photo_url ?? null,
@@ -66,6 +65,31 @@ export async function loadEvaluations(): Promise<Evaluation[]> {
     tajweed:Math.max(1,Math.min(5,Math.round(Number(e.tajweed_score??3)))) as 1|2|3|4|5, retention:Math.max(1,Math.min(5,Math.round(Number(e.retention_score??3)))) as 1|2|3|4|5,
     score:Number(e.score??0), grade:e.grade??null, comment:e.teacher_comment??''
   }));
+}
+
+export async function loadEvaluations(): Promise<Evaluation[]> {
+  const db = supabase();
+  const profile = await getCurrentProfile();
+  let query = db.from('evaluations').select(evaluationSelect).order('submitted_at',{ascending:false});
+
+  // Parents must never download the entire evaluation table. Scope the query to
+  // their linked children first; this also keeps /reports and /parent fast.
+  if (profile?.role === 'parent') {
+    const { data: links, error: linksError } = await db.from('parent_students').select('student_id');
+    if (linksError) {
+      console.error('Parent student links load failed:', linksError);
+      return [];
+    }
+    const studentIds = (links ?? []).map((row:any) => row.student_id).filter(Boolean);
+    if (!studentIds.length) return [];
+    query = query.in('student_id', studentIds);
+  } else {
+    query = query.limit(10000);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return mapEvaluations(data as any[]);
 }
 
 export async function loadAdmissions() {
@@ -362,7 +386,7 @@ export async function loadEvaluationCampaigns() {
 }
 
 export async function createEvaluationCampaign(input:{termId:string;evaluationNumber:1|2|3;title:string;opensAt:string;closesAt:string;classIds:string[]}) {
-  const { data,error } = await supabase().rpc('create_evaluation_campaign_window',{p_term_id:input.termId,p_evaluation_number:input.evaluationNumber,p_title:input.title,p_opens_at:new Date(input.opensAt).toISOString(),p_closes_at:new Date(input.closesAt).toISOString(),p_class_ids:input.classIds});
+  const { data,error } = await supabase().rpc('create_evaluation_campaign_window',{p_term_id:input.termId,p_title:input.title,p_evaluation_number:input.evaluationNumber,p_opens_at:new Date(input.opensAt).toISOString(),p_closes_at:new Date(input.closesAt).toISOString(),p_class_ids:input.classIds});
   if(error) throw error; return data as string;
 }
 
@@ -454,15 +478,13 @@ type EvalMetrics = { ayahs: number; pages: number; hizbs: number; score: number;
 export type HistoricalEvalEntry = {
   studentId: string;
   startSurah: number; startAyah: number;
-  // eval1_eval2 mode
   eval1Surah?: number; eval1Ayah?: number;
   eval2Surah?: number; eval2Ayah?: number;
   eval1?: EvalMetrics;
   eval2?: EvalMetrics;
-  // eval3 mode
   eval3Surah?: number; eval3Ayah?: number;
   eval3?: EvalMetrics;
-  direction?: string; // sets student's official memorization direction on import
+  direction?: string;
 };
 
 export async function bulkImportHistoricalEvals(
@@ -565,9 +587,9 @@ export async function teacherSubmitHistoricalEval3(p: {
     p_student_id:  p.studentId,
     p_term_id:     p.termId,
     p_start_surah: p.startSurah,
-    p_start_ayah:  p.startAyah,
+    p_start_ayah: p.startAyah,
     p_end_surah:   p.endSurah,
-    p_end_ayah:    p.endAyah,
+    p_end_ayah:   p.endAyah,
     p_score:       p.score,
     p_rubric:      p.rubric,
     p_grade:       p.grade,
