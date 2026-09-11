@@ -470,7 +470,26 @@ export async function loadAdmissionApplications(){
 export async function updateAdmissionApplication(id:string,input:any){const {error}=await supabase().from('admissions').update(input).eq('id',id);if(error)throw error;}
 export async function enrollAdmissionApplication(id:string,classId:string|null,startSurah:number|null,startAyah:number|null,score:number|null,notes:string){const {data,error}=await supabase().rpc('enroll_admission_application',{p_application_id:id,p_class_id:classId||null,p_starting_surah:startSurah,p_starting_ayah:startAyah,p_screening_score:score,p_screening_notes:notes||null});if(error)throw error;return data;}
 export async function loadSchoolCalendar(){const {data,error}=await supabase().from('school_calendar_events').select('*').order('starts_on');return error||!data?[]:data;}
-export async function saveSchoolCalendarEvent(input:any){const user=await getCurrentUser();const {data,error}=await supabase().from('school_calendar_events').insert({...input,created_by:user?.id||null}).select().single();if(error)throw error;return data;}
+export async function saveSchoolCalendarEvent(input:any){
+ const client=supabase(); const user=await getCurrentUser();
+ let query=client.from('school_calendar_events').select('id').eq('event_type',input.event_type);
+ if(input.event_type==='evaluation_1'||input.event_type==='evaluation_2'||input.event_type==='evaluation_3'){
+   if(input.term_id) query=query.eq('term_id',input.term_id).eq('evaluation_number',input.evaluation_number);
+   else query=query.eq('title',input.title);
+ } else if(input.event_type==='school_opening'||input.event_type==='school_closing'){
+   query=query.eq('title',input.title);
+ } else {
+   query=query.eq('title',input.title);
+ }
+ const {data:existing,error:findError}=await query.order('created_at',{ascending:true}).limit(1);
+ if(findError) throw findError;
+ if(existing?.[0]?.id){
+   const {data,error}=await client.from('school_calendar_events').update({...input,updated_at:new Date().toISOString()}).eq('id',existing[0].id).select().single();
+   if(error) throw error; return data;
+ }
+ const {data,error}=await client.from('school_calendar_events').insert({...input,created_by:user?.id||null}).select().single();
+ if(error) throw error; return data;
+}
 export async function deleteSchoolCalendarEvent(id:string){const {error}=await supabase().from('school_calendar_events').delete().eq('id',id);if(error)throw error;}
 export async function pushEvaluationToTeacher(id:string){const {error}=await supabase().rpc('push_evaluation_to_teacher',{p_evaluation_id:id});if(error)throw error;}
 
