@@ -132,8 +132,8 @@ function bulkPrintReceipts(students: Student[], payments: any[], bank: any, curr
 }
 
 function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '', fees: any[] = []) {
-  const nextTerm = findNextTerm(currentTerm, terms);
-  if (!nextTerm) { alert('Could not determine next term. Set up terms in school calendar first.'); return; }
+  const nextTerm = currentTerm;
+  if (!nextTerm) { alert('Please select an academic term first.'); return; }
   const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
   const accent = '#062d2a';
   const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
@@ -149,7 +149,7 @@ function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], 
     const invoiceNo = `INV-${String(s.admissionNo||'').toUpperCase()}-T${nextTerm.term_number||''}`;
     return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Total Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div><table><tr><td>Balance brought forward</td><td>${currency} ${openingBalance.toLocaleString()}</td></tr><tr><td>Current term fees</td><td>${currency} ${feeAmount.toLocaleString()}</td></tr><tr><td><b>Total payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr></table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG')}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td><b>${bank.account_number||'—'}</b></td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
   }).filter(Boolean);
-  if (!pages.length) { w.close(); alert('No fee structures configured for the next term yet.'); return; }
+  if (!pages.length) { w.close(); alert('No fee structures configured for the selected term yet.'); return; }
   w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;font-size:11px;color:#166534;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
 }
@@ -291,7 +291,7 @@ export default function Fees() {
 
   const classNames = useMemo(() => [...new Set(students.map(s => s.className || 'Unassigned'))].sort(), [students]);
   const byClass = useMemo(() => classFilter ? students.filter(s => (s.className || 'Unassigned') === classFilter) : students, [students, classFilter]);
-  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudentAccount]);
+  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter]);
   const ledgerStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return filtered;
@@ -408,8 +408,8 @@ export default function Fees() {
   function clearSelection() { setSelectedIds(new Set()); }
 
   async function generateBulkInvoices(studentsToGenerate: Student[], thenPrint = false) {
-    const targetTerm = nextTerm;
-    if (!targetTerm) { alert('Could not determine the next term. Set up the school calendar first.'); return; }
+    const targetTerm = currentTerm;
+    if (!targetTerm) { alert('Please select an academic term first.'); return; }
     if (!studentsToGenerate.length) { alert('Select at least one student first.'); return; }
     setGeneratingInvoices(true);
     try {
@@ -501,16 +501,6 @@ export default function Fees() {
     } catch (e: any) { setMessage(e?.message || 'Delete failed: ' + e?.message); }
   }
 
-  function openFeeConfiguration() {
-    setShowFeeConfig(true);
-    setTimeout(() => document.getElementById('fee-configuration')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-  }
-
-  function openBankConfiguration() {
-    setShowBankConfig(true);
-    setTimeout(() => document.getElementById('bank-configuration')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
-  }
-
   const pillCls = (st: ReturnType<typeof getStatus>) =>
     st === 'full' ? 'bg-emerald-50 text-emerald-700' : st === 'partial' ? 'bg-amber-50 text-amber-700' : st === 'unpaid' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-400';
   const pillLabel = (st: ReturnType<typeof getStatus>) =>
@@ -536,7 +526,7 @@ export default function Fees() {
                 <option value="">All classes</option>
                 {classNames.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button type="button" className="h-11 rounded-xl bg-emerald-500 px-5 text-sm font-black text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-400" onClick={() => filtered[0] ? openPay(filtered[0]) : setMessage('Select a term and make sure students are loaded first.')} >＋ Record Payment</button>
+              <button className="h-11 rounded-xl bg-emerald-500 px-5 text-sm font-black text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-400" onClick={() => filtered[0] && openPay(filtered[0])}>＋ Record Payment</button>
             </div>
           </div>
 
@@ -581,12 +571,12 @@ export default function Fees() {
             <section className="rounded-2xl border border-slate-800 bg-[#092638] p-5">
               <h2 className="font-black text-white">Quick Actions</h2><p className="mb-4 text-xs text-slate-500">Common finance operations</p>
               <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043]" onClick={() => filtered[0] ? openPay(filtered[0]) : setMessage('Select a term and make sure students are loaded first.')}>＋ Record Payment</button>
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043]" onClick={openFeeConfiguration}>▤ Fee Structures</button>
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043] disabled:cursor-not-allowed disabled:opacity-40" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, false)} disabled={generatingInvoices || !currentTerm}>↻ Sync / Generate Invoices</button>
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043] disabled:cursor-not-allowed disabled:opacity-40" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, true)} disabled={generatingInvoices || !currentTerm}>▣ Bulk Invoices</button>
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043] disabled:cursor-not-allowed disabled:opacity-40" onClick={() => bulkPrintInvoices(classFilter ? byClass : selectedStudents, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!currentTerm || (!classFilter && !selectedStudents.length)}>▤ Print Invoices (Bulk)</button>
-                <button type="button" className="quick flex w-full cursor-pointer items-center rounded-xl border border-slate-700 bg-[#061b27] px-4 py-3 text-left text-sm font-bold text-slate-200 transition hover:border-emerald-400/50 hover:bg-[#0b3043] disabled:cursor-not-allowed disabled:opacity-40" onClick={() => bulkPrintReceipts(classFilter ? byClass.filter(hasPaid) : selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!(classFilter ? byClass.some(hasPaid) : selectedPaidStudents.length)}>▤ Bulk Receipts</button>
+                <button className="quick" onClick={() => filtered[0] && openPay(filtered[0])}>＋ Record Payment</button>
+                <button className="quick" onClick={() => setShowFeeConfig(true)}>▤ Fee Structures</button>
+                <button className="quick" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, false)} disabled={generatingInvoices || !currentTerm}>↻ Sync / Generate Invoices</button>
+                <button className="quick" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, true)} disabled={generatingInvoices || !currentTerm}>▣ Bulk Invoices</button>
+                <button className="quick" onClick={() => bulkPrintInvoices(classFilter ? byClass : selectedStudents, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!currentTerm || (!classFilter && !selectedStudents.length)}>▤ Print Invoices (Bulk)</button>
+                <button className="quick" onClick={() => bulkPrintReceipts(classFilter ? byClass.filter(hasPaid) : selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!(classFilter ? byClass.some(hasPaid) : selectedPaidStudents.length)}>▤ Bulk Receipts</button>
               </div>
             </section>
           </div>
@@ -632,7 +622,7 @@ export default function Fees() {
                 <button onClick={() => generateBulkInvoices(selectedStudents, false)} disabled={!selectedStudents.length || generatingInvoices} className="rounded-lg border border-slate-700 px-3 py-2 text-[10px] font-black text-slate-200 disabled:opacity-40">▣ Generate Invoices (Bulk)</button>
                 <button onClick={() => generateBulkInvoices(selectedStudents, true)} disabled={!selectedStudents.length || generatingInvoices} className="rounded-lg bg-amber-400 px-3 py-2 text-[10px] font-black text-slate-950 disabled:opacity-40">▤ Print Invoices (Bulk)</button>
                 <button onClick={() => bulkPrintReceipts(selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!selectedPaidStudents.length} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black text-emerald-300 disabled:opacity-40">▤ Bulk Receipts</button>
-                <button onClick={() => classFilter && bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!classFilter || !nextTerm} className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-black text-blue-300 disabled:opacity-40">▤ Bulk Class Invoices</button>
+                <button onClick={() => classFilter && bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!classFilter || !currentTerm} className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-[10px] font-black text-blue-300 disabled:opacity-40">▤ Bulk Class Invoices</button>
                 <button onClick={() => classFilter && bulkPrintReceipts(byClass.filter(hasPaid), summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!classFilter || !byClass.some(hasPaid)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black text-emerald-300 disabled:opacity-40">▤ Bulk Class Receipts</button>
                 <button onClick={clearSelection} disabled={!selectedIds.size} className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-black text-slate-400 disabled:opacity-40">Clear</button>
               </div>
@@ -640,8 +630,8 @@ export default function Fees() {
           </section>
 
           {/* Fee configuration */}
-          <section id="fee-configuration" className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638] shadow-xl">
-            <button type="button" className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowFeeConfig(x => !x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Finance setup</div><div className="mt-1 text-lg font-black text-white">Fee Configuration</div><div className="mt-1 text-xs text-slate-500">Configure day and boarding fees by academic year and term, with clear due dates.</div></div><span className="text-slate-400">{showFeeConfig ? '▲' : '▼'}</span></button>
+          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638] shadow-xl">
+            <button className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowFeeConfig(x => !x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Finance setup</div><div className="mt-1 text-lg font-black text-white">Fee Configuration</div><div className="mt-1 text-xs text-slate-500">Configure day and boarding fees by academic year and term, with clear due dates.</div></div><span className="text-slate-400">{showFeeConfig ? '▲' : '▼'}</span></button>
             {showFeeConfig && <div className="border-t border-slate-800 p-5">
               <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_1fr_1fr_1fr_auto]">
                 <select className="input bg-[#061b27] text-white" value={feeForm.academicYearId} onChange={e => setFeeForm(f=>({...f,academicYearId:e.target.value,termId:''}))}><option value="">Academic year</option>{years.map(y=><option key={y.id} value={y.id}>{y.name}{y.is_current?' (current)':''}</option>)}</select>
@@ -657,8 +647,8 @@ export default function Fees() {
           </section>
 
           {/* Bank configuration */}
-          <section id="bank-configuration" className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638]">
-            <button type="button" className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowBankConfig(x=>!x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Payment setup</div><div className="mt-1 font-black text-white">School Bank Account</div><div className="mt-1 text-xs text-slate-500">Shown on parent invoices and receipts.</div></div><span className="text-slate-500">{showBankConfig?'▲':'▼'}</span></button>
+          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638]">
+            <button className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowBankConfig(x=>!x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Payment setup</div><div className="mt-1 font-black text-white">School Bank Account</div><div className="mt-1 text-xs text-slate-500">Shown on parent invoices and receipts.</div></div><span className="text-slate-500">{showBankConfig?'▲':'▼'}</span></button>
             {showBankConfig&&<div className="border-t border-slate-800 p-5"><div className="grid gap-3 md:grid-cols-2"><input className="input bg-[#061b27] text-white" placeholder="Bank name" value={bank.bank_name||''} onChange={e=>setBank({...bank,bank_name:e.target.value})}/><input className="input bg-[#061b27] text-white" placeholder="Account name" value={bank.account_name||''} onChange={e=>setBank({...bank,account_name:e.target.value})}/><input className="input bg-[#061b27] font-mono text-white" placeholder="Account number" value={bank.account_number||''} onChange={e=>setBank({...bank,account_number:e.target.value})}/><input className="input bg-[#061b27] text-white" placeholder="Payment reference instruction" value={bank.reference_instruction||''} onChange={e=>setBank({...bank,reference_instruction:e.target.value})}/></div><button className="mt-4 rounded-xl bg-emerald-500 px-5 py-3 text-xs font-black text-white" disabled={busy} onClick={saveBank}>{busy?'Saving…':'Save bank details'}</button></div>}
           </section>
         </div>
