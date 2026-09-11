@@ -5,7 +5,7 @@ import { loadStudents, loadCurrentAcademicTerm } from '@/lib/live-store';
 import { createFeeStructure, updateFeeStructure, deleteFeeStructure, loadFeeStructures, loadFinanceSummary, recordPayment, voidPayment, syncStudentFeeAllocations } from '@/lib/admin-management-store';
 import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
 
 const tLabel = (t: any) => t?.term_number === 1 ? 'First Term' : t?.term_number === 2 ? 'Second Term' : t?.term_number === 3 ? 'Third Term' : t?.name || 'Term';
@@ -138,6 +138,12 @@ export default function Fees() {
   const [bank, setBank] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const refreshSeq = useRef(0);
+  const mountedRef = useRef(true);
+  const syncedTermsRef = useRef<Set<string>>(new Set());
+  const realtimeRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [payTarget, setPayTarget] = useState<Student | null>(null);
   const [payAmount, setPayAmount] = useState('');
@@ -154,33 +160,81 @@ export default function Fees() {
   const [feeForm, setFeeForm] = useState({ academicYearId: '', termId: '', dayAmount: '', boardingAmount: '', dueDate: '' });
 
   async function refresh() {
-    const [s, fs, sm, cms, cur, y, t, siteMeta] = await Promise.all([
-      loadStudents(), loadFeeStructures(), loadFinanceSummary(), loadCMSSettings(), loadCurrentAcademicTerm(),
-      createClient().from('academic_years').select('id,name,is_current').order('starts_on', { ascending: false }).then(r => r.data || []),
-      createClient().from('terms').select('id,name,term_number,academic_year_id,starts_on,ends_on,academic_years:academic_year_id(name,is_current)').order('starts_on', { ascending: false }).then(r => r.data || []),
-      createClient().from('site_settings').select('key,value').then(r => r.data || []),
-    ]);
-    setStudents(s); setStructures(fs || []); setSummary(sm);
-    setBank(cms.school_payment || {});
-    setYears(y); setTerms(t);
-    const meta: any = {};
-    for (const r of siteMeta) meta[r.key] = r.value;
-    setCurrency(meta.currency?.symbol || meta.currency?.code || '₦');
-    setSchoolName(meta.school_name?.value || cms.school_name?.value || 'AMQM');
-    setLogoUrl(meta.logo_url?.value || '');
-    setSchoolAddress(meta.contact?.address || '');
-    if (!selectedTermId && cur?.term_id) setSelectedTermId(cur.term_id);
+    const requestId = ++refreshSeq.current;
+    if (mountedRef.current) setRefreshing(true);
+    try {
+      const [s, fs, sm, cms, cur, y, t, siteMeta] = await Promise.all([
+        loadStudents(), loadFeeStructures(), loadFinanceSummary(), loadCMSSettings(), loadCurrentAcademicTerm(),
+        createClient().from('academic_years').select('id,name,is_current').order('starts_on', { ascending: false }).then(r => { if (r.error) throw r.error; return r.data || []; }),
+        createClient().from('terms').select('id,name,term_number,academic_year_id,starts_on,ends_on,academic_years:academic_year_id(name,is_current)').order('starts_on', { ascending: false }).then(r => { if (r.error) throw r.error; return r.data || []; }),
+        createClient().from('site_settings').select('key,value').then(r => { if (r.error) throw r.error; return r.data || []; }),
+      ]);
+
+      // Ignore late results from an older refresh. This prevents an earlier request
+      // from overwriting newer finance data with a transient/empty response.
+      if (!mountedRef.current || requestId !== refreshSeq.current) return;
+
+      setStudents(s || []);
+      setStructures(fs || []);
+      setSummary(sm || { fees: [], payments: [] });
+      setBank(cms.school_payment || {});
+      setYears(y || []);
+      setTerms(t || []);
+      const meta: any = {};
+      for (const r of siteMeta || []) meta[r.key] = r.value;
+      setCurrency(meta.currency?.symbol || meta.currency?.code || '₦');
+      setSchoolName(meta.school_name?.value || cms.school_name?.value || 'AMQM');
+      setLogoUrl(meta.logo_url?.value || '');
+      setSchoolAddress(meta.contact?.address || '');
+      // Preserve a user-selected term during background refreshes; only use the
+      // current academic term as the initial default.
+      setSelectedTermId(prev => prev || cur?.term_id || '');
+    } catch (e: any) {
+      if (mountedRef.current) setMessage(e?.message || 'Unable to refresh finance data. Existing data was kept.');
+    } finally {
+      if (mountedRef.current && requestId === refreshSeq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
   }
 
-  useEffect(() => { refresh(); }, []);
   useEffect(() => {
-    const ch = createClient().channel('amqm-fees-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => refresh())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, () => refresh())
-      .subscribe();
-    return () => { createClient().removeChannel(ch); };
+    mountedRef.current = true;
+    refresh();
+    return () => {
+      mountedRef.current = false;
+      if (realtimeRefreshTimer.current) clearTimeout(realtimeRefreshTimer.current);
+    };
   }, []);
-  useEffect(() => { if (selectedTermId) syncStudentFeeAllocations(selectedTermId).then(() => refresh()).catch(() => {}); }, [selectedTermId]);
+
+  useEffect(() => {
+    // Payments are safe to refresh from realtime, but student_fees must NOT be
+    // subscribed here: syncing allocations writes many rows and previously
+    // caused a refresh storm (and visible zero/real-value blinking).
+    const scheduleRealtimeRefresh = () => {
+      if (realtimeRefreshTimer.current) clearTimeout(realtimeRefreshTimer.current);
+      realtimeRefreshTimer.current = setTimeout(() => { refresh(); }, 350);
+    };
+    const ch = createClient().channel('amqm-fees-rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, scheduleRealtimeRefresh)
+      .subscribe();
+    return () => {
+      if (realtimeRefreshTimer.current) clearTimeout(realtimeRefreshTimer.current);
+      createClient().removeChannel(ch);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedTermId || loading || syncedTermsRef.current.has(selectedTermId)) return;
+    syncedTermsRef.current.add(selectedTermId);
+    syncStudentFeeAllocations(selectedTermId)
+      .then(() => refresh())
+      .catch((e: any) => {
+        syncedTermsRef.current.delete(selectedTermId);
+        setMessage(e?.message || 'Unable to synchronize student fee allocations.');
+      });
+  }, [selectedTermId, loading]);
 
   const currentTerm = useMemo(() => terms.find(t => t.id === selectedTermId) || null, [terms, selectedTermId]);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
@@ -352,7 +406,7 @@ export default function Fees() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 shadow-sm">
-              {currentTerm ? `${currentTerm.academic_years?.name || ''} · ${tLabel(currentTerm)}` : 'No active term'}
+              {loading ? 'Loading finance data…' : currentTerm ? `${currentTerm.academic_years?.name || ''} · ${tLabel(currentTerm)}` : 'No active term'}
             </div>
             {nextTerm && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
@@ -404,13 +458,13 @@ export default function Fees() {
           </div>
         </section>
 
-        {selectedTermId && termFees.length === 0 && structures.length > 0 && (
+        {!loading && selectedTermId && termFees.length === 0 && structures.length > 0 && (
           <div className="flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-sm">
             <span className="mt-0.5 text-base">⚠</span>
             <div><b>No fees configured for this term.</b> Existing fee structures do not match the selected term. Review and configure fees below.</div>
           </div>
         )}
-        {selectedTermId && structures.length === 0 && (
+        {!loading && selectedTermId && structures.length === 0 && (
           <div className="flex gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 shadow-sm">
             <span className="mt-0.5">ⓘ</span>
             <div>No fee structures have been set up yet. Configure day and boarding fees in <b>Fee structures</b> below.</div>
