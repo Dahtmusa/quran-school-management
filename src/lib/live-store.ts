@@ -95,7 +95,9 @@ export async function loadEvaluations(): Promise<Evaluation[]> {
     if (!studentIds.length) return [];
     query = query.in('student_id', studentIds);
   } else {
-    query = query.limit(10000);
+    const { data: currentTerm } = await db.from('terms').select('id').eq('is_current', true).order('starts_on', { ascending: false }).limit(1).maybeSingle();
+    if (currentTerm?.id) query = query.eq('term_id', currentTerm.id);
+    query = query.limit(1000);
   }
 
   const { data, error } = await query;
@@ -214,7 +216,8 @@ export async function updateClass(id: string, input: {
 }
 
 export async function deleteClass(id: string) {
-  const { error } = await supabase().from('classes').delete().eq('id', id);
+  const user = await getCurrentUser();
+  const { error } = await supabase().from('classes').update({active:false, archived_at:new Date().toISOString(), archived_by:user?.id || null}).eq('id', id);
   if (error) throw error;
 }
 
@@ -372,7 +375,7 @@ export async function getUnassignedStudents() {
 }
 
 export async function loadTeacherEvaluations() {
-  const { data, error } = await supabase().from('evaluations').select('*,students:student_id(full_name,admission_no,photo_url,section,program_year,current_surah,current_ayah,current_page,current_hizb,memorization_direction),terms:term_id(name,term_number),evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)').order('teacher_visible_at',{ascending:false}).limit(10000);
+  const { data, error } = await supabase().rpc('amqm_teacher_operational_evaluations');
   if (error || !data) return [];
   return data;
 }
@@ -424,6 +427,31 @@ export async function closeTermAndStartNext(termId:string,notes?:string) {
 export async function runCalendarAutomation() {
   const { data,error } = await supabase().rpc('amqm_process_calendar_automation');
   if(error) throw error; return data;
+}
+
+
+export async function loadHistoricalBaselineReadiness() {
+  const { data, error } = await supabase().rpc('amqm_historical_baseline_readiness');
+  if (error) throw error;
+  return data as any;
+}
+
+export async function captureHistoricalBaseline() {
+  const { data, error } = await supabase().rpc('amqm_capture_historical_baseline');
+  if (error) throw error;
+  return data as any;
+}
+
+export async function closeHistoricalFirstTermStartSecond(notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_close_historical_first_term_start_second', { p_notes: notes || null });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function loadAdminDashboardSnapshot() {
+  const { data, error } = await supabase().rpc('amqm_admin_dashboard_snapshot');
+  if (error) throw error;
+  return data as any;
 }
 
 export async function loadTermCompletions() {

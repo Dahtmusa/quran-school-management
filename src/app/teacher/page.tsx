@@ -7,6 +7,7 @@ import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadP
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
+import { recordTeacherBoardingAttendance } from '@/lib/attendance-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string; };
@@ -36,6 +37,7 @@ export default function TeacherDashboard() {
   const [mySig, setMySig] = useState<any|null>(null);
   const [sigBusy, setSigBusy] = useState(false);
   const [sigMsg, setSigMsg] = useState('');
+  const [attendanceBusy, setAttendanceBusy] = useState(false);
   const sigPadRef = useRef<SignaturePadRef|null>(null);
 
   /* ── Historical records section ── */
@@ -797,6 +799,7 @@ export default function TeacherDashboard() {
             <h2 className="mt-0.5 text-2xl font-black">{selected.name}</h2>
             <div className="mt-1 flex flex-wrap gap-2"><SectionBadge section={selected.section}/><MemorizationBadge direction={selected.direction}/><span className="pill bg-slate-100 text-slate-600">{selected.year}</span></div>
             <div className="mt-1 text-xs text-slate-500">{selected.className || '—'}</div>
+            {selected.section === 'Boarding' && <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Boarding attendance</span><button className="btn bg-emerald-50 text-emerald-800" disabled={attendanceBusy} onClick={async()=>{setAttendanceBusy(true);try{await recordTeacherBoardingAttendance(selected.id,'present');setMessage(`${selected.name} attendance recorded.`)}catch(e:any){setMessage(e?.message||'Attendance could not be recorded.')}finally{setAttendanceBusy(false)}}}>{attendanceBusy?'Saving…':'Mark Present'}</button><button className="btn bg-amber-50 text-amber-800" disabled={attendanceBusy} onClick={async()=>{setAttendanceBusy(true);try{await recordTeacherBoardingAttendance(selected.id,'late');setMessage(`${selected.name} marked late.`)}catch(e:any){setMessage(e?.message||'Attendance could not be recorded.')}finally{setAttendanceBusy(false)}}}>Late</button><button className="btn bg-rose-50 text-rose-800" disabled={attendanceBusy} onClick={async()=>{setAttendanceBusy(true);try{await recordTeacherBoardingAttendance(selected.id,'absent');setMessage(`${selected.name} marked absent.`)}catch(e:any){setMessage(e?.message||'Attendance could not be recorded.')}finally{setAttendanceBusy(false)}}}>Absent</button></div>}
           </div>
           <button onClick={() => setSelected(null)} className="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200">✕</button>
         </div>

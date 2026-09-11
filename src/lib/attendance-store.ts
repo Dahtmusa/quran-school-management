@@ -226,3 +226,9 @@ export async function loadChildAttendance(studentId: string, limit = 60): Promis
     };
   });
 }
+
+
+export async function recordTeacherBoardingAttendance(studentId:string,statusCode:string='present',period:string='morning',note?:string){
+  const {data,error}=await supabase().rpc('teacher_record_boarding_attendance',{p_student_id:studentId,p_status_code:statusCode,p_period:period,p_note:note||null});
+  if(error) throw error; return data as string;
+}

@@ -6,6 +6,7 @@ import {
   loadCMSSections,
   loadCMSSettings,
   loadPublicAlumni,
+  loadPublicNewsPosts,
   loadPublicHomepageMedia,
   loadPublicTeam,
   loadPublicTeachers,
@@ -47,6 +48,7 @@ export default function Home() {
   const [teachers, setTeachers] = useState<any[]>([]);
   const [alumni, setAlumni] = useState<any[]>([]);
   const [media, setMedia] = useState<any[]>([]);
+  const [newsPosts, setNewsPosts] = useState<any[]>([]);
   const [mobileNav, setMobileNav] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -59,10 +61,11 @@ export default function Home() {
       loadPublicAlumni(),
       loadPublicHomepageMedia(),
       loadPublicTeachers(),
+      loadPublicNewsPosts(6),
     ])
-      .then(([s, st, t, a, md, tc]) => {
+      .then(([s, st, t, a, md, tc, np]) => {
         if (!mounted) return;
-        setSections(s); setSettings(st); setTeam(t); setAlumni(a); setMedia(md); setTeachers(tc);
+        setSections(s); setSettings(st); setTeam(t); setAlumni(a); setMedia(md); setTeachers(tc); setNewsPosts(np);
         setLoading(false);
       })
       .catch(() => mounted && setLoading(false));
@@ -78,7 +81,7 @@ export default function Home() {
   const programme = m.programme?.content || {};
   const values = m.values?.content?.items || [];
   const campuses = m.campuses?.content?.items || [];
-  const news = m.news?.content?.items || [];
+  const news = newsPosts;
   const footer = m.footer?.content || {};
   const nav = settings.nav?.links?.length ? settings.nav.links : defaultNav;
   const contact = settings.contact || {};
@@ -255,7 +258,7 @@ export default function Home() {
           <div className="grid overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.08)] sm:grid-cols-2 lg:grid-cols-6">
             {features.slice(0, 6).map((x: any, i: number) => (
               <div key={i} className="border-b border-slate-100 p-5 text-center transition hover:-translate-y-1 hover:bg-emerald-50/50 lg:border-b-0 lg:border-l lg:first:border-l-0">
-                <Icon name={x.icon} /><h3 className="mt-3 text-sm font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{x.text}</p>
+                <Icon name={x.icon} /><h3 className="mt-3 text-sm font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{x.excerpt}</p>
               </div>
             ))}
           </div>
@@ -306,7 +309,7 @@ export default function Home() {
               { icon: 'chart', title: 'Regular Evaluations', text: 'Three formal evaluations per term to measure progress and award grades.' },
               { icon: 'star', title: 'Graduation', text: 'Students who complete the programme receive a formal Ijazah certificate.' },
             ]).slice(0, 4).map((x: any, i: number) => (
-              <article className="card p-6 transition hover:-translate-y-1 hover:shadow-lg" key={i}><Icon name={x.icon}/><h3 className="mt-4 font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.text}</p></article>
+              <article className="card p-6 transition hover:-translate-y-1 hover:shadow-lg" key={i}><Icon name={x.icon}/><h3 className="mt-4 font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.excerpt}</p></article>
             ))}
           </div>
         </div>
@@ -343,10 +346,10 @@ export default function Home() {
           ]).slice(0, 4).map((x: any, i: number) => (
             <article key={i} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm">
               <div className="relative h-52 bg-emerald-950">
-                {x.image ? <img src={x.image} alt={x.image_alt || x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="absolute inset-0 hero-art"/>}
+                {x.image_url ? <img src={x.image_url} alt={x.image_url_alt || x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="absolute inset-0 hero-art"/>}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 to-transparent p-4 pt-12 text-white"><h3 className="font-black">{x.title}</h3></div>
               </div>
-              <div className="p-5"><p className="text-sm leading-6 text-slate-600">{x.text}</p></div>
+              <div className="p-5"><p className="text-sm leading-6 text-slate-600">{x.excerpt}</p></div>
             </article>
           ))}
         </div>
@@ -434,9 +437,9 @@ export default function Home() {
             {news.slice(0, 3).map((x: any, i: number) => (
               <article key={i} className="group overflow-hidden rounded-[1.5rem] border bg-white shadow-sm">
                 <div className="h-48 overflow-hidden bg-emerald-950">
-                  {x.image ? <img src={x.image} alt={x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="flex h-full items-center justify-center text-4xl text-amber-300">✦</div>}
+                  {x.image_url ? <img src={x.image_url} alt={x.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/> : <div className="flex h-full items-center justify-center text-4xl text-amber-300">✦</div>}
                 </div>
-                <div className="p-6"><div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{x.date}</div><h3 className="mt-2 font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.text}</p></div>
+                <div className="p-6"><div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{x.published_on}</div><h3 className="mt-2 font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{x.excerpt}</p></div>
               </article>
             ))}
           </div>

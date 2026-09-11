@@ -45,6 +45,28 @@ export async function saveCMSSetting(key: string, value: any) {
   if (error) throw error;
 }
 
+
+export async function loadPublicNewsPosts(limit = 20) {
+  const { data, error } = await db().from('news_posts').select('id,title,category,excerpt,content,image_url,published_on,published,featured,homepage,display_order').eq('published', true).order('featured',{ascending:false}).order('published_on',{ascending:false}).order('display_order').limit(limit);
+  return error || !data ? [] : data;
+}
+
+export async function loadAdminNewsPosts() {
+  const { data, error } = await db().from('news_posts').select('*').order('published_on',{ascending:false}).order('display_order');
+  return error || !data ? [] : data;
+}
+
+export async function saveNewsPost(post: any) {
+  const { data, error } = await db().from('news_posts').upsert({...post, updated_at:new Date().toISOString()}).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteNewsPost(id: string) {
+  const { error } = await db().from('news_posts').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function loadPublicTeam() {
   const { data, error } = await db().from('public_team_profiles').select('id,full_name,role_title,category,photo_url,brief_bio,full_profile,display_on_homepage,published,sort_order,qualifications,experience,subjects').eq('published', true).eq('display_on_homepage', true).order('sort_order');
   return error || !data ? [] : data;
@@ -76,7 +98,8 @@ export async function saveTeamProfile(profile: any) {
 }
 
 export async function deleteTeamProfile(id: string) {
-  const { error } = await db().from('public_team_profiles').delete().eq('id', id);
+  const { data: user } = await db().auth.getUser();
+  const { error } = await db().from('public_team_profiles').update({published:false,display_on_homepage:false,archived_at:new Date().toISOString(),archived_by:user.user?.id||null}).eq('id', id);
   if (error) throw error;
 }
 
@@ -87,7 +110,8 @@ export async function saveAlumniProfile(profile: any) {
 }
 
 export async function deleteAlumniProfile(id: string) {
-  const { error } = await db().from('alumni_profiles').delete().eq('id', id);
+  const { data: user } = await db().auth.getUser();
+  const { error } = await db().from('alumni_profiles').update({published:false,published_on_homepage:false,archived_at:new Date().toISOString(),archived_by:user.user?.id||null}).eq('id', id);
   if (error) throw error;
 }
 

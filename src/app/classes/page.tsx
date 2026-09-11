@@ -125,7 +125,7 @@ export default function ClassesPage() {
       await deleteClass(deleteTarget.id);
       setDeleteTarget(null);
       await refresh();
-      flash(`"${deleteTarget.name}" deleted.`);
+      flash(`"${deleteTarget.name}" archived. Existing records remain preserved.`);
     } catch (err: any) {
       flash(err?.message ?? 'Unable to delete class.');
     } finally {
@@ -279,7 +279,7 @@ export default function ClassesPage() {
                             onClick={() => removeTeacher(c.id, t.id)}
                             disabled={busy}
                           >
-                            Remove
+                            Archive
                           </button>
                         </div>
                       ))
@@ -383,7 +383,7 @@ export default function ClassesPage() {
             {deleteTarget.teachers.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 This class has {deleteTarget.teachers.length} teacher
-                {deleteTarget.teachers.length > 1 ? 's' : ''} assigned. Their assignments will be removed.
+                {deleteTarget.teachers.length > 1 ? 's' : ''} assigned. The class will be archived and historical records will be preserved.
               </div>
             )}
             <div className="flex justify-end gap-2 pt-2">

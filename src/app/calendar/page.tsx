@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import {
   deleteSchoolCalendarEvent, ensureAcademicTerm, loadOperationalTerms,
-  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm, setCurrentAcademicTerm, closeTermAndStartNext, runCalendarAutomation
+  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm, setCurrentAcademicTerm, closeTermAndStartNext, runCalendarAutomation, loadHistoricalBaselineReadiness, captureHistoricalBaseline, closeHistoricalFirstTermStartSecond
 } from '@/lib/live-store';
 import { useEffect, useState } from 'react';
 import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
@@ -39,6 +39,7 @@ export default function CalendarAdmin() {
   const [message, setMessage] = useState('');
   const [expandedTerm, setExpandedTerm] = useState<number>(0);
   const [historicalVerified, setHistoricalVerified] = useState(false);
+  const [baseline, setBaseline] = useState<any>(null);
 
   const refresh = async () => {
     const [cal, t, cur] = await Promise.all([loadSchoolCalendar(), loadOperationalTerms(), loadCurrentAcademicTerm()]);
@@ -47,6 +48,7 @@ export default function CalendarAdmin() {
     setCurrent(cur);
     const settings = await loadCMSSettings();
     setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));
+    try { setBaseline(await loadHistoricalBaselineReadiness()); } catch { setBaseline(null); }
   };
   useEffect(() => { refresh(); }, []);
 
@@ -269,6 +271,10 @@ export default function CalendarAdmin() {
           {!historicalVerified ? <button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{if(!confirm('Confirm that all historical student records have been verified. This hides the historical import shortcut from normal evaluation operations; records are not deleted.'))return; setBusy(true); try{await saveCMSSetting('amqm_historical_import_verified',true); setHistoricalVerified(true); setMessage('Historical import verified. Historical records remain preserved.');}catch(e:any){setMessage(e?.message||'Could not update historical import status')}finally{setBusy(false)}}}>Mark Historical Data Verified</button> : <span className="pill bg-emerald-100 text-emerald-800">✓ Historical import verified</span>}
         </div>
       </div>
+      {current?.term?.term_number === 1 && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-sm font-black text-emerald-950">Digital school readiness</div><p className="mt-1 text-xs leading-5 text-emerald-900/80">First Term is historical only. The system has captured a protected baseline for every active student before Second Term becomes digital.</p><div className="mt-2 text-xs font-bold">Baseline: {baseline?.baseline_rows ?? 0}/{baseline?.active_students ?? 0} students · {baseline?.missing_baseline ?? '—'} missing · {baseline?.missing_quran_position ?? '—'} missing Qur’an positions</div></div><div className="flex flex-wrap gap-2">{!historicalVerified&&<button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{setBusy(true);try{await captureHistoricalBaseline();await saveCMSSetting('amqm_historical_import_verified',true);setHistoricalVerified(true);setBaseline(await loadHistoricalBaselineReadiness());setMessage('Historical baseline captured and verified. No historical records were deleted.')}catch(e:any){setMessage(e?.message||'Baseline verification failed')}finally{setBusy(false)}}}>Verify & Capture Baseline</button>}{historicalVerified&&baseline?.ready&&<button className="btn bg-emerald-700 text-white" disabled={busy} onClick={async()=>{if(!confirm('This will archive First Term and make Second Term the first fully digital operational term. No historical evaluations will be deleted. Continue?'))return;setBusy(true);try{const r=await closeHistoricalFirstTermStartSecond('Historical First Term imported baseline closed; Second Term digital operations started.');setMessage(r?.message||'Second Term digital operations started.');await refresh()}catch(e:any){setMessage(e?.message||'Digital school transition failed')}finally{setBusy(false)}}}>Start Digital Second Term</button>}{historicalVerified&&<span className="pill bg-emerald-100 text-emerald-800">✓ Historical baseline verified</span>}</div></div>
+      </div>}
+
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
         <select className="input" defaultValue={current?.term_id || ''} onChange={e => setCurrentTerm(e.target.value)}>
           <option value="">Select active term…</option>

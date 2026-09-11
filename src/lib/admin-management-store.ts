@@ -31,20 +31,24 @@ export async function uploadPublicMedia(file: File, meta: { altText?: string; ca
   return { ...data, public_url: publicUrl.publicUrl };
 }
 
-export async function deletePublicMedia(media: { id: string; storage_path: string }) {
+export async function deletePublicMedia(media: { id?: string; storage_path: string }) {
   const client = db();
   const { error: storageError } = await client.storage.from('school-public-media').remove([media.storage_path]);
   if (storageError) throw storageError;
-  const { error } = await client.from('media_library').delete().eq('id', media.id);
+  let query = client.from('media_library').delete();
+  query = media.id ? query.eq('id', media.id) : query.eq('storage_path', media.storage_path);
+  const { error } = await query;
   if (error) throw error;
 }
 
 export async function loadFinanceSummary() {
   const client = db();
+  const { data: currentTerm } = await client.from('terms').select('id').eq('is_current', true).order('starts_on', { ascending: false }).limit(1).maybeSingle();
+  const termId = currentTerm?.id || null;
   const results = await Promise.all([
-    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)'),
-    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))'),
-    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id(full_name,admission_no)').order('paid_on', { ascending: false }),
+    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)').eq('term_id', termId),
+    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', termId),
+    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id(full_name,admission_no)').eq('term_id', termId).order('paid_on', { ascending: false }),
   ]);
   const [structuresResult, feesResult, paymentsResult] = results;
   if (structuresResult.error) throw structuresResult.error;
