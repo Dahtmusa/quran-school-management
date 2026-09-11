@@ -29,7 +29,7 @@ export async function loadStudents(): Promise<Student[]> {
   if (profile?.role === 'parent') return loadParentStudents();
   const { data, error } = await supabase().rpc('admin_get_student_directory');
   if (error || !data) { console.error('Student directory load failed:', error); return []; }
-  return data.map((s:any) => ({
+  return data.filter((s:any) => s.status === 'active').map((s:any) => ({
     id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null, idExpiresOn:s.id_expires_on ?? null,
     section:s.section === 'boarding' ? 'Boarding' : 'Day', year:mapYear(s.program_year),
     attendance:Number(s.attendance_percent ?? 0), fees:Number(s.fees_due ?? 0), teacher:s.teacher_name ?? 'Unassigned',
@@ -450,6 +450,18 @@ export async function closeHistoricalFirstTermStartSecond(notes?: string) {
 
 export async function loadAdminDashboardSnapshot() {
   const { data, error } = await supabase().rpc('amqm_admin_dashboard_snapshot');
+  if (error) throw error;
+  return data as any;
+}
+
+export async function loadDigitalLaunchReadiness() {
+  const { data, error } = await supabase().rpc('amqm_digital_launch_readiness');
+  if (error) throw error;
+  return data as any;
+}
+
+export async function prepareSecondTermOperationalRecords() {
+  const { data, error } = await supabase().rpc('amqm_prepare_second_term_operational_records');
   if (error) throw error;
   return data as any;
 }

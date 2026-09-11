@@ -47,8 +47,8 @@ export async function loadFinanceSummary() {
   const termId = currentTerm?.id || null;
   const results = await Promise.all([
     client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)').eq('term_id', termId),
-    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id(full_name,admission_no,section),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', termId),
-    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id(full_name,admission_no)').eq('term_id', termId).order('paid_on', { ascending: false }),
+    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id!inner(full_name,admission_no,section,status),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', termId).eq('students.status','active'),
+    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id!inner(full_name,admission_no,status)').eq('term_id', termId).eq('students.status','active').order('paid_on', { ascending: false }),
   ]);
   const [structuresResult, feesResult, paymentsResult] = results;
   if (structuresResult.error) throw structuresResult.error;

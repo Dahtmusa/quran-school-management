@@ -10,7 +10,8 @@
     "prepare:quran": "node scripts-generate-quran-seed.mjs",
     "qa:static": "node scripts/qa-static.mjs",
     "qa:lifecycle": "node scripts/qa-lifecycle.mjs",
-    "qa:operational": "node scripts/qa-operational.mjs"
+    "qa:operational": "node scripts/qa-operational.mjs",
+    "qa:production-audit": "node scripts/qa-production-audit.mjs"
   },
   "dependencies": {
     "next": "16.3.4",
