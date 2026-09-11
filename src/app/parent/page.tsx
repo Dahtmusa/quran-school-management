@@ -3,7 +3,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadStudents, loadEvaluations, getCurrentProfile, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { loadParentStudents, loadParentCurrentTermEvaluations, getCurrentProfile, loadCurrentAcademicTerm } from '@/lib/live-store';
 import { loadParentFeeSummary } from '@/lib/admin-management-store';
 import { loadChildAttendance, AttendanceRecord } from '@/lib/attendance-store';
 import { createClient } from '@/lib/supabase/client';
@@ -21,9 +21,9 @@ export default function ParentPortal() {
   const [currentTermId, setCurrentTermId] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadStudents(), loadEvaluations(), getCurrentProfile(), loadCurrentAcademicTerm()]).then(([s, e, profile, term]) => {
-      setStudents(s); setEvals(e); setMe(profile);
-      if (term?.term_id) setCurrentTermId(term.term_id);
+    Promise.all([loadParentStudents(), getCurrentProfile(), loadCurrentAcademicTerm()]).then(async ([s, profile, term]) => {
+      setStudents(s); setMe(profile);
+      if (term?.term_id) { setCurrentTermId(term.term_id); setEvals(await loadParentCurrentTermEvaluations(term.term_id)); }
       if (s.length > 0) setSelectedChild(s[0].id);
     });
   }, []);
@@ -34,18 +34,18 @@ export default function ParentPortal() {
     loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
   }, [selectedChild]);
 
-  // Real-time: refresh fee summary when payments or student_fees change
+  // Payment updates are useful in real time, but student_fees is intentionally not
+  // subscribed to: bulk fee allocation can touch many rows and cause a reload storm.
   useEffect(() => {
     if (!selectedChild) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const ch = createClient().channel('parent-fees-rt')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => {
-        loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'student_fees' }, () => {
-        loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {});
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { loadParentFeeSummary(selectedChild).then(setFeeSummary).catch(() => {}); }, 350);
       })
       .subscribe();
-    return () => { createClient().removeChannel(ch); };
+    return () => { if (timer) clearTimeout(timer); createClient().removeChannel(ch); };
   }, [selectedChild]);
 
   const child = useMemo(() => students.find(s => s.id === selectedChild) || students[0], [students, selectedChild]);

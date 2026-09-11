@@ -34,32 +34,48 @@ function feeBelongsToTargetTerm(row: any, targetTerm: any) {
 function outstandingItemsBeforeTerm(studentId: string, targetTerm: any, fees: any[], terms: any[]) {
   if (!targetTerm) return [];
   const targetStart = String(targetTerm.starts_on || '9999-12-31');
-  return (fees || []).filter((row: any) => {
-    if (row.student_id !== studentId) return false;
-    const fs = row.fee_structures;
-    if (!fs) return false;
-    if (fs.term_id) {
-      const term = terms.find((t: any) => t.id === fs.term_id);
-      if (!term?.starts_on || String(term.starts_on) >= targetStart) return false;
-    } else {
-      const ayStart = String(fs.academic_years?.starts_on || '9999-12-31');
-      if (fs.academic_year_id === targetTerm.academic_year_id || ayStart >= targetStart) return false;
-    }
-    const balance = Math.max(0, Number(row.amount_due || 0) - Number(row.amount_paid || 0));
-    return balance > 0;
-  }).map((row: any) => {
-    const fs = row.fee_structures || {};
-    const term = fs.term_id ? terms.find((t: any) => t.id === fs.term_id) : null;
-    const balance = Math.max(0, Number(row.amount_due || 0) - Number(row.amount_paid || 0));
-    return {
-      feeId: row.id,
-      termId: fs.term_id || null,
-      termLabel: term ? tLabel(term) : 'Previous term',
-      name: row.name || fs.name || 'Outstanding school fee',
-      section: fs.section || '',
-      amount: balance,
-    };
-  });
+
+  return (fees || [])
+    .filter((row: any) => {
+      if (row.student_id !== studentId) return false;
+      const fs = row.fee_structures;
+      if (!fs) return false;
+
+      if (fs.term_id) {
+        const sourceTerm = terms.find((t: any) => t.id === fs.term_id);
+        if (!sourceTerm?.starts_on || String(sourceTerm.starts_on) >= targetStart) return false;
+      } else {
+        const ayStart = String(fs.academic_years?.starts_on || '9999-12-31');
+        if (fs.academic_year_id === targetTerm.academic_year_id || ayStart >= targetStart) return false;
+      }
+
+      const balance = Math.max(
+        0,
+        Number(row.amount_due || 0) - Number(row.amount_paid || 0)
+      );
+      return balance > 0;
+    })
+    .map((row: any) => {
+      const fs = row.fee_structures || {};
+      const sourceTerm = fs.term_id
+        ? terms.find((t: any) => t.id === fs.term_id)
+        : null;
+
+      return {
+        feeId: row.id,
+        termId: fs.term_id || null,
+        termLabel: sourceTerm
+          ? `${tLabel(sourceTerm)}${sourceTerm.academic_years?.name ? ` · ${sourceTerm.academic_years.name}` : ''}`
+          : (fs.academic_years?.name || 'Previous academic year'),
+        name: row.name || fs.name || 'School fee',
+        section: fs.section || '',
+        amount: Math.max(
+          0,
+          Number(row.amount_due || 0) - Number(row.amount_paid || 0)
+        ),
+      };
+    })
+    .sort((a: any, b: any) => String(a.termLabel).localeCompare(String(b.termLabel)));
 }
 
 function outstandingBeforeTerm(studentId: string, targetTerm: any, fees: any[], terms: any[]) {
@@ -134,11 +150,14 @@ function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, cu
   ${schoolHeader(logoUrl, schoolName, schoolAddress, 'SCHOOL FEES INVOICE', accent)}
   <div class="term-box">For: ${nextTermName}</div>
   <div class="ab"><div class="al">Total Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div>
-  <div class="st">Fee details</div>
+  <div class="st">Next-term invoice breakdown</div>
   <table>
-    ${carryForwardItems.map((item: any) => `<tr><td>Outstanding · ${item.termLabel}<br><span style="font-size:11px;color:#888">${item.name}</span></td><td>${currency} ${Number(item.amount).toLocaleString()}</td></tr>`).join('')}
+    ${carryForwardItems.length
+      ? `<tr><td colspan="2" style="background:#fff7ed;color:#9a3412;font-weight:800;text-transform:uppercase;letter-spacing:.04em">Outstanding balance carried forward</td></tr>
+         ${carryForwardItems.map((item: any) => `<tr><td>Outstanding · ${item.termLabel}<br><span style="font-size:11px;color:#888">${item.name}</span></td><td>${currency} ${Number(item.amount).toLocaleString()}</td></tr>`).join('')}`
+      : `<tr><td colspan="2" style="background:#f0fdf4;color:#166534;font-weight:700">No previous-term outstanding balance</td></tr>`}
     <tr><td>Current term · ${nextTermName}<br><span style="font-size:11px;color:#888">${feeRow.name || 'Term Fee'}</span></td><td>${currency} ${feeAmount.toLocaleString()}</td></tr>
-    <tr><td><b>Total payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr>
+    <tr><td><b>TOTAL PAYABLE</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr>
   </table>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table>
@@ -255,7 +274,7 @@ export default function Fees() {
       setTerms(t || []);
       const meta: any = {};
       for (const r of siteMeta || []) meta[r.key] = r.value;
-      setCurrency(meta.currency?.symbol || meta.currency?.code || '₦');
+      setCurrency('₦');
       setSchoolName(meta.school_name?.value || cms.school_name?.value || 'AMQM');
       setLogoUrl(meta.logo_url?.value || '');
       setSchoolAddress(meta.contact?.address || '');
@@ -649,7 +668,7 @@ export default function Fees() {
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-blue-300">{v.payable > 0 ? `${currency} ${v.payable.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-rose-400">{bal > 0 ? `${currency} ${bal.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${st==='full'?'bg-emerald-500/15 text-emerald-300':st==='partial'?'bg-amber-500/15 text-amber-300':st==='unpaid'?'bg-rose-500/15 text-rose-300':'bg-slate-800 text-slate-500'}`}>{pillLabel(st)}</span></td>
-                    <td className="px-4 py-3"><div className="flex justify-end gap-1.5"><button onClick={() => openPay(s)} className="rounded-lg bg-blue-500 px-3 py-2 text-[10px] font-black text-white hover:bg-blue-400">Pay</button>{hasPaid(s)&&<button onClick={() => printReceipt(s, termPayments.find((p:any)=>p.student_id===s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black text-emerald-300">Receipt</button>}<button onClick={() => setHistoryTarget(s)} className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-black text-slate-300">History</button>{nextTerm&&<button onClick={() => printInvoice(s,nextTerm,structures,bank,currency,schoolName,logoUrl,schoolAddress,summary.fees,terms)} className="rounded-lg bg-amber-400 px-3 py-2 text-[10px] font-black text-slate-950">Invoice</button>}</div></td>
+                    <td className="px-4 py-3"><div className="flex justify-end gap-1.5"><button onClick={() => openPay(s)} className="rounded-lg bg-blue-500 px-3 py-2 text-[10px] font-black text-white hover:bg-blue-400">Pay</button>{hasPaid(s)&&<button onClick={() => printReceipt(s, termPayments.find((p:any)=>p.student_id===s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[10px] font-black text-emerald-300">Receipt</button>}<button onClick={() => setHistoryTarget(s)} className="rounded-lg bg-slate-800 px-3 py-2 text-[10px] font-black text-slate-300">History</button>{nextTerm&&<button title={`Print ${tLabel(nextTerm)} invoice with previous outstanding balances carried forward`} onClick={() => printInvoice(s,nextTerm,structures,bank,currency,schoolName,logoUrl,schoolAddress,summary.fees,terms)} className="rounded-lg bg-amber-400 px-3 py-2 text-[10px] font-black text-slate-950">Next Term Invoice</button>}</div></td>
                   </tr> })}
                   {!ledgerStudents.length && <tr><td colSpan={10} className="p-12 text-center text-sm text-slate-500">No students match this selection.</td></tr>}
                 </tbody>

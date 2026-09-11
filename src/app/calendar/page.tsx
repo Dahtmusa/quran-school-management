@@ -2,9 +2,10 @@
 import AdminShell from '@/components/AdminShell';
 import {
   deleteSchoolCalendarEvent, ensureAcademicTerm, loadOperationalTerms,
-  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm, setCurrentAcademicTerm
+  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm, setCurrentAcademicTerm, closeTermAndStartNext, runCalendarAutomation
 } from '@/lib/live-store';
 import { useEffect, useState } from 'react';
+import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
 
 const TERM_LABELS = ['First Term', 'Second Term', 'Third Term'];
 
@@ -30,12 +31,15 @@ export default function CalendarAdmin() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [expandedTerm, setExpandedTerm] = useState<number>(0);
+  const [historicalVerified, setHistoricalVerified] = useState(false);
 
   const refresh = async () => {
     const [cal, t, cur] = await Promise.all([loadSchoolCalendar(), loadOperationalTerms(), loadCurrentAcademicTerm()]);
     setEvents(cal);
     setTerms(t);
     setCurrent(cur);
+    const settings = await loadCMSSettings();
+    setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));
   };
   useEffect(() => { refresh(); }, []);
 
@@ -60,10 +64,11 @@ export default function CalendarAdmin() {
     try {
       let saved = 0;
       // Create operational terms
+      const termIds: string[] = [];
       for (let i = 0; i < plan.terms.length; i++) {
         const t = plan.terms[i];
-        if (!t.start || !t.end) continue;
-        await ensureAcademicTerm({ yearName: plan.yearName, yearStart: plan.yearStart, yearEnd: plan.yearEnd, termNumber: i + 1, termStart: t.start, termEnd: t.end });
+        if (!t.start || !t.end) { termIds[i] = ''; continue; }
+        termIds[i] = await ensureAcademicTerm({ yearName: plan.yearName, yearStart: plan.yearStart, yearEnd: plan.yearEnd, termNumber: i + 1, termStart: t.start, termEnd: t.end });
         saved++;
       }
       // Save session opening/closing events
@@ -76,10 +81,18 @@ export default function CalendarAdmin() {
         for (let ei = 0; ei < t.evals.length; ei++) {
           const ev = t.evals[ei];
           if (!ev.open || !ev.close) continue;
-          await saveCalEvent('evaluation_window', `${TERM_LABELS[ti]} · Evaluation ${ei + 1}`, ev.open, ev.close, `Evaluation ${ei + 1} window for ${plan.yearName} ${TERM_LABELS[ti]}`);
+          await saveSchoolCalendarEvent({
+            event_type: `evaluation_${ei + 1}`,
+            title: `${TERM_LABELS[ti]} · Evaluation ${ei + 1}`,
+            notes: `Evaluation ${ei + 1} window for ${plan.yearName} ${TERM_LABELS[ti]}`,
+            starts_on: ev.open.slice(0, 10), ends_on: ev.close.slice(0, 10),
+            starts_at: new Date(ev.open).toISOString(), ends_at: new Date(ev.close).toISOString(),
+            term_id: termIds[ti] || null, academic_year_id: null, evaluation_number: ei + 1,
+          });
         }
       }
-      setMessage(`Academic year ${plan.yearName} set up successfully. ${saved} term${saved !== 1 ? 's' : ''} created/updated. Go to Evaluations to assign classes to evaluation windows.`);
+      await runCalendarAutomation();
+      setMessage(`Academic year ${plan.yearName} set up successfully. ${saved} term${saved !== 1 ? 's' : ''} created/updated. Evaluation windows are now linked to the calendar and will open automatically when due.`);
       await refresh();
     } catch (e: any) { setMessage(e?.message || 'Setup failed. Check all dates are valid.'); }
     finally { setBusy(false); }
@@ -109,8 +122,8 @@ export default function CalendarAdmin() {
 
   // Group events by type for the timeline
   const sessionEvents = events.filter(e => e.event_type === 'school_opening' || e.event_type === 'school_closing');
-  const evalEvents = events.filter(e => e.event_type === 'evaluation_window');
-  const otherEvents = events.filter(e => e.event_type !== 'school_opening' && e.event_type !== 'school_closing' && e.event_type !== 'evaluation_window');
+  const evalEvents = events.filter(e => ['evaluation_1','evaluation_2','evaluation_3'].includes(e.event_type));
+  const otherEvents = events.filter(e => e.event_type !== 'school_opening' && e.event_type !== 'school_closing' && !['evaluation_1','evaluation_2','evaluation_3'].includes(e.event_type));
 
   return <AdminShell title="School Calendar"><div className="space-y-6">
 
@@ -227,7 +240,26 @@ export default function CalendarAdmin() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-lg font-black">Active term</h2>
-          <p className="mt-1 text-sm text-slate-500">Switch this when the school moves to the next term. The system advances automatically once configured.</p>
+          <p className="mt-1 text-sm text-slate-500">Calendar dates control scheduled evaluation windows. Term closure is a separate controlled action so no academic records are silently closed.</p>
+        </div>
+      </div>
+
+      {current?.term && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+        <div className="text-sm font-black text-amber-950">Term control</div>
+        <p className="mt-1 text-xs leading-5 text-amber-900/80">Close a term only after all three evaluations are approved. The system then locks the term position and opens the next term from Evaluation 3 automatically.</p>
+        <button className="btn mt-3 bg-amber-600 text-white hover:bg-amber-700" disabled={busy} onClick={async()=>{
+          if(!current?.term_id) return;
+          if(!confirm(`Close ${current.term.name} and start the next configured term? All active students must have 3 approved evaluations.`)) return;
+          setBusy(true); setMessage('');
+          try { const r:any=await closeTermAndStartNext(current.term_id); setMessage(r?.message || 'Term closed and the next term is now active.'); await refresh(); }
+          catch(e:any){setMessage(e?.message||'Term could not be closed.')} finally {setBusy(false)}
+        }}>{busy ? 'Processing…' : 'Close Term & Start Next Term'}</button>
+      </div>}
+
+      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><div className="text-sm font-black">Historical data import</div><p className="mt-1 text-xs leading-5 text-slate-600">Historical Eval 1–3 are preserved as import records. Once the school verifies the import, Historical Eval 3 remains the starting position for the first live term and the import tool can be hidden from normal operations.</p></div>
+          {!historicalVerified ? <button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{if(!confirm('Confirm that all historical student records have been verified. This hides the historical import shortcut from normal evaluation operations; records are not deleted.'))return; setBusy(true); try{await saveCMSSetting('amqm_historical_import_verified',true); setHistoricalVerified(true); setMessage('Historical import verified. Historical records remain preserved.');}catch(e:any){setMessage(e?.message||'Could not update historical import status')}finally{setBusy(false)}}}>Mark Historical Data Verified</button> : <span className="pill bg-emerald-100 text-emerald-800">✓ Historical import verified</span>}
         </div>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
@@ -271,7 +303,7 @@ export default function CalendarAdmin() {
         {evalEvents.length > 0 && <div className="p-5">
           <div className="mb-3 flex items-center gap-2">
             <div className="text-xs font-black uppercase tracking-wide text-slate-400">Evaluation windows</div>
-            <span className="pill bg-amber-50 text-amber-700 text-[10px]">Assign classes on Evaluations page</span>
+            <span className="pill bg-emerald-50 text-emerald-700 text-[10px]">Calendar controlled</span>
           </div>
           <div className="space-y-2">
             {evalEvents.map(e => <EventRow key={e.id} event={e} onDelete={async () => { await deleteSchoolCalendarEvent(e.id); await refresh(); }} />)}
@@ -296,7 +328,7 @@ export default function CalendarAdmin() {
 function EventRow({ event, onDelete }: { event: any; onDelete: () => void }) {
   const typeColors: Record<string, string> = {
     school_opening: 'bg-emerald-50 text-emerald-700', school_closing: 'bg-rose-50 text-rose-700',
-    evaluation_window: 'bg-amber-50 text-amber-700', holiday: 'bg-blue-50 text-blue-700',
+    evaluation_1: 'bg-amber-50 text-amber-700', evaluation_2: 'bg-amber-50 text-amber-700', evaluation_3: 'bg-amber-50 text-amber-700', holiday: 'bg-blue-50 text-blue-700',
   };
   const cls = typeColors[event.event_type] || 'bg-slate-50 text-slate-600';
   const start = event.starts_at ? new Date(event.starts_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : event.starts_on;

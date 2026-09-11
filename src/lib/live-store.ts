@@ -67,6 +67,17 @@ function mapEvaluations(data: any[]): Evaluation[] {
   }));
 }
 
+export async function loadParentCurrentTermEvaluations(termId: string): Promise<Evaluation[]> {
+  const db = supabase();
+  const { data: links, error: linksError } = await db.from('parent_students').select('student_id');
+  if (linksError) return [];
+  const studentIds = (links ?? []).map((row:any) => row.student_id).filter(Boolean);
+  if (!studentIds.length) return [];
+  const { data, error } = await db.from('evaluations').select(evaluationSelect).in('student_id', studentIds).eq('term_id', termId).order('evaluation_number',{ascending:true});
+  if (error || !data) return [];
+  return mapEvaluations(data as any[]);
+}
+
 export async function loadEvaluations(): Promise<Evaluation[]> {
   const db = supabase();
   const profile = await getCurrentProfile();
@@ -402,6 +413,16 @@ export async function ensureAcademicTerm(input:{yearName:string;yearStart:string
 
 export async function completeTerm(termId:string,notes?:string) {
   const { data,error } = await supabase().rpc('complete_term',{p_term_id:termId,p_notes:notes||null});
+  if(error) throw error; return data;
+}
+
+export async function closeTermAndStartNext(termId:string,notes?:string) {
+  const { data,error } = await supabase().rpc('close_term_and_start_next',{p_term_id:termId,p_notes:notes||null});
+  if(error) throw error; return data;
+}
+
+export async function runCalendarAutomation() {
+  const { data,error } = await supabase().rpc('amqm_process_calendar_automation');
   if(error) throw error; return data;
 }
 
