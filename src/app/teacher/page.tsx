@@ -37,6 +37,7 @@ export default function TeacherDashboard() {
   const [mySig, setMySig] = useState<any|null>(null);
   const [sigBusy, setSigBusy] = useState(false);
   const [sigMsg, setSigMsg] = useState('');
+  const [sigOpen, setSigOpen] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const sigPadRef = useRef<SignaturePadRef|null>(null);
 
@@ -69,7 +70,7 @@ export default function TeacherDashboard() {
   };
   useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
   useEffect(() => {
-    getMySignature().then(s => setMySig(s.signature_data ? s : null));
+    getMySignature().then(s => { setMySig(s.signature_data ? s : null); setSigOpen(!s.signature_data); });
   }, []);
 
   useEffect(() => {
@@ -915,29 +916,32 @@ export default function TeacherDashboard() {
       </div>
       <label className="mt-5 block text-sm font-semibold">Phone number<input className="input mt-1 w-full" placeholder="+234 xxx xxx xxxx" value={me?.phone || ''} onChange={e => setMe((x: any) => ({ ...x, phone: e.target.value }))} /></label>
       <button disabled={busy} onClick={async () => { setBusy(true); try { await updateOwnProfile({ phone: me?.phone || null }); setMessage('Phone updated.'); } catch (e: any) { setMessage(e?.message || 'Unable to update phone'); } finally { setBusy(false); } }} className="btn btn-primary mt-4 w-full">Save Profile</button>
-      <div className="mt-6 scroll-mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
-        <div className="flex items-start gap-3">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-700 text-sm font-black text-white">✎</div>
-          <div className="min-w-0"><div className="text-sm font-black text-slate-800">Your official signature</div>
-          <p className="mt-1 text-xs leading-5 text-slate-500">This signature appears on official documents and report cards. Sign inside the clearly marked box below.</p></div>
+      <div className="mt-6 border-t pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div><div className="text-sm font-black text-slate-800">Official Signature</div><p className="mt-0.5 text-xs text-slate-500">Used on your students’ official report cards.</p></div>
+          <button type="button" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50" onClick={()=>setSigOpen(v=>!v)}>{sigOpen?'Close':'Edit signature'}</button>
         </div>
-        {sigMsg && <div className="mt-2 rounded-lg bg-teal-50 p-2 text-xs font-semibold text-teal-800">{sigMsg}</div>}
-        {mySig && <div className="mt-3"><div className="text-xs font-bold text-emerald-700 mb-1">✓ Signature on file</div><img src={(mySig as any).signature_data} alt="signature" className="h-14 w-full rounded-xl border border-slate-200 bg-white object-contain p-1"/><p className="mt-2 text-xs text-slate-400">Draw below to replace:</p></div>}
-        {!mySig && <p className="mt-3 text-xs text-slate-400">No signature yet. Draw below to add one:</p>}
-        <div className="mt-4"><SignaturePad ref={el => { sigPadRef.current = el; }} height={180}/></div>
-        <button className="btn btn-primary mt-3 w-full" disabled={sigBusy} onClick={async () => {
-          const pad = sigPadRef.current;
-          if (!pad || pad.isEmpty()) { setSigMsg('Please draw your signature first.'); return; }
-          const data = pad.getDataURL(); if (!data) return;
-          setSigBusy(true);
-          try {
-            await saveMySignature(data);
-            const s = await getMySignature();
-            setMySig(s.signature_data ? s : null);
-            pad.clear(); setSigMsg('Signature saved.');
-          } catch (err: any) { setSigMsg(err?.message || 'Failed to save.'); }
-          finally { setSigBusy(false); }
-        }}>{sigBusy ? 'Saving…' : 'Save Signature'}</button>
+        {sigMsg && <div className="mt-2 rounded-xl bg-teal-50 p-2 text-xs font-semibold text-teal-800">{sigMsg}</div>}
+        {mySig&&!sigOpen&&<div className="mt-3 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-3">
+          <div className="flex h-14 flex-1 items-center justify-center rounded-xl border border-white bg-white"><img src={(mySig as any).signature_data} alt="Saved signature" className="h-full w-full object-contain p-1"/></div>
+          <div className="shrink-0 text-right"><div className="text-xs font-black text-emerald-700">✓ Saved</div><div className="mt-0.5 text-[10px] text-slate-500">Ready for reports</div></div>
+        </div>}
+        {sigOpen&&<div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+          <div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold text-slate-600">Draw your signature below</span><span className="text-[10px] text-slate-400">Finger, mouse or stylus</span></div>
+          <SignaturePad ref={el => { sigPadRef.current = el; }} height={150}/>
+          <div className="mt-2 flex items-center justify-end gap-2">
+            <button type="button" className="rounded-xl px-3 py-2 text-xs font-bold text-slate-500 hover:bg-white" onClick={()=>{sigPadRef.current?.clear();setSigOpen(false)}}>Cancel</button>
+            <button className="btn btn-primary" disabled={sigBusy} onClick={async () => {
+              const pad = sigPadRef.current;
+              if (!pad || pad.isEmpty()) { setSigMsg('Please draw your signature first.'); return; }
+              const data = pad.getDataURL(); if (!data) return; setSigBusy(true);
+              try { await saveMySignature(data); const s = await getMySignature(); setMySig(s.signature_data ? s : null); pad.clear(); setSigOpen(false); setSigMsg('Signature updated successfully.'); }
+              catch (err: any) { setSigMsg(err?.message || 'Failed to save.'); }
+              finally { setSigBusy(false); }
+            }}>{sigBusy ? 'Saving…' : 'Save & Close'}</button>
+          </div>
+        </div>}
+        {!mySig&&!sigOpen&&<p className="mt-3 text-xs font-semibold text-amber-700">No signature saved yet. Choose “Edit signature” to add one.</p>}
       </div>
     </Modal>}
   </div></AdminShell>;
@@ -952,7 +956,7 @@ function InfoCard({ color, label, value }: { color: string; label: string; value
   return <div className={`rounded-xl p-3 ${bg}`}><div className="text-xs font-black uppercase">{label}</div><div className="mt-1 text-sm font-black">{value}</div></div>;
 }
 function Modal({ title, close, children }: { title: string; close: () => void; children: React.ReactNode }) {
-  return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-5"><div className="max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-5 pb-8 sm:max-h-[90vh] sm:rounded-3xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{title}</h2><button className="btn bg-slate-100" onClick={close}>Close</button></div>{children}</div></div>;
+  return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-5"><div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{title}</h2><button className="btn bg-slate-100" onClick={close}>Close</button></div>{children}</div></div>;
 }
 function Info({ k, v }: { k: string; v: string }) {
   return <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-400">{k}</div><div className="mt-1 text-sm font-semibold">{v}</div></div>;
