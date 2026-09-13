@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+import PublicHeader from '@/components/PublicHeader';
 
 const fallbackPages: Record<string, any> = {
   about: { title: 'About Us', intro: 'A Qur’anic learning environment built around memorization, Islamic knowledge, character and care.', sections: [
@@ -48,13 +49,7 @@ export default async function PublicPage({ slug }: { slug: string }) {
   const c = page?.content || {};
   return <main className="min-h-screen bg-[#fbfcfa] text-slate-900">
     <div className="bg-[#06372f] py-2 text-center text-[11px] font-medium text-white">In the name of Allah, the Most Gracious, the Most Merciful</div>
-    <header className="border-b bg-white">
-      <div className="mx-auto flex min-h-[82px] max-w-7xl items-center justify-between gap-5 px-5 sm:px-6">
-        <Link href="/" className="flex items-center gap-3"><div className="h-12 w-12 overflow-hidden rounded-full border border-emerald-100 bg-white">{logo ? <img src={logo} alt="School logo" className="h-full w-full object-contain"/> : <div className="flex h-full items-center justify-center font-serif font-black text-emerald-900">AM</div>}</div><div><div className="font-serif text-lg font-black text-emerald-950">{short}</div><div className="hidden max-w-[360px] text-[10px] font-bold uppercase tracking-[.12em] text-slate-500 sm:block">{school}</div></div></Link>
-        <nav className="hidden items-center gap-6 lg:flex">{nav.filter((x:any)=>x.href!=='/').map((x:any)=><Link key={x.label} href={x.href} className="nav-link">{x.label}</Link>)}</nav>
-        <div className="flex items-center gap-2"><Link href="/auth/login" className="btn bg-[#06372f] text-white">Login</Link><Link href="/admissions" className="btn hidden bg-[#d39a1d] text-slate-950 sm:inline-flex">Apply Now →</Link></div>
-      </div>
-    </header>
+    <PublicHeader logo={logo} short={short} school={school} nav={nav}/>
     <section className="bg-gradient-to-br from-[#06372f] via-[#0b5b4c] to-[#c99a2d] px-5 py-16 text-white sm:px-6 lg:py-20"><div className="mx-auto max-w-5xl"><div className="eyebrow">{short}</div><h1 className="mt-5 max-w-4xl font-serif text-4xl font-black leading-tight sm:text-6xl">{page?.title || slug}</h1>{c.intro&&<p className="mt-6 max-w-3xl text-base leading-8 text-emerald-50/85 sm:text-lg">{c.intro}</p>}</div></section>
     <section className="mx-auto max-w-5xl px-5 py-14 sm:px-6 lg:py-20">
       {slug==='contact' && <div className="mb-10 grid gap-4 sm:grid-cols-3"><div className="card p-5"><div className="text-xs font-bold uppercase text-emerald-700">Phone</div><div className="mt-2 font-black">{contact.phone||'—'}</div></div><div className="card p-5"><div className="text-xs font-bold uppercase text-emerald-700">Email</div><div className="mt-2 font-black break-all">{contact.email||'—'}</div></div><div className="card p-5"><div className="text-xs font-bold uppercase text-emerald-700">Address</div><div className="mt-2 font-black">{contact.address||'—'}</div></div></div>}

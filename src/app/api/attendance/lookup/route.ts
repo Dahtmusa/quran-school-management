@@ -56,12 +56,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  // Raw text fallback: search by admission_no or staff_id
+  // Raw text fallback: search by admission_no or staff_id.
+  // Strip characters with special meaning in PostgREST filter syntax before
+  // splicing user input into a raw .or() filter string.
+  const safeQ = q.replace(/[,.()]/g, '');
   const [studentsRes, staffRes] = await Promise.all([
     supabase
       .from('students')
       .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
-      .or(`admission_no.eq.${q},student_id_number.eq.${q}`)
+      .or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`)
       .limit(1)
       .maybeSingle(),
     supabase

@@ -4,8 +4,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getCurrentProfile, loadCurrentAcademicTerm } from '@/lib/live-store';
 import { createClient } from '@/lib/supabase/client';
-const adminLinks=[['/admin','Dashboard','⌂'],['/students','Students','◉'],['/classes','Classes & Teachers','▦'],['/staff','Staff','♧'],['/admissions/manage','Admissions','▣'],['/attendance','Attendance','✓'],['/evaluations','Quran Evaluations','☾'],['/fees','Finance & Fees','₦'],['/calendar','School Calendar','◷'],['/reports','Report Cards','▤'],['/alumni','Alumni','★'],['/cms','Website CMS','✦'],['/admin/users','User Management','⚙']];
-const teacherLinks=[['/teacher','My Dashboard','⌂']]; const parentLinks=[['/parent','My Children','⌂'],['/reports','Reports','▤']]; const financeLinks=[['/fees','Finance & Fees','₦']]; const admissionsLinks=[['/admissions/manage','Admissions','▣'],['/students','Students','◉']]; const securityLinks=[['/security','Scanner','✓']];
+import { roleLinks } from '@/lib/nav-links';
 export default function Sidebar(){
   const path=usePathname();
   const [role,setRole]=useState('');
@@ -18,7 +17,7 @@ export default function Sidebar(){
     });
     loadCurrentAcademicTerm().then(setCurrentTerm).catch(()=>{});
   },[]);
-  const links=role==='teacher'?teacherLinks:role==='parent'?parentLinks:role==='finance'?financeLinks:role==='admissions'?admissionsLinks:role==='security'?securityLinks:adminLinks;
+  const links=roleLinks(role);
   const isAdmin=role!=='teacher'&&role!=='parent'&&role!=='';
   const termLabel=currentTerm?.term?.name||currentTerm?.term_name||null;
   const yearLabel=currentTerm?.academic_year?.name||currentTerm?.academic_year_name||null;

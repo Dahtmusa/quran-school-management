@@ -116,10 +116,10 @@ export async function deleteAlumniProfile(id: string) {
 }
 
 export async function loadPublicTeachers() {
-  const { data, error } = await db().from('profiles')
+  // Public-safe view — see migration 20260913120000. Never query `profiles`
+  // directly for unauthenticated/public listings.
+  const { data, error } = await db().from('public_teacher_directory')
     .select('id,full_name,job_title,department,avatar_url,bio,qualifications,experience,subjects')
-    .eq('role', 'teacher')
-    .eq('employment_status', 'active')
     .order('full_name');
   return error || !data ? [] : data;
 }

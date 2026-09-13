@@ -8,7 +8,7 @@ async function requireAdmin() {
   if (!user) return null;
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   if (!profile || !['super_admin', 'admin', 'principal'].includes(profile.role)) return null;
-  return user;
+  return { id: user.id, role: profile.role as string };
 }
 
 // GET /api/admin/users — list all users with their profiles
@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
   const validRoles = ['super_admin', 'admin', 'principal', 'teacher', 'security', 'finance', 'admissions', 'parent'];
   if (!validRoles.includes(role)) {
     return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
+  }
+  // Only a super_admin may mint another super_admin account — otherwise a
+  // compromised admin/principal account could grant itself top-level access.
+  if (role === 'super_admin' && caller.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Only a super administrator can create a super administrator account' }, { status: 403 });
   }
 
   const admin = createAdminClient();

@@ -5,14 +5,8 @@ import { createClient } from '@/lib/supabase/client';
 import { getCurrentProfile, updateOwnProfile, saveMySignature, getMySignature } from '@/lib/live-store';
 import { globalSearch, type GlobalSearchResult } from '@/lib/global-search';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
+import { roleLinks } from '@/lib/nav-links';
 
-const adminLinks=[['/admin','Dashboard'],['/students','Students'],['/classes','Classes & Teachers'],['/admissions/manage','Admissions'],['/attendance','Attendance'],['/evaluations','Quran Evaluations'],['/fees','Finance & Fees'],['/program-setup','Program & Terms'],['/calendar','School Calendar'],['/reports','Report Cards'],['/alumni','Alumni'],['/cms','Website CMS']];
-const teacherLinks=[['/teacher','My Dashboard']];
-const parentLinks=[['/parent','My Children'],['/reports','Reports']];
-const financeLinks=[['/fees','Finance & Fees']];
-const admissionsLinks=[['/admissions/manage','Admissions'],['/students','Students']];
-const securityLinks=[['/attendance','Attendance']];
-const roleLinks=(role:string)=>role==='teacher'?teacherLinks:role==='parent'?parentLinks:role==='finance'?financeLinks:role==='admissions'?admissionsLinks:role==='security'?securityLinks:adminLinks;
 const adminRoles=['super_admin','admin','principal'];
 
 export default function Topbar({title}:{title:string}){

@@ -27,6 +27,14 @@ Deno.serve(async(req)=>{
     if(!new_password&&!new_email)throw new Error('new_password or new_email is required');
     if(new_password&&String(new_password).length<8)throw new Error('Password must be at least 8 characters');
 
+    // Only a super_admin may change the credentials of another super_admin —
+    // otherwise a compromised admin/principal account could take over the
+    // top-level tier by resetting a super_admin's password or email.
+    if(p.role!=='super_admin'){
+      const{data:target}=await admin.from('profiles').select('role').eq('id',user_id).maybeSingle();
+      if(target?.role==='super_admin')throw new Error('Only a super administrator can modify a super administrator account');
+    }
+
     const update:Record<string,string>={};
     if(new_password)update.password=String(new_password);
     if(new_email)update.email=String(new_email);
