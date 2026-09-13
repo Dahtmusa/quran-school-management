@@ -8,7 +8,7 @@ async function requireAdmin() {
   if (!user) return null;
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
   if (!profile || !['super_admin', 'admin', 'principal'].includes(profile.role)) return null;
-  return user;
+  return { id: user.id, role: profile.role as string };
 }
 
 // PATCH /api/admin/users/[id] — update role, name, phone, or ban/unban
@@ -21,6 +21,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { role, fullName, phone, banned } = body;
 
   const admin = createAdminClient();
+
+  // Only a super_admin may modify a super_admin account (including their own
+  // role/ban/password), or promote anyone to super_admin — otherwise a
+  // compromised admin/principal account could take over the top-level tier.
+  if (caller.role !== 'super_admin') {
+    const { data: target } = await admin.from('profiles').select('role').eq('id', id).maybeSingle();
+    if (target?.role === 'super_admin' || role === 'super_admin') {
+      return NextResponse.json({ error: 'Only a super administrator can modify a super administrator account' }, { status: 403 });
+    }
+  }
 
   // Update profile fields (full_name is NOT NULL — skip update if blank)
   const profileUpdates: Record<string, unknown> = {};
@@ -63,6 +73,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   }
 
   const admin = createAdminClient();
+
+  if (caller.role !== 'super_admin') {
+    const { data: target } = await admin.from('profiles').select('role').eq('id', id).maybeSingle();
+    if (target?.role === 'super_admin') {
+      return NextResponse.json({ error: 'Only a super administrator can delete a super administrator account' }, { status: 403 });
+    }
+  }
+
   const { error } = await admin.auth.admin.deleteUser(id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

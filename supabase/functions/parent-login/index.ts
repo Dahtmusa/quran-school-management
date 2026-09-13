@@ -20,6 +20,20 @@ Deno.serve(async(req)=>{
 
     const admin=createClient(url,service);
 
+    // Rate limit: at most 10 attempts per phone number per 15 minutes, to stop
+    // brute-forcing the last-8-digits phone match against known admission
+    // numbers at serverless scale.
+    const windowStart=new Date(Date.now()-15*60*1000).toISOString();
+    const{count:recentAttempts}=await admin
+      .from('parent_login_attempts')
+      .select('id',{count:'exact',head:true})
+      .eq('phone',cleanPhone)
+      .gte('attempted_at',windowStart);
+    if((recentAttempts||0)>=10){
+      throw new Error('Too many login attempts for this phone number. Please try again later.');
+    }
+    await admin.from('parent_login_attempts').insert({phone:cleanPhone});
+
     // Find the student with this admission number
     const{data:student,error:se}=await admin
       .from('students')
@@ -46,9 +60,12 @@ Deno.serve(async(req)=>{
 
     const studentsToLink=(siblings||[{id:student.id}]);
 
-    // Derive system email and password for this parent account
+    // System email for this parent account. The password is never derived from
+    // public data (phone numbers are not secrets) — a fresh random password is
+    // generated and rotated on every successful login instead, so it can never
+    // be recomputed by anyone else and a leaked value has a single-use window.
     const email=`parent_${cleanPhone}@amqm.ng`;
-    const password=`PAR3NT_${cleanPhone}`;
+    const password=crypto.randomUUID()+crypto.randomUUID();
 
     // Check if parent account already exists by looking for a profile with this phone and role
     const{data:existing}=await admin
@@ -62,6 +79,10 @@ Deno.serve(async(req)=>{
 
     if(existing&&existing.length>0){
       parentId=existing[0].id;
+      // Rotate the password on every verified login so it can never be guessed
+      // or reused from a previous session.
+      const{error:rotErr}=await admin.auth.admin.updateUserById(parentId,{password});
+      if(rotErr)throw new Error(rotErr.message);
     }else{
       // Create auth account for this parent
       const displayName=student.parent_name||`Parent of ${student.full_name}`;

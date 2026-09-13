@@ -9,11 +9,12 @@ const GOLD = '#C9A84C';
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
+  // Public-safe view — see migration 20260913120000. Never query `profiles`
+  // directly for unauthenticated/public listings.
   const { data } = await supabase
-    .from('profiles')
+    .from('public_teacher_directory')
     .select('full_name,job_title')
     .eq('id', id)
-    .eq('role', 'teacher')
     .single();
   return {
     title: data ? `${data.full_name} — Teacher Profile` : 'Teacher Profile',
@@ -24,10 +25,9 @@ export default async function TeacherProfilePage({ params }: { params: Promise<{
   const { id } = await params;
   const supabase = await createClient();
   const { data: teacher } = await supabase
-    .from('profiles')
+    .from('public_teacher_directory')
     .select('id,full_name,job_title,department,avatar_url,bio,qualifications,experience,subjects')
     .eq('id', id)
-    .eq('role', 'teacher')
     .single();
 
   if (!teacher) notFound();
