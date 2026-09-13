@@ -1,15 +1,9 @@
-# AMQM Finance Professional UI/UX Patch v2
+# AMQM Director Identity Fix
 
-Scope: `src/app/fees/page.tsx` only.
+This is a narrowly scoped production fix.
 
-Changes:
-- Reworked Finance & Fees presentation using AMQM school colors: green, gold, cream and navy.
-- Removed the visual white side margins by making the finance workspace span the available AdminShell content area.
-- Improved responsive layout for desktop, tablet and mobile.
-- Redesigned KPI cards, analytics panels, payment-status controls, quick actions and student ledger.
-- Added proper section anchors and smooth navigation for Quick Actions/status controls.
-- Fixed student ledger action presentation so Next Term Invoice remains fully visible within the scrollable ledger.
-- Kept existing finance calculations, payment functions, invoice generation, receipt printing, fee configuration, bank configuration, and database behavior unchanged.
-- No SQL migration is included or required.
+- Corrects the active profile with job title `School Director` to `ISMAIL ILIYASU DANLADI`.
+- Makes report-card signer selection prefer the explicitly configured `School Director` profile instead of an unrelated `super_admin` account.
+- No student, finance, academic, attendance, calendar, or other application data is changed.
 
-Validation: TypeScript syntax/JSX parsing checked with the installed TypeScript compiler. Full project type-check could not be run in this isolated patch workspace because project dependencies are not installed here; the reported errors were only missing project modules/types.
+The SQL migration has already been applied to the connected production Supabase project during this fix. Do not rerun it if you are deploying from the already-updated production database.
