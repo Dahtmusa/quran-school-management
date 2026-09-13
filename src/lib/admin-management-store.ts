@@ -45,6 +45,13 @@ export async function loadFinanceSummary() {
   const client = db();
   const { data: currentTerm } = await client.from('terms').select('id').eq('is_current', true).order('starts_on', { ascending: false }).limit(1).maybeSingle();
   const termId = currentTerm?.id || null;
+  // Supabase's .eq() does not translate a JS null into SQL NULL — it sends
+  // the literal text "null", which Postgres then fails to cast into the
+  // uuid term_id column ("invalid input syntax for type uuid"). When no
+  // term is marked current yet, there is no meaningful "current" finance
+  // snapshot to show, so return empty results instead of querying with a
+  // bogus filter.
+  if (!termId) return { structures: [], fees: [], payments: [] };
   const results = await Promise.all([
     client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)').eq('term_id', termId),
     client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id!inner(full_name,admission_no,section,status),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', termId).eq('students.status','active'),
