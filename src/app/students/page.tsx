@@ -138,11 +138,11 @@ export default function Students(){
   {message&&<div className="rounded-2xl bg-emerald-50 p-4 text-sm font-semibold text-emerald-800 cursor-pointer" onClick={()=>setMessage('')}>{message} <span className="float-right text-emerald-600">✕</span></div>}
   <div className="card overflow-hidden">
    {/* ── Page tabs ── */}
-   <div className="flex items-center justify-between border-b px-5 pt-4">
-     <div className="flex gap-1">
+   <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 pt-4">
+     <div className="flex gap-1 overflow-x-auto">
        {(['active','removed','duplicates'] as const).map(t=>(
          <button key={t} onClick={()=>t==='removed'?openRemovedTab():setPageTab(t)}
-           className={`rounded-lg px-4 py-2 text-sm font-bold capitalize transition-colors ${pageTab===t?'bg-emerald-700 text-white':'text-slate-500 hover:bg-slate-100'}`}>
+           className={`whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-bold capitalize transition-colors ${pageTab===t?'bg-emerald-700 text-white':'text-slate-500 hover:bg-slate-100'}`}>
            {t==='active'?`Active (${all.length})`:t==='removed'?`Removed (${removed.length}${!removedLoaded?'…':''})`:
              `Duplicates${duplicateGroups.length?` (${duplicateGroups.length})`:''}`}
          </button>
@@ -179,9 +179,9 @@ export default function Students(){
      <td className="text-sm">{s.attendance}%</td>
      <td className={s.fees?'font-bold text-rose-600 text-sm':'text-emerald-600 text-sm'}>{s.fees?'₦'+s.fees.toLocaleString():'Paid'}</td>
      <td className="pr-4"><div className="flex gap-2">
-       <button onClick={()=>setSelected(s)} className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold">Profile</button>
-       <button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button>
-       <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('suspended');setRemoveReason('');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove</button>
+       <button onClick={()=>setSelected(s)} className="whitespace-nowrap rounded-lg bg-slate-100 px-3 py-2.5 text-xs font-bold">Profile</button>
+       <button onClick={()=>openEdit(s)} className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-bold text-white">Edit</button>
+       <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('suspended');setRemoveReason('');setRemoveNotes('');}} className="whitespace-nowrap rounded-lg bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove</button>
      </div></td>
    </tr>)}</tbody></table></div>
    {filtered.length===0&&<div className="p-8 text-center text-sm text-slate-400">No active students found.</div>}
@@ -203,7 +203,7 @@ export default function Students(){
          <td className="max-w-xs text-xs text-slate-600"><div className="font-semibold">{s.removal_reason||'—'}</div>{s.removal_notes&&<div className="mt-0.5 text-slate-400 line-clamp-2">{s.removal_notes}</div>}</td>
          <td className="text-xs text-slate-500">{s.removed_by_name||'—'}</td>
          <td className="text-xs text-slate-500 whitespace-nowrap">{s.removed_at?new Date(s.removed_at).toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'}):'—'}</td>
-         <td className="pr-4"><button onClick={()=>reinstate(s.id,s.full_name)} disabled={reinstating===s.id} className="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">{reinstating===s.id?'…':'Reinstate'}</button></td>
+         <td className="pr-4"><button onClick={()=>reinstate(s.id,s.full_name)} disabled={reinstating===s.id} className="whitespace-nowrap rounded-lg bg-emerald-50 px-3 py-2.5 text-xs font-bold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">{reinstating===s.id?'…':'Reinstate'}</button></td>
        </tr>
      ))}</tbody>
    </table></div>}
@@ -226,10 +226,10 @@ export default function Students(){
              <td><SectionBadge section={s.section}/></td>
              <td className="text-xs">{s.className??'Unassigned'}</td>
              <td className="text-xs">{s.year}</td>
-             <td><div className="flex gap-2">
-               <button onClick={()=>openEdit(s)} className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white">Edit</button>
-               <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('withdrawn');setRemoveReason('Duplicate record');setRemoveNotes('');}} className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove duplicate</button>
-             </div></td>
+<td><div className="flex gap-2">
+              <button onClick={()=>openEdit(s)} className="whitespace-nowrap rounded-lg bg-slate-900 px-3 py-2.5 text-xs font-bold text-white">Edit</button>
+              <button onClick={()=>{setRemoveTarget(s);setRemoveStatus('withdrawn');setRemoveReason('Duplicate record');setRemoveNotes('');}} className="whitespace-nowrap rounded-lg bg-rose-50 px-3 py-2.5 text-xs font-bold text-rose-700 hover:bg-rose-100">Remove duplicate</button>
+            </div></td>
            </tr>
          ))}</tbody>
        </table></div>
@@ -328,12 +328,12 @@ export default function Students(){
          <label className="text-xs font-bold">Memorization direction<select className="input mt-1 w-full" value={edit.direction==='Baqarah-to-Nas'?'baqarah_to_nas':'nas_to_baqarah'} onChange={e=>setEdit({...edit,direction:e.target.value==='baqarah_to_nas'?'Baqarah-to-Nas':'Nas-to-Baqarah'})}><option value="baqarah_to_nas">Baqarah → Nas (forward)</option><option value="nas_to_baqarah">Nas → Baqarah (reverse)</option></select></label>
          <label className="text-xs font-bold">Program year<select className="input mt-1 w-full" value={edit.year} onChange={e=>setEdit({...edit,year:e.target.value as any})}><option value="Year 1">Year 1</option><option value="Year 2">Year 2</option></select></label>
        </div>
-       <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 pt-1">Starting position</div>
+       <div className="text-xs font-bold uppercase tracking-wide text-slate-400 pt-1">Starting position</div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Starting surah<select className="input mt-1 w-full" value={edit.start.surah} onChange={e=>setEdit({...edit,start:{...edit.start,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
          <label className="text-xs font-bold">Starting ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.start.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.start.ayah} onChange={e=>setEdit({...edit,start:{...edit.start,ayah:Math.max(1,Number(e.target.value))}})}/></label>
        </div>
-       <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 pt-1">Current position <span className="normal-case font-normal text-slate-400">(admin can correct this)</span></div>
+       <div className="text-xs font-bold uppercase tracking-wide text-slate-400 pt-1">Current position <span className="normal-case font-normal text-slate-400">(admin can correct this)</span></div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Current surah<select className="input mt-1 w-full" value={edit.current.surah} onChange={e=>setEdit({...edit,current:{...edit.current,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
          <label className="text-xs font-bold">Current ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.current.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.current.ayah} onChange={e=>setEdit({...edit,current:{...edit.current,ayah:Math.max(1,Number(e.target.value))}})}/></label>
@@ -384,8 +384,8 @@ export default function Students(){
  </div></div>}
 
  {/* REMOVE STUDENT MODAL */}
- {removeTarget&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
-   <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl">
+ {removeTarget&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4">
+   <div className="mx-auto my-8 w-full max-w-md rounded-3xl bg-white shadow-2xl">
      <div className="flex items-center justify-between border-b p-5">
        <div><h2 className="text-xl font-black text-rose-700">Remove Student</h2><p className="text-sm text-slate-500">{removeTarget.name} · {removeTarget.admissionNo}</p></div>
        <button onClick={()=>setRemoveTarget(null)} className="rounded-xl bg-slate-100 p-2">✕</button>
@@ -406,16 +406,16 @@ export default function Students(){
          <textarea className="input mt-1 w-full resize-none" rows={3} placeholder="Any extra context for the record…" value={removeNotes} onChange={e=>setRemoveNotes(e.target.value)}/>
        </label>
      </div>
-     <div className="flex justify-end gap-2 border-t p-4">
-       <button className="btn bg-slate-100" onClick={()=>setRemoveTarget(null)}>Cancel</button>
-       <button className="btn bg-rose-600 text-white hover:bg-rose-700" disabled={removeBusy||!removeReason.trim()} onClick={confirmRemove}>{removeBusy?'Removing…':`Confirm — ${removeStatus}`}</button>
-     </div>
+<div className="flex flex-wrap justify-end gap-2 border-t p-4">
+      <button className="btn bg-slate-100" onClick={()=>setRemoveTarget(null)}>Cancel</button>
+      <button className="btn bg-rose-600 text-white hover:bg-rose-700" disabled={removeBusy||!removeReason.trim()} onClick={confirmRemove}>{removeBusy?'Removing…':`Confirm — ${removeStatus}`}</button>
+    </div>
    </div>
  </div>}
 
  {/* CREATE MODAL */}
  {showCreate&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-4"><div className="mx-auto mt-6 w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
-   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Create student</h2><p className="text-sm text-slate-500">Admission number is auto-generated as AMQM/Stu/YYYY/###.</p></div><button onClick={()=>setShowCreate(false)}>✕</button></div>
+   <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Create student</h2><p className="text-sm text-slate-500">Admission number is auto-generated as AMQM/Stu/YYYY/###.</p></div><button aria-label="Close" onClick={()=>setShowCreate(false)} className="rounded-xl bg-slate-100 p-2.5 text-lg leading-none">✕</button></div>
    <div className="p-5 grid gap-3 md:grid-cols-2">
      <input className="input" placeholder="Full name" value={form.fullName} onChange={e=>setForm({...form,fullName:e.target.value})}/>
      <input className="input" type="date" value={form.dateOfBirth} onChange={e=>setForm({...form,dateOfBirth:e.target.value})}/>

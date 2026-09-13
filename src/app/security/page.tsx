@@ -314,14 +314,14 @@ export default function SecurityScanner() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
         }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.2em', textTransform: 'uppercase', color: '#C9A84C', marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.2em', textTransform: 'uppercase', color: '#C9A84C', marginBottom: 4 }}>
               Security — Scanner
             </div>
             <div style={{ fontSize: 17, fontWeight: 800 }}>{todayStr}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{
-              padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 800,
+              padding: '6px 14px', borderRadius: 99, fontSize: 12, fontWeight: 800,
               background: isOnline ? '#dcfce7' : '#fee2e2',
               color: isOnline ? '#166534' : '#991b1b',
             }}>
@@ -332,8 +332,8 @@ export default function SecurityScanner() {
                 onClick={syncQueue}
                 disabled={!isOnline || syncing}
                 style={{
-                  padding: '4px 12px', borderRadius: 99, fontSize: 11, fontWeight: 800,
-                  background: '#fef3c7', color: '#92400e', border: 'none', cursor: 'pointer',
+                  padding: '8px 16px', borderRadius: 99, fontSize: 12, fontWeight: 800,
+                  background: '#fef3c7', color: '#92400e', border: 'none', cursor: 'pointer', minHeight: 40,
                 }}
               >
                 {syncing ? 'Syncing…' : `Sync ${offlineQueue.length}`}
@@ -357,7 +357,7 @@ export default function SecurityScanner() {
         {/* Config row — scan point only; period is always morning */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 5 }}>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, letterSpacing: '.1em', textTransform: 'uppercase', color: '#6b7280', marginBottom: 5 }}>
               Scan Point
             </label>
             <select

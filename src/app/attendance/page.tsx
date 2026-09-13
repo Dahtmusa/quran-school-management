@@ -10,9 +10,9 @@ import {
 function Kpi({ label, value, sub, color }: { label: string; value: number | string; sub?: string; color?: string }) {
   return (
     <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '16px 20px' }}>
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', color: '#9ca3af', marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 28, fontWeight: 900, color: color || '#062d2a', lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 4 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>{sub}</div>}
     </div>
   );
 }
@@ -20,8 +20,8 @@ function Kpi({ label, value, sub, color }: { label: string; value: number | stri
 function StatusChip({ code, label, color }: { code: string; label: string; color: string }) {
   return (
     <span style={{
-      display: 'inline-block', padding: '2px 10px', borderRadius: 99,
-      fontSize: 10, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
+      display: 'inline-block', padding: '3px 10px', borderRadius: 99,
+      fontSize: 11, fontWeight: 800, letterSpacing: '.05em', textTransform: 'uppercase',
       background: color + '22', color, border: `1px solid ${color}44`,
     }}>
       {label}
@@ -37,7 +37,7 @@ function ReviewBadge({ status }: { status: string }) {
   };
   const s = map[status] || { label: status, bg: '#f3f4f6', fg: '#374151' };
   return (
-    <span style={{ padding: '2px 9px', borderRadius: 99, fontSize: 10, fontWeight: 800, background: s.bg, color: s.fg }}>
+    <span style={{ padding: '3px 9px', borderRadius: 99, fontSize: 11, fontWeight: 800, background: s.bg, color: s.fg }}>
       {s.label}
     </span>
   );
@@ -103,13 +103,13 @@ function ReviewModal({
   const LS = { display: 'block' as const, fontSize: 10, fontWeight: 800 as const, letterSpacing: '.1em', textTransform: 'uppercase' as const, color: '#9ca3af', marginBottom: 6 };
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 460, padding: '24px 28px' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 100, display: 'flex', overflowY: 'auto', padding: 16, WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ background: '#fff', borderRadius: 20, width: '100%', maxWidth: 460, padding: '24px 28px', margin: 'auto' }}>
 
         <div style={{ fontWeight: 900, fontSize: 17, color: '#062d2a', marginBottom: 4 }}>Review Attendance</div>
         <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 20 }}>
           <strong style={{ color: '#111' }}>{record.personName}</strong> · {record.attendanceDate} · {scanTime}
-          <span style={{ marginLeft: 8, padding: '2px 9px', borderRadius: 99, fontSize: 10, fontWeight: 800,
+          <span style={{ marginLeft: 8, padding: '2px 9px', borderRadius: 99, fontSize: 11, fontWeight: 800,
             background: record.statusCode === 'late' ? '#fef3c7' : record.statusCode === 'absent' ? '#fee2e2' : '#f3f4f6',
             color: record.statusCode === 'late' ? '#92400e' : record.statusCode === 'absent' ? '#991b1b' : '#374151',
           }}>{record.statusLabel}</span>
@@ -199,13 +199,12 @@ function RecordRow({ record, onReview }: { record: AttendanceRecord; onReview: (
   const scanTime = new Date(record.scannedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   return (
     <div style={{
-      display: 'grid', gridTemplateColumns: '1fr auto auto auto',
-      alignItems: 'center', gap: 12, padding: '11px 18px',
+      display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 12px', padding: '12px 16px',
       borderBottom: '1px solid #f9fafb',
     }}>
-      <div>
-        <div style={{ fontWeight: 700, fontSize: 13, color: '#111' }}>{record.personName}</div>
-        <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 1 }}>
+      <div style={{ minWidth: 0, flex: '1 1 100%' }}>
+        <div style={{ fontWeight: 700, fontSize: 13, color: '#111', overflowWrap: 'anywhere' }}>{record.personName}</div>
+        <div style={{ fontSize: 12, color: '#9ca3af', marginTop: 1 }}>
           {record.personAdmissionNo && `${record.personAdmissionNo} · `}{scanTime}
           {record.isOfflineScan && <span style={{ marginLeft: 5, color: '#d97706' }}>· offline sync</span>}
         </div>
@@ -214,14 +213,14 @@ function RecordRow({ record, onReview }: { record: AttendanceRecord; onReview: (
       <ReviewBadge status={record.reviewStatus} />
       {record.reviewStatus === 'pending' && (
         <button onClick={() => onReview(record)} style={{
-          padding: '5px 14px', borderRadius: 8, border: '1.5px solid #e5e7eb',
-          background: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', color: '#374151',
-          whiteSpace: 'nowrap',
+          padding: '7px 15px', borderRadius: 8, border: '1.5px solid #e5e7eb',
+          background: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#374151',
+          whiteSpace: 'nowrap', minHeight: 40,
         }}>
           Review
         </button>
       )}
-      {record.reviewStatus !== 'pending' && <div />}
+      {record.reviewStatus !== 'pending' && <span style={{ marginLeft: 'auto' }} />}
     </div>
   );
 }
@@ -353,11 +352,11 @@ function SmsSettings() {
 
         {/* Enable toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => set('sms_enabled', settings.sms_enabled === 'true' ? 'false' : 'true')} style={{
-            width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer', position: 'relative',
-            background: settings.sms_enabled === 'true' ? '#16a34a' : '#d1d5db', transition: 'background .2s', flexShrink: 0,
+          <button onClick={() => set('sms_enabled', settings.sms_enabled === 'true' ? 'false' : 'true')} aria-label="Toggle SMS notifications" style={{
+            width: 48, height: 28, borderRadius: 14, border: 'none', cursor: 'pointer', position: 'relative',
+            background: settings.sms_enabled === 'true' ? '#16a34a' : '#d1d5db', transition: 'background .2s', flexShrink: 0, minHeight: 44, margin: '-8px 0',
           }}>
-            <div style={{ position: 'absolute', top: 3, left: settings.sms_enabled === 'true' ? 22 : 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
+            <div style={{ position: 'absolute', top: 5, left: settings.sms_enabled === 'true' ? 26 : 4, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left .2s' }} />
           </button>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
             SMS notifications are {settings.sms_enabled === 'true' ? 'enabled' : 'disabled'}
@@ -431,7 +430,7 @@ function SmsSettings() {
               const on = sendOn.includes(s);
               return (
                 <button key={s} onClick={() => setSendOn(prev => on ? prev.filter(x => x !== s) : [...prev, s])}
-                  style={{ padding: '6px 14px', borderRadius: 99, border: '1.5px solid', cursor: 'pointer', fontSize: 12, fontWeight: 700, textTransform: 'capitalize',
+                  style={{ padding: '9px 16px', borderRadius: 99, border: '1.5px solid', cursor: 'pointer', fontSize: 13, fontWeight: 700, textTransform: 'capitalize', minHeight: 40,
                     background: on ? '#062d2a' : '#fff', color: on ? '#fff' : '#6b7280', borderColor: on ? '#062d2a' : '#e5e7eb' }}>
                   {s}
                 </button>
@@ -467,7 +466,7 @@ function SmsSettings() {
         {templates.map(t => (
           <div key={t.code} style={{ border: '1.5px solid #e5e7eb', borderRadius: 12, padding: '16px 18px' }} className="space-y-3">
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ padding: '2px 10px', borderRadius: 99, fontSize: 10, fontWeight: 800, textTransform: 'capitalize',
+              <span style={{ padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 800, textTransform: 'capitalize',
                 background: t.code === 'absent' ? '#fee2e2' : t.code === 'late' ? '#fef3c7' : t.code === 'excused' ? '#dbeafe' : t.code === 'sick' ? '#ede9fe' : '#dcfce7',
                 color: t.code === 'absent' ? '#991b1b' : t.code === 'late' ? '#92400e' : t.code === 'excused' ? '#1e40af' : t.code === 'sick' ? '#5b21b6' : '#166534',
               }}>{t.code}</span>
@@ -582,7 +581,7 @@ export default function AttendanceDashboard() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12,
         }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: '.2em', textTransform: 'uppercase', color: '#C9A84C', marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '.2em', textTransform: 'uppercase', color: '#C9A84C', marginBottom: 4 }}>
               Admin — Attendance
             </div>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{todayStr}</div>
@@ -592,11 +591,11 @@ export default function AttendanceDashboard() {
               type="date"
               value={filterDate}
               onChange={e => setFilterDate(e.target.value)}
-              style={{ border: 'none', borderRadius: 10, padding: '7px 12px', fontSize: 12, fontWeight: 600, background: 'rgba(255,255,255,.15)', color: '#fff' }}
+              style={{ border: 'none', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,.15)', color: '#fff', minHeight: 40 }}
             />
             <button onClick={refresh} style={{
-              padding: '7px 16px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.18)',
-              color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              padding: '10px 16px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.18)',
+              color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', minHeight: 40,
             }}>
               Refresh
             </button>
@@ -628,7 +627,7 @@ export default function AttendanceDashboard() {
             }}>
               {t.label}
               {t.badge != null && t.badge > 0 && (
-                <span style={{ background: '#dc2626', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 900, padding: '1px 6px' }}>{t.badge}</span>
+                <span style={{ background: '#dc2626', color: '#fff', borderRadius: 99, fontSize: 11, fontWeight: 900, padding: '2px 7px' }}>{t.badge}</span>
               )}
             </button>
           ))}
@@ -648,8 +647,8 @@ export default function AttendanceDashboard() {
                   Review and approve or reject attendance records scanned by security.
                 </div>
                 <button onClick={() => setTab('pending')} style={{
-                  marginTop: 10, padding: '7px 16px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                  background: '#92400e', color: '#fff', fontSize: 12, fontWeight: 700,
+                  marginTop: 10, padding: '9px 18px', borderRadius: 9, border: 'none', cursor: 'pointer',
+                  background: '#92400e', color: '#fff', fontSize: 13, fontWeight: 700, minHeight: 40,
                 }}>
                   Review now →
                 </button>

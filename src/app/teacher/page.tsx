@@ -502,14 +502,14 @@ export default function TeacherDashboard() {
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
-                          className="text-xs border border-slate-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-amber-400">
+                          className="text-xs border border-slate-200 rounded-md bg-white px-2 py-2 focus:outline-none focus:ring-1 focus:ring-amber-400">
                           <option value="Baqarah-to-Nas">↓ B→N</option>
                           <option value="Nas-to-Baqarah">↑ N→B</option>
                         </select>
                       </td>
                       <td className="px-1 py-2.5 bg-emerald-50/20">
                         <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-2 py-2 max-w-[150px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
                           <option value={0}>— Surah —</option>
                           {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
                         </select>
@@ -517,14 +517,14 @@ export default function TeacherDashboard() {
                       <td className="px-1 py-2.5 bg-emerald-50/20">
                         <select value={e.startAyah || ''}
                           onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Number(ev.target.value) } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
+                          className="text-xs border border-emerald-200 rounded-md bg-white px-2 py-2 max-w-[96px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
                           <option value="">Ayah</option>
                           {Array.from({ length: maxStartAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
                       </td>
                       <td className="px-1 py-2.5 bg-teal-50/20">
                         <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
-                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[130px] focus:outline-none focus:ring-1 focus:ring-teal-400">
+                          className="text-xs border border-teal-200 rounded-md bg-white px-2 py-2 max-w-[150px] focus:outline-none focus:ring-1 focus:ring-teal-400">
                           <option value={0}>— Surah —</option>
                           {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
                         </select>
@@ -532,7 +532,7 @@ export default function TeacherDashboard() {
                       <td className="px-1 py-2.5 bg-teal-50/20">
                         <select value={e.endAyah || ''}
                           onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Number(ev.target.value) } }))}
-                          className="text-xs border border-teal-200 rounded-md bg-white px-1 py-1 max-w-[72px] focus:outline-none focus:ring-1 focus:ring-teal-400">
+                          className="text-xs border border-teal-200 rounded-md bg-white px-2 py-2 max-w-[96px] focus:outline-none focus:ring-1 focus:ring-teal-400">
                           <option value="">Ayah</option>
                           {Array.from({ length: maxEndAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
@@ -848,8 +848,8 @@ export default function TeacherDashboard() {
 
     {/* Edit section modal */}
     {editSectionTarget && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
-        <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/40 p-4">
+        <div className="mx-auto my-8 w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
           <h3 className="text-lg font-black">Edit section — {editSectionTarget.name}</h3>
           <p className="mt-1 text-xs text-slate-500">Change whether this student is a day or boarding student.</p>
           <div className="mt-4">

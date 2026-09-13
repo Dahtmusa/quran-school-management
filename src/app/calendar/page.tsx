@@ -352,6 +352,6 @@ function EventRow({ event, onDelete }: { event: any; onDelete: () => void }) {
       <span className="font-semibold text-sm">{event.title}</span>
       <span className="text-xs text-slate-400">{start}{end && end !== start ? ` → ${end}` : ''}</span>
     </div>
-    <button className="shrink-0 rounded-lg bg-rose-50 px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-100" onClick={onDelete}>Delete</button>
+    <button className="shrink-0 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100" onClick={onDelete}>Delete</button>
   </div>;
 }

@@ -31,7 +31,7 @@ function PasswordField({value,onChange,label,autoComplete}:{value:string;onChang
           value={value}
           onChange={e=>onChange(e.target.value)}
           required
-          style={{width:'100%',border:'1.5px solid #D6DDD9',borderRadius:10,padding:'11px 44px 11px 14px',fontSize:15,background:'#fff',outline:'none',fontFamily:'inherit',color:'#1E2D28',boxSizing:'border-box',transition:'border-color .15s,box-shadow .15s'}}
+          style={{width:'100%',border:'1.5px solid #D6DDD9',borderRadius:10,padding:'11px 44px 11px 14px',fontSize:16,background:'#fff',outline:'none',fontFamily:'inherit',color:'#1E2D28',boxSizing:'border-box',transition:'border-color .15s,box-shadow .15s'}}
           onFocus={e=>{e.target.style.borderColor='#062d2a';e.target.style.boxShadow='0 0 0 3px rgba(6,45,40,.08)'}}
           onBlur={e=>{e.target.style.borderColor='#D6DDD9';e.target.style.boxShadow='none'}}
         />
@@ -55,7 +55,7 @@ function TextField({value,onChange,label,type='text',placeholder,autoComplete}:{
         onChange={e=>onChange(e.target.value)}
         placeholder={placeholder}
         required
-        style={{width:'100%',border:'1.5px solid #D6DDD9',borderRadius:10,padding:'11px 14px',fontSize:15,background:'#fff',outline:'none',fontFamily:'inherit',color:'#1E2D28',boxSizing:'border-box',transition:'border-color .15s,box-shadow .15s'}}
+        style={{width:'100%',border:'1.5px solid #D6DDD9',borderRadius:10,padding:'11px 14px',fontSize:16,background:'#fff',outline:'none',fontFamily:'inherit',color:'#1E2D28',boxSizing:'border-box',transition:'border-color .15s,boxShadow .15s'}}
         onFocus={e=>{e.target.style.borderColor='#062d2a';e.target.style.boxShadow='0 0 0 3px rgba(6,45,40,.08)'}}
         onBlur={e=>{e.target.style.borderColor='#D6DDD9';e.target.style.boxShadow='none'}}
       />
@@ -208,11 +208,12 @@ export default function Login(){
         }
         .form-sub{margin-top:6px;font-size:14px;color:#6B8278;line-height:1.5}
         /* Tab bar */
-        .tab-bar{display:flex;margin-top:32px;border-bottom:2px solid #E4EAE7;gap:0}
+        .tab-bar{display:flex;margin-top:32px;border-bottom:2px solid #E4EAE7;gap:0;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+        .tab-bar::-webkit-scrollbar{display:none}
         .tab-btn{
           padding:0 20px 12px;font-size:13px;font-weight:600;color:#7A9188;
           background:none;border:none;cursor:pointer;border-bottom:2.5px solid transparent;
-          margin-bottom:-2px;transition:color .15s,border-color .15s;letter-spacing:.01em;white-space:nowrap;
+          margin-bottom:-2px;transition:color .15s,border-color .15s;letter-spacing:.01em;white-space:nowrap;flex-shrink:0;
         }
         .tab-btn:first-child{padding-left:0}
         .tab-btn.active{color:#062d2a;border-bottom-color:#C9A84C}

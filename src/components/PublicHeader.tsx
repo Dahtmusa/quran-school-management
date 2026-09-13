@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type NavLink = { label: string; href: string };
 
@@ -13,6 +13,20 @@ type NavLink = { label: string; href: string };
 // once they left the homepage.
 export default function PublicHeader({ logo, short, school, nav }: { logo?: string; short: string; school: string; nav: NavLink[] }) {
   const [mobileNav, setMobileNav] = useState(false);
+
+  useEffect(() => {
+    if (!mobileNav) return;
+    const previousOverflow = document.body.style.overflow;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileNav(false);
+    };
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [mobileNav]);
 
   return (
     <>
@@ -33,7 +47,7 @@ export default function PublicHeader({ logo, short, school, nav }: { logo?: stri
           <div className="flex items-center gap-2">
             <Link href="/auth/login" className="btn bg-[#06372f] text-white">Login</Link>
             <Link href="/admissions" className="btn hidden bg-[#d39a1d] text-slate-950 sm:inline-flex">Apply Now →</Link>
-            <button aria-label="Open navigation" className="mobile-menu-button xl:hidden" onClick={() => setMobileNav(true)}>☰</button>
+            <button aria-label="Open navigation" aria-expanded={mobileNav} className="mobile-menu-button xl:hidden" onClick={() => setMobileNav(true)}>☰</button>
           </div>
         </div>
       </header>
@@ -41,7 +55,7 @@ export default function PublicHeader({ logo, short, school, nav }: { logo?: stri
       {mobileNav && (
         <div className="fixed inset-0 z-[90] xl:hidden">
           <button aria-label="Close menu overlay" className="absolute inset-0 bg-slate-950/60" onClick={() => setMobileNav(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-white p-5 shadow-2xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl">
             <div className="flex items-center justify-between border-b pb-5">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 overflow-hidden rounded-full border border-emerald-100">
@@ -51,7 +65,7 @@ export default function PublicHeader({ logo, short, school, nav }: { logo?: stri
               </div>
               <button aria-label="Close navigation" className="mobile-close" onClick={() => setMobileNav(false)}>×</button>
             </div>
-            <nav className="mt-6 flex-1 space-y-2 overflow-y-auto">
+            <nav className="mt-6 flex-1 space-y-2 overflow-y-auto overscroll-contain">
               {nav.map((x) => <Link key={x.label} href={x.href} onClick={() => setMobileNav(false)} className="mobile-nav-link"><span>{x.label}</span><span>→</span></Link>)}
             </nav>
             <Link href="/auth/login" onClick={() => setMobileNav(false)} className="mt-5 block rounded-2xl bg-[#06372f] px-4 py-3.5 text-center text-sm font-black text-white">Login</Link>

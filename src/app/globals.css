@@ -41,3 +41,14 @@ button:disabled{cursor:not-allowed}
   button,a,input,select,textarea{touch-action:manipulation}
   .mobile-nav-scroll{overscroll-behavior:contain}
 }
+
+/* Prevent iOS Safari auto-zoom when focusing form fields (needs >=16px) */
+@media(max-width:767px){
+  input,select,textarea{font-size:16px!important}
+  .input{font-size:16px}
+}
+
+/* Keep tables usable on small screens without stretching the page */
+@media(max-width:767px){
+  .rc-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}

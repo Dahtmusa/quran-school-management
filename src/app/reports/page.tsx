@@ -325,9 +325,22 @@ function ReportPreview({student,term,settings,close,signatures}:{student:any;ter
     setTimeout(()=>cw.print(),200);
   };
 
+  const A4_W=210/25.4*96, A4_H=297/25.4*96;
+  const wrapRef=useRef<HTMLDivElement>(null);
+  const [scale,setScale]=useState(1);
+  useEffect(()=>{
+    const el=wrapRef.current;
+    if(!el) return;
+    const update=()=>{ setScale(Math.min(1,el.clientWidth/A4_W)); };
+    update();
+    const ro=new ResizeObserver(update);
+    ro.observe(el);
+    return ()=>ro.disconnect();
+  },[A4_W]);
+
   return <div className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto bg-slate-950/70 p-4 pt-6">
     <div className="w-full max-w-[900px] rounded-3xl bg-white shadow-2xl overflow-hidden mb-6">
-      <div className="flex items-center justify-between border-b px-6 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-6 py-4">
         <div>
           <div className="text-xs font-black uppercase tracking-wider text-emerald-700">Official Report Card</div>
           <h2 className="text-xl font-black text-slate-900">{student.name}</h2>
@@ -337,15 +350,17 @@ function ReportPreview({student,term,settings,close,signatures}:{student:any;ter
           <button className="btn btn-primary" onClick={handlePrint} disabled={loading}>{loading?'Loading…':'Print report'}</button>
         </div>
       </div>
-      <div className="bg-slate-300" style={{overflowY:'auto',maxHeight:'calc(100vh - 120px)',padding:'16px',display:'flex',justifyContent:'center'}}>
-        {loading&&<div style={{width:'210mm',height:'297mm',background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontSize:'14px',borderRadius:'4px'}}>Generating report card…</div>}
-        {blobUrl&&<iframe
-          ref={iframeRef}
-          src={blobUrl}
-          title={`Report Card · ${student.name}`}
-          style={{width:'210mm',height:'297mm',border:'none',display:loading?'none':'block',boxShadow:'0 8px 40px rgba(0,0,0,0.22)',background:'white'}}
-          onLoad={()=>setLoading(false)}
-        />}
+      <div ref={wrapRef} className="bg-slate-300" style={{overflowY:'auto',maxHeight:'calc(100vh - 140px)',padding:'16px',display:'flex',justifyContent:'center',alignItems:'flex-start'}}>
+        <div style={{width:A4_W*scale,height:A4_H*scale,position:'relative',flexShrink:0}}>
+          {loading&&<div style={{width:A4_W,height:A4_H,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',color:'#94a3b8',fontSize:'14px',borderRadius:'4px',transform:`scale(${scale})`,transformOrigin:'top left',position:'absolute',top:0,left:0}}>Generating report card…</div>}
+          {blobUrl&&<iframe
+            ref={iframeRef}
+            src={blobUrl}
+            title={`Report Card · ${student.name}`}
+            style={{width:A4_W,height:A4_H,border:'none',display:loading?'none':'block',boxShadow:'0 8px 40px rgba(0,0,0,0.22)',background:'white',transform:`scale(${scale})`,transformOrigin:'top left',position:'absolute',top:0,left:0}}
+            onLoad={()=>setLoading(false)}
+          />}
+        </div>
       </div>
     </div>
   </div>;

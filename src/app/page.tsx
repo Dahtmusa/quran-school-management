@@ -161,7 +161,7 @@ export default function Home() {
       {mobileNav && (
         <div className="fixed inset-0 z-[90] xl:hidden">
           <button aria-label="Close menu overlay" className="absolute inset-0 bg-slate-950/60" onClick={() => setMobileNav(false)} />
-          <aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-white p-5 shadow-2xl">
+          <aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] shadow-2xl">
             <div className="flex items-center justify-between border-b pb-5">
               <div className="flex items-center gap-3">
                 <div className="h-11 w-11 overflow-hidden rounded-full border border-emerald-100">
@@ -171,7 +171,7 @@ export default function Home() {
               </div>
               <button aria-label="Close navigation" className="mobile-close" onClick={() => setMobileNav(false)}>×</button>
             </div>
-            <nav className="mt-6 flex-1 space-y-2 overflow-y-auto">
+            <nav className="mt-6 flex-1 space-y-2 overflow-y-auto overscroll-contain">
               {nav.map((x: any) => <Link key={x.label} href={x.href} onClick={() => setMobileNav(false)} className="mobile-nav-link"><span>{x.label}</span><span>→</span></Link>)}
             </nav>
             <Link href="/auth/login" onClick={() => setMobileNav(false)} className="mt-5 block rounded-2xl bg-[#06372f] px-4 py-3.5 text-center text-sm font-black text-white">Login</Link>

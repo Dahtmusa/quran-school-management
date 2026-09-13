@@ -58,7 +58,7 @@ function computeEval3(
 function SurahSelect({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <select value={value} onChange={e => onChange(Number(e.target.value))}
-      className="text-xs border border-neutral-200 rounded-md bg-white px-1 py-1 pr-5 focus:outline-none focus:ring-1 focus:ring-teal-400 max-w-[140px]">
+      className="text-xs border border-neutral-200 rounded-md bg-white px-2 py-2 pr-6 focus:outline-none focus:ring-1 focus:ring-teal-400 max-w-[150px]">
       <option value={0}>— Surah —</option>
       {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
     </select>
@@ -69,7 +69,7 @@ function AyahInput({ value, max, onChange }: { value: number; max: number; onCha
   const count = max || 286;
   return (
     <select value={value || ''} onChange={e => onChange(Number(e.target.value))}
-      className="text-xs border border-neutral-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-teal-400 max-w-[72px]">
+      className="text-xs border border-neutral-200 rounded-md bg-white px-2 py-2 focus:outline-none focus:ring-1 focus:ring-teal-400 max-w-[96px]">
       <option value="">Ayah</option>
       {Array.from({ length: count }, (_, i) => i + 1).map(n => (
         <option key={n} value={n}>{n}</option>
@@ -375,14 +375,14 @@ export default function Eval3ImportPage() {
                       <td className="px-4 py-2 text-xs text-neutral-400 font-mono">{idx + 1}</td>
                       <td className="px-4 py-2">
                         <div className="font-medium text-neutral-900 text-xs">{student.name}</div>
-                        <div className="text-neutral-400 text-[10px]">{student.admissionNo}</div>
+                        <div className="text-neutral-400 text-[11px]">{student.admissionNo}</div>
                       </td>
 
                       {/* Direction */}
                       <td className="px-2 py-2 bg-indigo-50/20 text-center">
                         <select value={e.direction || student.direction}
                           onChange={ev => update(student.id, { direction: ev.target.value })}
-                          className="text-xs border border-indigo-200 rounded-md bg-white px-1 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+                          className="text-xs border border-indigo-200 rounded-md bg-white px-2 py-2 focus:outline-none focus:ring-1 focus:ring-indigo-400">
                           <option value="Baqarah-to-Nas">↓ Baqarah→Nas</option>
                           <option value="Nas-to-Baqarah">↑ Nas→Baqarah</option>
                         </select>
@@ -415,15 +415,15 @@ export default function Eval3ImportPage() {
                         {m.valid ? (
                           <div>
                             <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
-                            <div className="text-[10px] text-neutral-500">{m.ayahs} ayahs · {m.pages}pp</div>
+                            <div className="text-[11px] text-neutral-500">{m.ayahs} ayahs · {m.pages}pp</div>
                             <div className="mt-1 h-1.5 rounded-full bg-neutral-100 overflow-hidden w-20 mx-auto">
                               <div className="h-full bg-teal-400 rounded-full" style={{ width: `${m.score}%` }} />
                             </div>
                           </div>
                         ) : m.error ? (
-                          <span className="text-[10px] text-red-500 font-medium">{m.error}</span>
+                          <span className="text-[11px] text-red-500 font-medium">{m.error}</span>
                         ) : (
-                          <span className="text-[10px] text-neutral-300">—</span>
+                          <span className="text-[11px] text-neutral-300">—</span>
                         )}
                       </td>
 
@@ -431,9 +431,9 @@ export default function Eval3ImportPage() {
                       <td className="px-3 py-2 text-center min-w-[120px]">
                         {isApproved ? (
                           <div>
-                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-700 border border-teal-100">✓ Approved</span>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-100">✓ Approved</span>
                             {existing.from?.surah ? (
-                              <div className="mt-1 text-[9px] text-teal-600 leading-tight">
+                              <div className="mt-1 text-[10px] text-teal-600 leading-tight">
                                 <div>From S{existing.from.surah}:A{existing.from.ayah}</div>
                                 <div>To S{existing.to.surah}:A{existing.to.ayah}</div>
                               </div>
@@ -441,16 +441,16 @@ export default function Eval3ImportPage() {
                           </div>
                         ) : isPending ? (
                           <div>
-                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">⏳ Pending Review</span>
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">⏳ Pending Review</span>
                             {existing.from?.surah ? (
-                              <div className="mt-1 text-[9px] text-amber-700 leading-tight font-medium">
+                              <div className="mt-1 text-[10px] text-amber-700 leading-tight font-medium">
                                 <div>From S{existing.from.surah}:A{existing.from.ayah}</div>
                                 <div>To S{existing.to.surah}:A{existing.to.ayah}</div>
                               </div>
                             ) : null}
                           </div>
                         ) : (
-                          <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 text-neutral-400">Not saved</span>
+                          <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-neutral-100 text-neutral-400">Not saved</span>
                         )}
                       </td>
                     </tr>

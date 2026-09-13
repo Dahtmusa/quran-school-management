@@ -192,7 +192,7 @@ export default function StaffPage(){
            {t.bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-2">{t.bio}</p>}
          </div>
          <div className="flex items-center gap-2 border-t px-5 py-3">
-           <button onClick={()=>toggleWebsite(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black transition ${t.show_on_website?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
+           <button onClick={()=>toggleWebsite(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black transition ${t.show_on_website?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
@@ -227,7 +227,7 @@ export default function StaffPage(){
            {t.brief_bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-3">{t.brief_bio}</p>}
          </div>
          <div className="flex items-center gap-2 border-t px-5 py-3">
-           <button onClick={()=>toggleHomepage(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-black transition ${t.display_on_homepage?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
+           <button onClick={()=>toggleHomepage(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black transition ${t.display_on_homepage?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
              <span className={`h-2 w-2 rounded-full ${t.display_on_homepage?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.display_on_homepage?'On homepage':'Hidden'}
            </button>
@@ -340,8 +340,8 @@ export default function StaffPage(){
             </div>
           </div>
           {r.has_signature
-            ?<span className="pill bg-emerald-50 text-emerald-700 text-[10px] font-black shrink-0">✓ Signed</span>
-            :<span className="pill bg-amber-50 text-amber-700 text-[10px] font-black shrink-0">⚠ No signature</span>}
+            ?<span className="pill bg-emerald-50 text-emerald-700 text-[11px] font-black shrink-0">✓ Signed</span>
+            :<span className="pill bg-amber-50 text-amber-700 text-[11px] font-black shrink-0">⚠ No signature</span>}
           {r.has_signature&&r.signature_data&&<button
             className="btn bg-slate-100 text-xs py-1 px-3 shrink-0"
             onClick={()=>setSigPreview(r)}>Preview</button>}
@@ -361,8 +361,8 @@ export default function StaffPage(){
   </div>}
 
   {/* ── SIGNATURE PREVIEW MODAL ── */}
-  {sigPreview&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4"><div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
-    <div className="flex items-center justify-between mb-4"><h3 className="font-black">{sigPreview.full_name}</h3><button className="btn bg-slate-100" onClick={()=>setSigPreview(null)}>Close</button></div>
+  {sigPreview&&<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/50 p-4"><div className="mx-auto my-8 w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+    <div className="flex items-center justify-between gap-2 mb-4"><h3 className="font-black">{sigPreview.full_name}</h3><button className="btn bg-slate-100" onClick={()=>setSigPreview(null)}>Close</button></div>
     <p className="text-xs text-slate-500 mb-3">{sigPreview.role.replace('_',' ')}{sigPreview.job_title?` · ${sigPreview.job_title}`:''}</p>
     <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 p-4 flex items-center justify-center min-h-[100px]">
       {sigPreview.signature_data&&<img src={sigPreview.signature_data} alt="signature" className="max-h-24 max-w-full object-contain"/>}

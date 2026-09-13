@@ -235,12 +235,12 @@ export default function ParentPortal() {
               </p>
             </div>
             {currentDue > 0 ? (
-              <div className="grid grid-cols-2 divide-x border-b sm:grid-cols-5">
-                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Current term</div><div className="mt-1 text-xl font-black">{currency} {currentDue.toLocaleString()}</div></div>
-                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Paid this term</div><div className="mt-1 text-xl font-black text-emerald-700">{currency} {currentPaid.toLocaleString()}</div></div>
-                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Previous balance</div><div className="mt-1 text-xl font-black text-rose-600">{prevBalance > 0 ? `${currency} ${prevBalance.toLocaleString()}` : 'None'}</div></div>
-                <div className="p-4 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">Total payable</div><div className="mt-1 text-xl font-black">{currency} {totalPayable.toLocaleString()}</div></div>
-                <div className="p-4 text-center col-span-2 sm:col-span-1"><div className="text-[10px] font-bold uppercase text-slate-400">Total outstanding</div><div className={`mt-1 text-xl font-black ${totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{totalOutstanding > 0 ? `${currency} ${totalOutstanding.toLocaleString()}` : 'Cleared'}</div></div>
+              <div className="grid grid-cols-2 divide-x divide-y sm:divide-y-0 border-b sm:grid-cols-5">
+                <div className="p-4 text-center"><div className="text-[11px] font-bold uppercase text-slate-400">Current term</div><div className="mt-1 text-xl font-black">{currency} {currentDue.toLocaleString()}</div></div>
+                <div className="p-4 text-center"><div className="text-[11px] font-bold uppercase text-slate-400">Paid this term</div><div className="mt-1 text-xl font-black text-emerald-700">{currency} {currentPaid.toLocaleString()}</div></div>
+                <div className="p-4 text-center"><div className="text-[11px] font-bold uppercase text-slate-400">Previous balance</div><div className="mt-1 text-xl font-black text-rose-600">{prevBalance > 0 ? `${currency} ${prevBalance.toLocaleString()}` : 'None'}</div></div>
+                <div className="p-4 text-center"><div className="text-[11px] font-bold uppercase text-slate-400">Total payable</div><div className="mt-1 text-xl font-black">{currency} {totalPayable.toLocaleString()}</div></div>
+                <div className="p-4 text-center col-span-2 sm:col-span-1"><div className="text-[11px] font-bold uppercase text-slate-400">Total outstanding</div><div className={`mt-1 text-xl font-black ${totalOutstanding > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>{totalOutstanding > 0 ? `${currency} ${totalOutstanding.toLocaleString()}` : 'Cleared'}</div></div>
               </div>
             ) : (
               <div className="p-6 text-center text-sm text-slate-400">No fee allocation for the current term yet.</div>

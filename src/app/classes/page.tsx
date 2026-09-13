@@ -247,7 +247,7 @@ export default function ClassesPage() {
                     <button
                       onClick={() => openEdit(c)}
                       title="Edit class"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800 transition-colors"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-800 transition-colors"
                     >
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H2v-3L11.5 2.5z"/>
@@ -257,7 +257,7 @@ export default function ClassesPage() {
                     <button
                       onClick={() => setDeleteTarget(c)}
                       title="Delete class"
-                      className="flex h-8 w-8 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-400 hover:border-rose-300 hover:text-rose-600 transition-colors"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg border border-rose-100 bg-white text-rose-400 hover:border-rose-300 hover:text-rose-600 transition-colors"
                     >
                       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M2 4h12M5 4V2h6v2M6 7v5M10 7v5M3 4l1 9h8l1-9"/>
@@ -275,7 +275,7 @@ export default function ClassesPage() {
                         <div className="flex items-center justify-between rounded-xl bg-white p-3" key={t.id}>
                           <span className="text-sm font-semibold">{t.name}{t.primary ? ' · Primary' : ''}</span>
                           <button
-                            className="text-xs font-bold text-rose-600"
+                            className="rounded-lg px-3 py-2 text-xs font-bold text-rose-600"
                             onClick={() => removeTeacher(c.id, t.id)}
                             disabled={busy}
                           >
@@ -386,7 +386,7 @@ export default function ClassesPage() {
                 {deleteTarget.teachers.length > 1 ? 's' : ''} assigned. The class will be archived and historical records will be preserved.
               </div>
             )}
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-wrap justify-end gap-2 pt-2">
               <button className="btn bg-slate-100" onClick={() => setDeleteTarget(null)}>Cancel</button>
               <button
                 className="btn bg-rose-600 text-white hover:bg-rose-700"

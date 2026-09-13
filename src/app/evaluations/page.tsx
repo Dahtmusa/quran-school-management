@@ -74,8 +74,8 @@ export default function EvaluationsAdmin(){
               <InfoCell k="Hizb covered" v={String(ev.memorizedHizbs||0)}/>
               <InfoCell k="Final score" v={ev.score>0?`${ev.score}%`:'—'}/>
             </div>
-            <div className="mt-3 grid grid-cols-5 gap-2">
-              {[['Memorization',ev.memorization],['Accuracy',ev.accuracy],['Fluency',ev.fluency],['Tajweed',ev.tajweed],['Retention',ev.retention]].map(([lbl,val])=><div key={String(lbl)} className="rounded-xl bg-slate-50 p-2 text-center"><div className="text-[10px] font-bold uppercase text-slate-400">{lbl}</div><div className="mt-1 text-lg font-black text-emerald-800">{val||'—'}/5</div></div>)}
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+              {[['Memorization',ev.memorization],['Accuracy',ev.accuracy],['Fluency',ev.fluency],['Tajweed',ev.tajweed],['Retention',ev.retention]].map(([lbl,val])=><div key={String(lbl)} className="rounded-xl bg-slate-50 p-2 text-center"><div className="text-[11px] font-bold uppercase text-slate-400">{lbl}</div><div className="mt-1 text-lg font-black text-emerald-800">{val||'—'}/5</div></div>)}
             </div>
             {ev.grade&&<div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-800">{ev.grade}</div>}
             {ev.comment&&<div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-700"><span className="font-bold">Teacher comment: </span>{ev.comment}</div>}
@@ -87,4 +87,4 @@ export default function EvaluationsAdmin(){
 }
 function Kpi({label,value,tone}:{label:string,value:number,tone:string}){const bg=tone==='green'?'bg-emerald-50 text-emerald-900':tone==='amber'?'bg-amber-50 text-amber-900':tone==='rose'?'bg-rose-50 text-rose-900':tone==='blue'?'bg-blue-50 text-blue-900':'bg-slate-50 text-slate-900';return <div className={`rounded-2xl p-5 ${bg}`}><div className="text-xs font-bold uppercase tracking-wide opacity-70">{label}</div><div className="mt-2 text-3xl font-black">{value}</div></div>}
 function StatusBadge({status}:{status:string}){const cls=status==='Approved'?'bg-emerald-50 text-emerald-700':status==='Pending Approval'?'bg-amber-50 text-amber-700':status==='Returned'?'bg-rose-50 text-rose-700':status==='Draft'?'bg-blue-50 text-blue-700':'bg-slate-100 text-slate-500';return <span className={`pill ${cls}`}>{status}</span>}
-function InfoCell({k,v}:{k:string;v:string}){return <div className="rounded-xl bg-slate-50 p-2"><div className="text-[10px] font-bold uppercase text-slate-400">{k}</div><div className="mt-0.5 text-sm font-black">{v}</div></div>}
+function InfoCell({k,v}:{k:string;v:string}){return <div className="rounded-xl bg-slate-50 p-2"><div className="text-[11px] font-bold uppercase text-slate-400">{k}</div><div className="mt-0.5 text-sm font-black">{v}</div></div>}
