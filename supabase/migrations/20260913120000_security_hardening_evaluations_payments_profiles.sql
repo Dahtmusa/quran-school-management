@@ -32,7 +32,7 @@ WITH CHECK (
   (my_role() = ANY (ARRAY['super_admin'::user_role,'admin'::user_role,'principal'::user_role]))
   OR (
     (teacher_id = (SELECT auth.uid()))
-    AND (status = ANY (ARRAY['draft'::evaluation_status,'returned'::evaluation_status,'submitted'::evaluation_status]))
+    AND (status = ANY (ARRAY['draft'::evaluation_status,'returned'::evaluation_status,'pending_approval'::evaluation_status]))
   )
 );
 
