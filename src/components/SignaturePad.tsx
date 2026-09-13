@@ -13,7 +13,7 @@ interface Props {
   onSign?: () => void;
 }
 
-const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 400, height = 160, onSign }, ref) => {
+const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 800, height = 180, onSign }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const lastPos = useRef<{ x: number; y: number } | null>(null);
@@ -63,7 +63,19 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 400, height =
     lastPos.current = null;
   }
 
+  function keepPadVisible(canvas: HTMLCanvasElement) {
+    // Profile dialogs can be internally scrollable on small screens. Keep the drawing
+    // surface in a comfortable viewport position without jumping to the page top.
+    requestAnimationFrame(() => {
+      const rect = canvas.getBoundingClientRect();
+      if (rect.top < 72 || rect.bottom > window.innerHeight - 24) {
+        canvas.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    });
+  }
+
   function onMouseDown(e: React.MouseEvent<HTMLCanvasElement>) {
+    keepPadVisible(e.currentTarget);
     startDraw(getPos(e.clientX, e.clientY, e.currentTarget));
   }
   function onMouseMove(e: React.MouseEvent<HTMLCanvasElement>) {
@@ -71,6 +83,7 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 400, height =
   }
   function onTouchStart(e: React.TouchEvent<HTMLCanvasElement>) {
     e.preventDefault();
+    keepPadVisible(e.currentTarget);
     startDraw(getPos(e.touches[0].clientX, e.touches[0].clientY, e.currentTarget));
   }
   function onTouchMove(e: React.TouchEvent<HTMLCanvasElement>) {
@@ -96,13 +109,18 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 400, height =
   }));
 
   return (
-    <div className="flex flex-col gap-2">
-      <canvas
+    <div className="w-full min-w-0 flex flex-col gap-2">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2 sm:p-3">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">Signature area</span>
+          <span className="text-[10px] font-semibold text-slate-400">Draw with mouse or finger</span>
+        </div>
+        <canvas
         ref={canvasRef}
         width={width}
         height={height}
-        className="w-full touch-none rounded-xl border-2 border-dashed border-slate-300 bg-white cursor-crosshair"
-        style={{ maxWidth: width }}
+        className="block h-[150px] w-full max-w-none touch-none rounded-xl border-2 border-dashed border-slate-300 bg-white cursor-crosshair sm:h-[170px]"
+        style={{ width: '100%', height: 'var(--signature-height, 150px)' }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={stopDraw}
@@ -111,6 +129,7 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(({ width = 400, height =
         onTouchMove={onTouchMove}
         onTouchEnd={stopDraw}
       />
+      </div>
       <button
         type="button"
         onClick={clear}

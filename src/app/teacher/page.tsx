@@ -915,13 +915,16 @@ export default function TeacherDashboard() {
       </div>
       <label className="mt-5 block text-sm font-semibold">Phone number<input className="input mt-1 w-full" placeholder="+234 xxx xxx xxxx" value={me?.phone || ''} onChange={e => setMe((x: any) => ({ ...x, phone: e.target.value }))} /></label>
       <button disabled={busy} onClick={async () => { setBusy(true); try { await updateOwnProfile({ phone: me?.phone || null }); setMessage('Phone updated.'); } catch (e: any) { setMessage(e?.message || 'Unable to update phone'); } finally { setBusy(false); } }} className="btn btn-primary mt-4 w-full">Save Profile</button>
-      <div className="mt-6 border-t pt-5">
-        <div className="text-sm font-black text-slate-700">Add Signature</div>
-        <p className="mt-1 text-xs text-slate-400">Appears on the report cards of all students in your class.</p>
+      <div className="mt-6 scroll-mt-6 rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4 sm:p-5">
+        <div className="flex items-start gap-3">
+          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-700 text-sm font-black text-white">✎</div>
+          <div className="min-w-0"><div className="text-sm font-black text-slate-800">Your official signature</div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">This signature appears on official documents and report cards. Sign inside the clearly marked box below.</p></div>
+        </div>
         {sigMsg && <div className="mt-2 rounded-lg bg-teal-50 p-2 text-xs font-semibold text-teal-800">{sigMsg}</div>}
         {mySig && <div className="mt-3"><div className="text-xs font-bold text-emerald-700 mb-1">✓ Signature on file</div><img src={(mySig as any).signature_data} alt="signature" className="h-14 w-full rounded-xl border border-slate-200 bg-white object-contain p-1"/><p className="mt-2 text-xs text-slate-400">Draw below to replace:</p></div>}
         {!mySig && <p className="mt-3 text-xs text-slate-400">No signature yet. Draw below to add one:</p>}
-        <div className="mt-2"><SignaturePad ref={el => { sigPadRef.current = el; }} height={110}/></div>
+        <div className="mt-4"><SignaturePad ref={el => { sigPadRef.current = el; }} height={180}/></div>
         <button className="btn btn-primary mt-3 w-full" disabled={sigBusy} onClick={async () => {
           const pad = sigPadRef.current;
           if (!pad || pad.isEmpty()) { setSigMsg('Please draw your signature first.'); return; }
@@ -949,7 +952,7 @@ function InfoCard({ color, label, value }: { color: string; label: string; value
   return <div className={`rounded-xl p-3 ${bg}`}><div className="text-xs font-black uppercase">{label}</div><div className="mt-1 text-sm font-black">{value}</div></div>;
 }
 function Modal({ title, close, children }: { title: string; close: () => void; children: React.ReactNode }) {
-  return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-5"><div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-t-3xl bg-white p-5 sm:rounded-3xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{title}</h2><button className="btn bg-slate-100" onClick={close}>Close</button></div>{children}</div></div>;
+  return <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-5"><div className="max-h-[calc(100dvh-1rem)] w-full max-w-2xl overflow-y-auto overscroll-contain rounded-t-3xl bg-white p-5 pb-8 sm:max-h-[90vh] sm:rounded-3xl"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-black">{title}</h2><button className="btn bg-slate-100" onClick={close}>Close</button></div>{children}</div></div>;
 }
 function Info({ k, v }: { k: string; v: string }) {
   return <div className="rounded-xl bg-slate-50 p-3"><div className="text-xs text-slate-400">{k}</div><div className="mt-1 text-sm font-semibold">{v}</div></div>;
