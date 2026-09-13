@@ -1,12 +1,15 @@
-# AMQM Mobile Navigation Fix
+AMQM Mobile Navigation Fix
 
-Fixes the authenticated mobile navigation drawer in `src/components/Topbar.tsx` only.
+Scope: mobile navigation only.
 
-- Normalizes role values before selecting navigation links.
-- Ensures the mobile drawer renders a usable navigation area.
-- Adds active-route highlighting.
-- Makes the drawer independently scrollable on small screens.
-- Closes the drawer after navigation and when the route changes.
-- Keeps View Website and Sign Out in a fixed footer area.
+Fixes:
+- Raises mobile navigation overlay to z-index 9999 and panel to 10000.
+- Keeps hamburger trigger above the overlay.
+- Ensures click handlers explicitly open/close the mobile menu.
+- Adds active navigation state/class for mobile links.
+- Adds Escape-key and body-scroll locking while the menu is open.
+- Adds accessible dialog semantics and aria-expanded/current state.
+- Adds polished active/focus styles.
+- Next.js viewport metadata was already present in src/app/layout.tsx, so no duplicate HTML meta tag was added.
 
-No database migration or finance/academic logic changes are included.
+No database or migration changes.
