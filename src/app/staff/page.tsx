@@ -2,10 +2,11 @@
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
-import { loadAdminTeam, saveTeamProfile, deleteTeamProfile } from '@/lib/cms-live-store';
+import { loadAdminTeam, saveTeamProfile, deleteTeamProfile, loadCMSSettings } from '@/lib/cms-live-store';
+import { printAcademicIdCard } from '@/lib/id-card';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
+type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
@@ -19,6 +20,7 @@ export default function StaffPage(){
  const [team,setTeam]=useState<TeamProfile[]>([]);
  const [message,setMessage]=useState('');
  const [busy,setBusy]=useState(false);
+ const [logoUrl,setLogoUrl]=useState<string|null>(null);
 
  /* ── teaching edit ── */
  const [editT,setEditT]=useState<StaffProfile|null>(null);
@@ -54,10 +56,13 @@ export default function StaffPage(){
  const [sigPreview,setSigPreview]=useState<StaffSignatureRow|null>(null);
 
  const refresh=async()=>{
-   const [s,c,t]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam()]);
+   const [s,c,t,settings]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam(),loadCMSSettings()]);
    setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
+   setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null);
  };
  useEffect(()=>{refresh()},[]);
+
+ async function printStaffId(a:StaffProfile){await printAcademicIdCard({type:'STAFF',name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url,jobTitle:a.job_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
 
  const teachers=useMemo(()=>staff.filter(s=>s.role==='teacher'),[staff]);
  const teacherClasses=useMemo(()=>{const m:Record<string,string[]>={};for(const c of classes)for(const t of c.teachers){if(!m[t.id])m[t.id]=[];m[t.id].push(c.name)}return m;},[classes]);
@@ -196,7 +201,8 @@ export default function StaffPage(){
              <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
              {t.show_on_website?'On website':'Hidden from website'}
            </button>
-           <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
+           <button className="ml-auto btn bg-emerald-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(t)}>Print ID</button>
+            <button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
          </div>
        </article>)}
        {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet. Click "Create teacher" to add the first one.</div>}
@@ -284,8 +290,9 @@ export default function StaffPage(){
                  {a.username&&<div className="text-[11px] text-indigo-600 font-semibold mt-0.5">@{a.username}</div>}
                </div>
              </div>
-             <div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
-               <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit / Set credentials</button>
+<div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
+                <button className="btn bg-indigo-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(a)}>Print ID</button>
+                <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit / Set credentials</button>
              </div>
            </article>)}
          </div>
@@ -307,7 +314,8 @@ export default function StaffPage(){
                </div>
              </div>
              <div className="flex items-center gap-2 border-t px-5 py-3">
-               <button className="btn bg-indigo-50 text-indigo-700 text-sm py-1.5 font-black" onClick={async()=>{if(!confirm(`Grant Administrator access to ${a.full_name}? This gives full system access.`))return;setBusy(true);try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>Grant Admin ↑</button>
+               <button className="btn bg-emerald-900 text-white text-xs py-1.5 font-black" onClick={()=>printStaffId(a)}>Print ID</button>
+                <button className="btn bg-indigo-50 text-indigo-700 text-sm py-1.5 font-black" onClick={async()=>{if(!confirm(`Grant Administrator access to ${a.full_name}? This gives full system access.`))return;setBusy(true);try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>Grant Admin ↑</button>
                <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Change role</button>
              </div>
            </article>)}
