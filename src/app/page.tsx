@@ -15,6 +15,7 @@ import {
 import { TeachingStaffSection } from '@/components/TeachingStaffSection';
 import { LeadershipSection } from '@/components/LeadershipSection';
 import { VideoGallery } from '@/components/VideoGallery';
+import { CampusVideoShowcase } from '@/components/CampusVideoShowcase';
 
 function mapSections(items: CMSSection[]) {
   return Object.fromEntries(items.map((x) => [x.section_key, x])) as Record<string, CMSSection>;
@@ -402,6 +403,14 @@ export default function Home() {
           <div><div className="eyebrow-light">Campus life</div><h2 className="section-title">A safe place to learn, worship and grow.</h2></div>
           <Link href="/campus-life" className="hidden text-sm font-black text-emerald-800 sm:block">Explore campus life →</Link>
         </div>
+
+        {/* Campus video showcase */}
+        {(media.filter((x: any) => x.category === 'Campus Life' || x.category === 'School Compound').length > 0) && (
+          <div className="mt-8 mb-8">
+            <CampusVideoShowcase media={media} shortName={shortName} />
+          </div>
+        )}
+
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {(campuses.length > 0 ? campuses : [
             { title: 'Classrooms', text: 'Focused, distraction-free learning spaces designed for Qur\'an memorization and revision.' },
