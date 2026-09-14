@@ -14,6 +14,7 @@ import {
 } from '@/lib/cms-live-store';
 import { TeachingStaffSection } from '@/components/TeachingStaffSection';
 import { LeadershipSection } from '@/components/LeadershipSection';
+import { VideoGallery } from '@/components/VideoGallery';
 
 function mapSections(items: CMSSection[]) {
   return Object.fromEntries(items.map((x) => [x.section_key, x])) as Record<string, CMSSection>;
@@ -29,10 +30,10 @@ function Icon({ name }: { name?: string }) {
 const defaultNav = [
   { label: 'Home', href: '/' },
   { label: 'About Us', href: '/#about' },
-  { label: 'Programs', href: '/#programmes' },
+  { label: 'Programs', href: '/programs' },
   { label: 'Admissions', href: '/admissions' },
-  { label: 'Campus Life', href: '/#campus' },
-  { label: 'News & Events', href: '/#news' },
+  { label: 'Campus Life', href: '/campus-life' },
+  { label: 'News & Events', href: '/news' },
   { label: 'Contact Us', href: '/#contact' },
 ];
 
@@ -96,7 +97,8 @@ export default function Home() {
   // Split media into videos and photos for gallery
   const videos = media.filter((x: any) => x.media_type === 'video');
   const photos = media.filter((x: any) => x.media_type !== 'video');
-  const featuredVideo = videos[0] || null;
+  // Prefer video marked as featured in CMS, otherwise first video
+  const featuredVideo = videos.find((v: any) => v.featured === true) || videos[0] || null;
   const galleryPhotos = photos.slice(0, featuredVideo ? 6 : 8);
 
   if (loading) {
@@ -183,7 +185,16 @@ export default function Home() {
       {/* ── 1. HERO ── */}
       <section className="relative isolate min-h-[540px] overflow-hidden bg-[#073a32] text-white lg:min-h-[600px]">
         {hero.hero_video ? (
-          <video src={hero.hero_video} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover opacity-60" />
+          <video
+            src={hero.hero_video}
+            autoPlay
+            muted
+            loop
+            playsInline
+            controls
+            className="absolute inset-0 h-full w-full object-cover opacity-60"
+            poster={hero.hero_image || undefined}
+          />
         ) : hero.hero_image ? (
           <img src={hero.hero_image} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : <div className="absolute inset-0 hero-art" />}
@@ -315,6 +326,29 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── 6b. VALUES ── */}
+      {values.length > 0 && (
+        <section className="bg-white py-16 lg:py-20">
+          <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <div className="eyebrow-light">Our values</div>
+              <h2 className="mt-2 section-title">The principles that guide everything we do.</h2>
+              <p className="mt-3 text-slate-500">Rooted in the Qur'an and Sunnah, these values shape our teaching, our community and our students' character.</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-3">
+              {values.map((v: any, i: number) => {
+                const label = typeof v === 'string' ? v : v.label || v;
+                return (
+                  <span key={i} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-bold text-emerald-900 shadow-sm hover:bg-emerald-100 transition">
+                    <span className="text-amber-500">✦</span> {label}
+                  </span>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── 7. STAFF & TEACHERS ── */}
       {(team.length > 0 || teachers.length > 0) && (
         <section>
@@ -331,7 +365,38 @@ export default function Home() {
         </section>
       )}
 
-      {/* ── 9. CAMPUS LIFE ── */}
+      {/* ── 7b. TESTIMONIALS ── */}
+      {(() => {
+        const testimonialItems = m.testimonials?.content?.items || [];
+        return testimonialItems.length > 0 ? (
+          <section className="bg-[#f4f6f1] py-16 lg:py-20">
+            <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
+              <div className="text-center max-w-2xl mx-auto mb-12">
+                <div className="eyebrow-light">What our families say</div>
+                <h2 className="mt-2 section-title">Trusted by parents, loved by students.</h2>
+                <p className="mt-3 text-slate-500">Real experiences from families who have chosen {shortName} for their children's Qur'anic education.</p>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {testimonialItems.slice(0, 6).map((t: any, i: number) => (
+                  <article key={i} className="card p-6 relative overflow-hidden">
+                    <div className="absolute top-4 right-4 text-amber-300">✦✦✦✦✦</div>
+                    <p className="text-sm leading-7 text-slate-700 relative z-10">"{t.quote || t.text || t.excerpt}"</p>
+                    <div className="mt-6 flex items-center gap-4">
+                      {t.avatar_url && <img src={t.avatar_url} alt={t.name} className="h-10 w-10 rounded-full object-cover" />}
+                      <div>
+                        <div className="font-black text-emerald-950">{t.name || t.author}</div>
+                        <div className="text-xs text-slate-500">{t.role || t.relation || 'Parent'}</div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        ) : null;
+      })()}
+
+      {/* ── 8. CAMPUS LIFE ── */}
       <section id="campus" className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:py-20">
         <div className="flex items-end justify-between gap-4">
           <div><div className="eyebrow-light">Campus life</div><h2 className="section-title">A safe place to learn, worship and grow.</h2></div>
@@ -355,8 +420,32 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ── 9. FAQ ── */}
+      {(() => {
+        const faqItems = m.faq?.content?.items || [];
+        return faqItems.length > 0 ? (
+          <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-7 lg:py-20">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <div className="eyebrow-light">Frequently asked questions</div>
+              <h2 className="mt-2 section-title">Quick answers for prospective families.</h2>
+            </div>
+            <div className="space-y-4 max-w-3xl mx-auto">
+              {faqItems.map((f: any, i: number) => (
+                <details key={i} className="group card p-6">
+                  <summary className="flex items-center justify-between cursor-pointer list-none font-black text-emerald-950">
+                    <span>{f.question || f.q}</span>
+                    <span className="text-amber-500 transition-transform group-open:rotate-180">▼</span>
+                  </summary>
+                  <div className="mt-4 text-slate-600 leading-7">{f.answer || f.a || f.text}</div>
+                </details>
+              ))}
+            </div>
+          </section>
+        ) : null;
+      })()}
+
       {/* ── 10. GALLERY (photos + featured video) ── */}
-      {(featuredVideo || galleryPhotos.length > 0) && (
+      {(featuredVideo || galleryPhotos.length > 0 || videos.length > 0) && (
         <section className="bg-[#06372f] py-16 lg:py-20">
           <div className="mx-auto max-w-[1320px] px-5 sm:px-7">
             <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-8">
@@ -367,9 +456,9 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Featured video + photo grid side by side */}
+            {/* Featured video (first video marked as featured in CMS, or first video) */}
             {featuredVideo ? (
-              <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+              <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr] mb-8">
                 {/* Featured video */}
                 <div className="relative overflow-hidden rounded-[1.5rem] bg-emerald-950 shadow-xl" style={{minHeight:'340px'}}>
                   <video
@@ -378,6 +467,7 @@ export default function Home() {
                     preload="metadata"
                     className="h-full w-full object-cover"
                     style={{minHeight:'340px'}}
+                    onContextMenu={e => e.preventDefault()}
                   />
                   <div className="absolute bottom-4 left-4 right-4 pointer-events-none">
                     <div className="text-[10px] font-black uppercase tracking-[.16em] text-amber-300">{featuredVideo.category}</div>
@@ -398,7 +488,7 @@ export default function Home() {
               </div>
             ) : (
               /* No video — full photo masonry */
-              <div className="grid auto-rows-[200px] gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid auto-rows-[200px] gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
                 {galleryPhotos.map((item: any, i: number) => (
                   <article key={item.id} className={`group relative overflow-hidden rounded-[1.5rem] bg-emerald-950 shadow-sm ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}>
                     <img src={item.public_url} alt={item.alt_text || item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105"/>
@@ -411,16 +501,9 @@ export default function Home() {
               </div>
             )}
 
-            {/* Additional videos below if more than one */}
-            {videos.length > 1 && (
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {videos.slice(1, 4).map((item: any) => (
-                  <div key={item.id} className="overflow-hidden rounded-[1.2rem] bg-emerald-950">
-                    <video src={item.public_url} controls preload="metadata" className="w-full aspect-video object-cover"/>
-                    <div className="p-3"><div className="text-[10px] font-black uppercase tracking-wide text-amber-300">{item.category}</div><div className="mt-1 text-sm font-black text-white">{item.title}</div></div>
-                  </div>
-                ))}
-              </div>
+            {/* All videos gallery with fullscreen modal */}
+            {videos.length > 0 && (
+              <VideoGallery videos={videos} shortName={shortName} />
             )}
           </div>
         </section>
