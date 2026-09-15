@@ -465,7 +465,7 @@ export default function TeacherDashboard() {
                   <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>Profile</button>
                   {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700" onClick={() => handleSetStudentStatus(s,'suspended')}>Freeze</button>}
                   {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700" onClick={() => handleSetStudentStatus(s,'withdrawn')}>Inactive</button>}
-                  {s.status !== 'active' && <button disabled={busy} className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700" onClick={() => handleSetStudentStatus(s,'active')}>Reactivate</button>
+                  {s.status !== 'active' && <button disabled={busy} className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700" onClick={() => handleSetStudentStatus(s,'active')}>Reactivate</button>}
                 </div>
               </td>
             </tr>
