@@ -41,126 +41,88 @@ export default function TeacherDashboard() {
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const sigPadRef = useRef<SignaturePadRef|null>(null);
 
-  const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
+  const [editSectionTarget, setEditSectionTarget] = useState<any | null>(null);
+  const [editSectionValue, setEditSectionValue] = useState<'day'|'boarding'>('day');
+  const [editSectionBusy, setEditSectionBusy] = useState(false);
+  const [editSectionMsg, setEditSectionMsg] = useState('');
+  const [quranEditTarget, setQuranEditTarget] = useState<any | null>(null);
+  const [quranEditDirection, setQuranEditDirection] = useState<'nas_to_baqarah'|'baqarah_to_nas'>('nas_to_baqarah');
+  const [quranEditSurah, setQuranEditSurah] = useState(114);
+  const [quranEditAyah, setQuranEditAyah] = useState(1);
+  const [quranEditBusy, setQuranEditBusy] = useState(false);
+  const [quranEditMsg, setQuranEditMsg] = useState('');
+  const [addStudentOpen, setAddStudentOpen] = useState(false);
+  const [unassigned, setUnassigned] = useState<any[]>([]);
+  const [addSearch, setAddSearch] = useState('');
+  const [addBusy, setAddBusy] = useState<string | null>(null);
+  const [addMsg, setAddMsg] = useState('');
 
-  function computeHistMetrics(e: HistEntry, targetPages: number) {
-    if (!e.endSurah || !e.endAyah) return null;
-    const from = { surah: e.startSurah, ayah: e.startAyah };
-    const to   = { surah: e.endSurah,   ayah: e.endAyah };
-    const dir  = e.direction as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
-    const fromOrd = positionOrdinal(from), toOrd = positionOrdinal(to);
-    if (fromOrd === toOrd) return null;
-    const forward = dir === 'Baqarah-to-Nas' ? toOrd > fromOrd : fromOrd > toOrd;
-    if (!forward) return null;
-    const prog  = progressBetween(from, to, dir);
-    const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
-    const rubric = score >= 90 ? 5 : score >= 75 ? 4 : score >= 60 ? 3 : score >= 45 ? 2 : 1;
-    const grade  = score >= 90 ? 'A' : score >= 75 ? 'B' : score >= 60 ? 'C' : score >= 45 ? 'D' : 'F';
-    return { ...prog, score, rubric, grade };
-  }
+  const refresh = async () => {
+    const [studentRows, evaluationRows] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
+    setStudents(studentRows); setEvaluations(evaluationRows);
+    return studentRows;
+  };
+  useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
+  useEffect(() => {
+    getMySignature().then(sig => { setMySig(sig.signature_data ? sig : null); setSigOpen(!sig.signature_data); });
+  }, []);
 
-  function getHistEval3(studentId: string) {
-    return (evaluations as any[]).find(
-      (e: any) => e.student_id === studentId && e.term_id === histTermId && e.evaluation_number === 3
-    );
-  }
-
-  async function submitHistStudent(studentId: string, skipRefresh = false) {
-    const e = histEntries[studentId];
-    const m = computeHistMetrics(e, histTargetPages);
-    if (!m || !histTermId) return;
-    const termId = histTermId;
-    setHistSubmitting(prev => new Set(prev).add(studentId));
-    try {
-      await teacherSubmitHistoricalEval3({
-        studentId, termId,
-        startSurah: e.startSurah, startAyah: e.startAyah,
-        endSurah: e.endSurah, endAyah: e.endAyah,
-        score: m.score, rubric: m.rubric, grade: m.grade,
-        ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
-      });
-      // Optimistic update: add/update eval3 in local state immediately so
-      // the status badge flips to Pending without waiting for the full refresh
-      setEvaluations((prev: any[]) => {
-        const idx = prev.findIndex(ev =>
-          ev.student_id === studentId && ev.term_id === termId && ev.evaluation_number === 3
-        );
-        const optimistic = {
-          student_id: studentId, term_id: termId, evaluation_number: 3,
-          status: 'pending_approval',
-          from_surah: e.startSurah, from_ayah: e.startAyah,
-          to_surah: e.endSurah, to_ayah: e.endAyah,
-          memorized_ayahs: m.ayahs, memorized_pages: m.pages, memorized_hizbs: m.hizbs,
-          score: m.score, grade: m.grade,
+  useEffect(() => {
+    const active = evaluations.filter((ev:any) => ev.status === 'draft' || ev.status === 'returned');
+    setForms(prev => {
+      const next = { ...prev };
+      for (const ev of active) {
+        if (next[ev.id]) continue;
+        const saved = loadDraft(ev.id);
+        next[ev.id] = saved ?? {
+          toSurah: Number(ev.to_surah || ev.students?.current_surah || 2),
+          toAyah: Number(ev.to_ayah || ev.students?.current_ayah || 1),
+          mem: Number(ev.memorization_score || 4), acc: Number(ev.accuracy_score || 4),
+          flu: Number(ev.fluency_score || 4), taj: Number(ev.tajweed_score || 4), ret: Number(ev.retention_score || 4), comment: ev.teacher_comment || '',
         };
-        if (idx >= 0) {
-          const next = [...prev];
-          next[idx] = { ...prev[idx], ...optimistic };
-          return next;
-        }
-        return [...prev, optimistic];
-      });
-      if (!skipRefresh) {
-        await refresh();
-        setHistMsg('Saved — Admin will review and approve.');
       }
-    } catch (err: any) {
-      setHistMsg(err?.message || 'Submission failed.');
-    } finally {
-      setHistSubmitting(prev => { const n = new Set(prev); n.delete(studentId); return n; });
-    }
-  }
-
-  async function submitClassBatch() {
-    const ready = students.filter(s => {
-      const e = histEntries[s.id];
-      return e && computeHistMetrics(e, histTargetPages) !== null;
+      return next;
     });
-    if (!ready.length) {
-      setHistMsg('⚠ No students are ready to submit. Fill in the Current Position (teal dropdowns) for each student first.');
-      return;
-    }
-    setHistMsg('');
-    const failed: string[] = [];
-    for (let i = 0; i < ready.length; i += 5) {
-      const chunk = ready.slice(i, i + 5);
-      const results = await Promise.allSettled(chunk.map(async s => {
-        const e = histEntries[s.id];
-        const m = computeHistMetrics(e, histTargetPages);
-        if (!m || !histTermId) throw new Error('Not ready');
-        const termId = histTermId;
-        setHistSubmitting(prev => new Set(prev).add(s.id));
-        try {
-          await teacherSubmitHistoricalEval3({
-            studentId: s.id, termId,
-            startSurah: e.startSurah, startAyah: e.startAyah,
-            endSurah: e.endSurah, endAyah: e.endAyah,
-            score: m.score, rubric: m.rubric, grade: m.grade,
-            ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs,
-          });
-        } finally {
-          setHistSubmitting(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-        }
-        return s.id;
-      }));
-      for (let j = 0; j < results.length; j++) {
-        if (results[j].status === 'rejected') failed.push(chunk[j].name);
-      }
-    }
-    await refresh();
-    if (failed.length === 0) {
-      setHistMsg(`✓ All ${ready.length} student${ready.length !== 1 ? 's' : ''} submitted — Admin will review and approve.`);
-    } else {
-      setHistMsg(`⚠ ${ready.length - failed.length} submitted successfully. Failed: ${failed.join(', ')}. Please try those again.`);
-    }
-  }
+  }, [evaluations]);
 
-  const histReadyCount = students.filter(s => {
-    const e = histEntries[s.id];
-    return e && computeHistMetrics(e, histTargetPages) !== null;
-  }).length;
-  const histIncompleteCount = students.length - histReadyCount;
-  const histAllReady = histTermId && students.length > 0 && histIncompleteCount === 0;
+  const activeEvals = useMemo(() => evaluations.filter((ev:any) => ev.status === 'draft' || ev.status === 'returned'), [evaluations]);
+  const byCampaign = useMemo(() => {
+    const map = new Map<string,{campaign:any;evals:any[]}>();
+    for (const ev of activeEvals) { const cid=ev.campaign_id || 'none'; if(!map.has(cid)) map.set(cid,{campaign:ev.evaluation_campaigns,evals:[]}); map.get(cid)!.evals.push(ev); }
+    return [...map.values()];
+  }, [activeEvals]);
+  function updateForm(evalId:string, updates:Partial<EvalForm>) {
+    setForms(prev => { const next={...prev,[evalId]:{...prev[evalId],...updates}}; saveDraft(evalId,next[evalId]); return next; });
+  }
+  function hasMoved(ev:any):boolean {
+    const f=forms[ev.id]; if(!f) return false; const dir=ev.students?.memorization_direction;
+    const fs=Number(ev.from_surah), fa=Number(ev.from_ayah);
+    if(dir==='baqarah_to_nas') return f.toSurah>fs || (f.toSurah===fs && f.toAyah>fa);
+    return f.toSurah<fs || (f.toSurah===fs && f.toAyah<fa);
+  }
+  async function submitClass(campaignEvals:any[]) {
+    if(!campaignEvals.every((ev:any)=>hasMoved(ev))){setMessage('All students must have a valid stopping position before you can submit the class evaluation.');return;}
+    setBusy(true);setMessage('');
+    try{ for(const ev of campaignEvals){ const f=forms[ev.id]; const score=Math.round(((f.mem+f.acc+f.flu+f.taj+f.ret)/25)*100); await submitTeacherEvaluation({evaluationId:ev.id,toSurah:f.toSurah,toAyah:f.toAyah,memorization:f.mem,accuracy:f.acc,fluency:f.flu,tajweed:f.taj,retention:f.ret,score,comment:f.comment}); clearDraft(ev.id); } setForms({}); await refresh(); setMessage('Class evaluation submitted to Admin for review.'); }
+    catch(err:any){setMessage(err?.message || 'Submission failed.');} finally{setBusy(false);}
+  }
+  async function uploadPhoto(file:File|null){ if(!file)return; setBusy(true); try{const url=await uploadProfileImage(file,'staff');setMe((x:any)=>({...x,avatar_url:url}));await updateOwnProfile({avatar_url:url});setMessage('Profile photo updated.');}catch(e:any){setMessage(e?.message||'Photo upload failed');}finally{setBusy(false);} }
+  function mark(_studentId:string,_status:string){setMessage('Attendance is now handled by Security staff at the gate. Contact admin if a correction is needed.');}
+
+  async function handleSaveQuranProfile(){
+    if(!quranEditTarget)return; setQuranEditBusy(true);setQuranEditMsg('');
+    try{await teacherUpdateStudentQuranProfile(quranEditTarget.id,{direction:quranEditDirection,currentSurah:quranEditSurah,currentAyah:quranEditAyah});const fresh=await loadTeacherDirectory();setStudents(fresh);const updated=fresh.find((x:any)=>x.id===quranEditTarget.id);if(updated)setSelected(updated);setQuranEditTarget(null);setMessage('Quran profile saved as the official student record.');}catch(e:any){setQuranEditMsg(e?.message||'Failed to save Quran profile');}finally{setQuranEditBusy(false);}
+  }
+  async function handleSetStudentStatus(student:any,status:'active'|'suspended'|'withdrawn'){
+    if(status==='withdrawn'&&!window.confirm('Mark this student inactive? All academic and historical records will be preserved.'))return;setBusy(true);setMessage('');
+    try{await teacherSetStudentStatus(student.id,status);const fresh=await loadTeacherDirectory();setStudents(fresh);if(selected?.id===student.id)setSelected(fresh.find((x:any)=>x.id===student.id)||null);setMessage(status==='suspended'?student.name+' is now frozen.':status==='withdrawn'?student.name+' is now inactive.':student.name+' is active again.');}catch(e:any){setMessage(e?.message||'Failed to update student status');}finally{setBusy(false);}
+  }
+  async function handleSaveSection(){
+    if(!editSectionTarget)return;setEditSectionBusy(true);setEditSectionMsg('');
+    try{await teacherUpdateStudentSection(editSectionTarget.id,editSectionValue);await refresh();setEditSectionTarget(null);}catch(e:any){setEditSectionMsg(e?.message||'Failed to update section');}finally{setEditSectionBusy(false);}
+  }
+  async function openAddStudent(){setAddMsg('');setAddSearch('');setUnassigned(await getUnassignedStudents());setAddStudentOpen(true);}
+  async function handleAssign(studentId:string){setAddBusy(studentId);setAddMsg('');try{await teacherAssignStudentToClass(studentId);await refresh();setUnassigned(prev=>prev.filter(x=>x.student_id!==studentId));setAddMsg('Student added to your class.');}catch(e:any){setAddMsg(e?.message||'Failed to assign student');}finally{setAddBusy(null);}}
 
   const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;
   const returnedCount = activeEvals.filter(ev => ev.status === 'returned').length;
