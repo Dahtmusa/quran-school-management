@@ -119,7 +119,7 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
       <div class="rc-stats">
         <div><span>AYahs<br/>Memorized</span><b>${journey.ayahs.toLocaleString()}</b></div>
         <div><span>Pages<br/>Memorized</span><b>${journey.pages}</b></div>
-        <div><span>Hizb<br/>Memorized</span><b>${absP.hizbs}</b></div>
+        <div><span>Hizb<br/>Memorized</span><b>${journey.hizbs}</b></div>
         <div><span>Mushaf Page</span><b>${mushafPg}</b><small>/ 604</small></div>
         <div class="remaining"><span>Ayahs<br/>Remaining</span><b>${rem.ayahs.toLocaleString()}</b></div>
         <div class="remaining"><span>Pages<br/>Remaining</span><b>${rem.pages}</b></div>
