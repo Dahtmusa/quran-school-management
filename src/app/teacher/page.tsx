@@ -5,7 +5,7 @@ import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
 import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
-import { SURAHS, label, absoluteProgress } from '@/lib/quran';
+import { SURAHS, label, absoluteProgress, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
 import { recordTeacherBoardingAttendance } from '@/lib/attendance-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -129,64 +129,6 @@ export default function TeacherDashboard() {
   const dayCount = students.filter(s => s.section === 'Day').length;
   const boardingCount = students.filter(s => s.section === 'Boarding').length;
   const filteredStudents = useMemo(() => students.filter(s => s.name?.toLowerCase().includes(studentSearch.toLowerCase())), [students, studentSearch]);
-
-  async function handleSaveQuranProfile() {
-    if (!quranEditTarget) return;
-    setQuranEditBusy(true); setQuranEditMsg('');
-    try {
-      await teacherUpdateStudentQuranProfile(quranEditTarget.id, { direction: quranEditDirection, currentSurah: quranEditSurah, currentAyah: quranEditAyah });
-      const fresh = await loadTeacherDirectory();
-      setStudents(fresh);
-      const updated = fresh.find((x:any) => x.id === quranEditTarget.id);
-      if (updated) setSelected(updated);
-      setQuranEditTarget(null);
-      setMessage('Quran profile saved as the official student record.');
-    } catch (e:any) { setQuranEditMsg(e?.message || 'Failed to save Quran profile'); }
-    finally { setQuranEditBusy(false); }
-  }
-
-  async function handleSetStudentStatus(student:any, status:'active'|'suspended'|'withdrawn') {
-    if (status === 'withdrawn' && !window.confirm('Mark this student inactive? All academic and historical records will be preserved.')) return;
-    setBusy(true); setMessage('');
-    try {
-      await teacherSetStudentStatus(student.id, status);
-      const fresh = await loadTeacherDirectory(); setStudents(fresh);
-      if (selected?.id === student.id) setSelected(fresh.find((x:any)=>x.id===student.id) || null);
-      setMessage(status === 'suspended' ? student.name + ' is now frozen.' : status === 'withdrawn' ? student.name + ' is now inactive.' : student.name + ' is active again.');
-    } catch (e:any) { setMessage(e?.message || 'Failed to update student status'); }
-    finally { setBusy(false); }
-  }
-
-  async function handleSaveSection() {
-    if (!editSectionTarget) return;
-    setEditSectionBusy(true); setEditSectionMsg('');
-    try {
-      await teacherUpdateStudentSection(editSectionTarget.id, editSectionValue);
-      await refresh();
-      setEditSectionTarget(null);
-    } catch (e: any) {
-      setEditSectionMsg(e?.message || 'Failed to update section');
-    } finally { setEditSectionBusy(false); }
-  }
-
-  async function openAddStudent() {
-    setAddMsg(''); setAddSearch('');
-    const list = await getUnassignedStudents();
-    setUnassigned(list);
-    setAddStudentOpen(true);
-  }
-
-  async function handleAssign(studentId: string) {
-    setAddBusy(studentId); setAddMsg('');
-    try {
-      await teacherAssignStudentToClass(studentId);
-      await refresh();
-      setUnassigned(prev => prev.filter(s => s.student_id !== studentId));
-      setAddMsg('Student added to your class.');
-    } catch (e: any) {
-      setAddMsg(e?.message || 'Failed to assign student');
-    } finally { setAddBusy(null); }
-  }
 
   return <AdminShell title="Teacher Workspace"><div className="space-y-5">
 
