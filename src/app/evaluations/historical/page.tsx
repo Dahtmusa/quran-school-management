@@ -40,17 +40,19 @@ function canonicalStart(direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah'): { surah
 function computeEval3(
   from: { surah: number; ayah: number },
   to: { surah: number; ayah: number },
-  _direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
+  direction: 'Baqarah-to-Nas' | 'Nas-to-Baqarah',
   targetPages: number
 ): ComputedMetrics {
   const blank = { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false };
   if (!from.surah || !from.ayah || !to.surah || !to.ayah) return blank;
   const fromOrd = positionOrdinal(from);
   const toOrd = positionOrdinal(to);
-  if (fromOrd === toOrd) return { ...blank, error: 'End is same as start.' };
-  // Auto-detect direction from ordinals — ignore the user-entered direction
+  if (fromOrd === toOrd) return blank;
   const detectedDir = autoDetectDirection(from, to);
-  const prog = progressBetween(from, to, detectedDir);
+  // Use the provided direction if it matches the auto-detected direction,
+  // otherwise fall back to auto-detection for display consistency
+  const effectiveDir = direction === detectedDir ? direction : detectedDir;
+  const prog = progressBetween(from, to, effectiveDir);
   const score = Math.min(100, Math.round((prog.pages / Math.max(1, targetPages)) * 100));
   return { ayahs: prog.ayahs, pages: prog.pages, hizbs: prog.hizbs, score, rubric: scoreToRubric(score), grade: scoreToGrade(score), valid: true };
 }
@@ -161,11 +163,16 @@ export default function Eval3ImportPage() {
 
   const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
 
-  function getMetrics(student: Student, e: EntryState): ComputedMetrics {
-    const dir = (e.direction || student.direction) as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
-    const from = { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah };
-    return computeEval3(from, { surah: e.eval3Surah, ayah: e.eval3Ayah }, dir, targetPages);
-  }
+function getMetrics(student: Student, e: EntryState): ComputedMetrics {
+  const dir = (e.direction || student.direction) as 'Baqarah-to-Nas' | 'Nas-to-Baqarah';
+  // Use the entered start points, falling back to student's current position
+  const from = { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah };
+  // Ensure we have valid start and end points for progress calculation
+  const to = { surah: e.eval3Surah, ayah: e.eval3Ayah };
+  // If start and end are the same, mark as invalid rather than 0%
+  if (from.surah === to.surah && from.ayah === to.ayah) return { ayahs: 0, pages: 0, hizbs: 0, score: 0, rubric: 1, grade: 'F', valid: false, error: 'Start and end positions are the same.' };
+  return computeEval3(from, to, dir, targetPages);
+}
 
   const readyCount = useMemo(() => classStudents.filter(s => {
     const e = entries[s.id];
@@ -202,19 +209,22 @@ export default function Eval3ImportPage() {
       if (!e) continue;
       const m = getMetrics(student, e);
       if (!m.valid) continue;
-      // Auto-detect direction from ordinals; use canonical Quran start (Baqarah 1 or Nas 1)
+      // Use the user-entered direction if provided, otherwise auto-detect
+      const enteredDir = e.direction || student.direction;
       const detectedDir = autoDetectDirection(
         { surah: e.eval1StartSurah || student.current.surah, ayah: e.eval1StartAyah || student.current.ayah },
         { surah: e.eval3Surah, ayah: e.eval3Ayah }
       );
-      const canonical = canonicalStart(detectedDir);
+      // Use entered direction if it's a valid direction, otherwise auto-detect
+      const dir = (enteredDir === 'Baqarah-to-Nas' || enteredDir === 'Nas-to-Baqarah') ? enteredDir : detectedDir;
+      const canonical = canonicalStart(dir);
 
       batch.push({
         studentId: student.id,
         startSurah: canonical.surah, startAyah: canonical.ayah,
         eval3Surah: e.eval3Surah, eval3Ayah: e.eval3Ayah,
         eval3: { ayahs: m.ayahs, pages: m.pages, hizbs: m.hizbs, score: m.score, rubric: m.rubric, grade: m.grade },
-        direction: detectedDir,
+        direction: dir,
       });
     }
 
