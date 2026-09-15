@@ -2,10 +2,6 @@
 -- Applied to production Supabase as migration: teacher_student_quran_controls_and_historical_direction_fix
 
 -- Keep historical submissions faithful to the teacher/student direction and supplied start position.
--- The application uses teacher_submit_historical_eval3; this wrapper now passes the student's
--- current direction/start position into the class workflow instead of allowing the end position
--- to determine the direction.
-
 create or replace function public.teacher_submit_historical_eval3(p_student_id uuid,p_term_id uuid,p_start_surah smallint,p_start_ayah smallint,p_end_surah smallint,p_end_ayah smallint,p_score numeric,p_rubric smallint,p_grade text,p_ayahs integer,p_pages integer,p_hizbs numeric)
 returns void language plpgsql security definer set search_path to 'public'
 as $$
@@ -59,3 +55,5 @@ revoke all on function public.teacher_set_student_status(uuid,text) from public,
 grant execute on function public.teacher_set_student_status(uuid,text) to authenticated;
 revoke all on function public.teacher_submit_historical_eval3(uuid,uuid,smallint,smallint,smallint,smallint,numeric,smallint,text,integer,integer,numeric) from public,anon;
 grant execute on function public.teacher_submit_historical_eval3(uuid,uuid,smallint,smallint,smallint,smallint,numeric,smallint,text,integer,integer,numeric) to authenticated;
+revoke all on function public.teacher_submit_historical_class(uuid,uuid,jsonb) from public,anon;
+grant execute on function public.teacher_submit_historical_class(uuid,uuid,jsonb) to authenticated;
