@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm, loadSignaturesForReportCards, type ReportCardSignatures } from '@/lib/live-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
+import { label, progressBetween, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
 function buildReportCardHTML(s: any, settings: any, termLabel: string, signatures: ReportCardSignatures, qrDataUrl = '') {
@@ -15,7 +15,7 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
   const approved = s.es.filter((e: any) => e.status === 'Approved');
   const avg = approved.length ? Math.round(approved.reduce((n: number, e: any) => n + e.score, 0) / approved.length) : null;
   const status = avg === null ? '—' : avg >= 90 ? 'Excellent' : avg >= 75 ? 'Very Good' : avg >= 60 ? 'Satisfactory' : 'Needs Improvement';
-  const absP = absoluteProgress(s.current, s.direction);
+  const journey = progressBetween(s.start, s.current, s.direction);
   const rem = remainingFrom(s.current, s.direction);
   const juz = juzForPosition(s.current);
   const hizb = hizbForPosition(s.current);
@@ -25,8 +25,8 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
   const classTeacherName = classSig?.signer_name || s.teacher || null;
   const supervisor = signatures.supervisor;
   const director = signatures.director;
-  const dir = s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';
-  const pct = Math.min(100, Math.max(0, absP.percent));
+  const dir = s.direction === 'Baqarah-to-Nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';
+  const pct = Math.min(100, Math.max(0, journey.percent));
   const serial = `${(s.admissionNo || 'N/A').toUpperCase()}/${termLabel.replace(/[\s·]+/g, '-').toUpperCase()}`;
   const printed = new Date().toLocaleDateString('en-NG');
   const academicYear = (termLabel.split(' · ')[0] || termLabel).trim();
@@ -113,12 +113,12 @@ function buildReportCardHTML(s: any, settings: any, termLabel: string, signature
       <div class="rc-section-head"><span class="rc-section-icon">▥</span><span>QUR’AN MEMORIZATION JOURNEY</span><em>Step by Step&nbsp;&nbsp;•&nbsp;&nbsp;Page by Page&nbsp;&nbsp;•&nbsp;&nbsp;Closer to Allah</em></div>
       <div class="rc-hifz-main">
         <div class="rc-ring-wrap"><svg class="rc-ring" viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" class="ring-bg"/><circle cx="50" cy="50" r="42" class="ring-fill" stroke-dasharray="${(2*Math.PI*42).toFixed(2)}" stroke-dashoffset="${(2*Math.PI*42*(1-pct/100)).toFixed(2)}"/></svg><div class="rc-ring-center"><b>${pct.toFixed(1)}%</b><span>of Qur’an<br/>Completed</span></div></div>
-        <div class="rc-hifz-info"><div class="rc-small-cap">CURRENT POSITION</div><div class="rc-position">${label(s.current)}</div><div class="rc-hifz-sub">Started: ${label(s.start)}&nbsp;&nbsp;•&nbsp;&nbsp;${dir}</div><div class="rc-hifz-teacher">Teacher: <b>${s.teacher || '—'}</b></div><div class="rc-progress"><span style="width:${pct}%"></span></div><div class="rc-progress-meta"><b>${absP.hizbs} / 60 Hizb</b><span>${rem.ayahs.toLocaleString()} ayahs left</span></div></div>
+        <div class="rc-hifz-info"><div class="rc-small-cap">CURRENT POSITION</div><div class="rc-position">${label(s.current)}</div><div class="rc-hifz-sub">Started: ${label(s.start)}&nbsp;&nbsp;•&nbsp;&nbsp;${dir}</div><div class="rc-hifz-teacher">Teacher: <b>${s.teacher || '—'}</b></div><div class="rc-progress"><span style="width:${pct}%"></span></div><div class="rc-progress-meta"><b>${journey.hizbs.toFixed(1)} Hizb</b><span>${rem.ayahs.toLocaleString()} ayahs left</span></div></div>
         <div class="rc-hifz-art"><div class="rc-book">▱</div><div>A Journey<br/><b>of a Lifetime</b></div></div>
       </div>
       <div class="rc-stats">
-        <div><span>AYahs<br/>Memorized</span><b>${absP.ayahs.toLocaleString()}</b></div>
-        <div><span>Pages<br/>Memorized</span><b>${absP.pages}</b></div>
+        <div><span>AYahs<br/>Memorized</span><b>${journey.ayahs.toLocaleString()}</b></div>
+        <div><span>Pages<br/>Memorized</span><b>${journey.pages}</b></div>
         <div><span>Hizb<br/>Memorized</span><b>${absP.hizbs}</b></div>
         <div><span>Mushaf Page</span><b>${mushafPg}</b><small>/ 604</small></div>
         <div class="remaining"><span>Ayahs<br/>Remaining</span><b>${rem.ayahs.toLocaleString()}</b></div>
