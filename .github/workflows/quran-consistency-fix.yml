@@ -1,0 +1,68 @@
+name: Quran consistency fix
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply canonical progress fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Teacher My Students: use the canonical progress already returned by the
+          # single school directory RPC. The previous helper mixed the RPC's
+          # human-readable direction/nested positions with raw DB field names,
+          # causing every student to render as 0%.
+          p = Path('src/app/teacher/students/page.tsx')
+          s = p.read_text()
+          s = s.replace("import { SURAHS, positionOrdinal } from '@/lib/quran';", "import { SURAHS } from '@/lib/quran';")
+          start = s.index('function pct(s: any) {')
+          end = s.index('\n\nexport default function TeacherStudents()', start)
+          s = s[:start] + s[end+2:]
+          s = s.replace('const progress=pct(s);', 'const progress=Math.min(100,Math.max(0,Math.round(Number(s.progressPercent ?? 0))));')
+          p.write_text(s)
+
+          # Report cards: progress must mean progress through THIS student's
+          # configured Hifz journey, not absolute position in the whole Quran.
+          # Also use the actual Direction union returned by loadStudents().
+          p = Path('src/app/reports/page.tsx')
+          s = p.read_text()
+          s = s.replace("import { label, absoluteProgress, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';", "import { label, progressBetween, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';")
+          s = s.replace('const absP = absoluteProgress(s.current, s.direction);', 'const journey = progressBetween(s.start, s.current, s.direction);')
+          s = s.replace("const dir = s.direction === 'baqarah_to_nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';", "const dir = s.direction === 'Baqarah-to-Nas' ? 'Baqarah → Nās' : 'Nās → Baqarah';")
+          s = s.replace('const pct = Math.min(100, Math.max(0, absP.percent));', 'const pct = Math.min(100, Math.max(0, journey.percent));')
+          s = s.replace('${absP.hizbs} / 60 Hizb', '${journey.hizbs.toFixed(1)} Hizb')
+          s = s.replace('${absP.ayahs.toLocaleString()}', '${journey.ayahs.toLocaleString()}')
+          s = s.replace('${absP.pages}', '${journey.pages}')
+          p.write_text(s)
+
+          # Make the shared Student stats helper journey-first so any future
+          # consumer using studentStats().percent/ayahs/pages/hizbs cannot silently
+          # fall back to whole-Quran absolute progress.
+          p = Path('src/lib/data.ts')
+          s = p.read_text()
+          old = "export function studentStats(s:Student){const absolute=absoluteProgress(s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...absolute,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current),memorizationFromStart:progressBetween(s.start,s.current,s.direction)};}"
+          new = "export function studentStats(s:Student){const absolute=absoluteProgress(s.current,s.direction); const journey=progressBetween(s.start,s.current,s.direction); const remaining=remainingFrom(s.current,s.direction); return {...absolute,percent:journey.percent,ayahs:journey.ayahs,pages:journey.pages,hizbs:journey.hizbs,remaining,currentLabel:label(s.current),startLabel:label(s.start),currentPage:pageForPosition(s.current),currentHizb:hizbForPosition(s.current),memorizationFromStart:journey};}"
+          if old not in s:
+              raise SystemExit('studentStats target not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+          PY
+      - name: Commit changes and remove workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/teacher/students/page.tsx src/app/reports/page.tsx src/lib/data.ts
+          git rm -f .github/workflows/quran-consistency-fix.yml
+          if git diff --cached --quiet; then
+            echo "No changes required"
+            exit 0
+          fi
+          git commit -m "Fix Quran progress consistency across student views"
+          git push
