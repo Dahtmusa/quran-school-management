@@ -3,28 +3,13 @@ on:
   push:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
+  actions: write
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply pending Quran fix
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('src/app/reports/page.tsx')
-          s=p.read_text()
-          s=s.replace('absP.', 'journey.')
-          p.write_text(s)
-          PY
-          if ! git diff --quiet -- src/app/reports/page.tsx; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add src/app/reports/page.tsx
-            git commit -m "Complete Quran progress consistency fix"
-            git push
-          fi
       - uses: actions/setup-node@v4
         with:
           node-version: 20
