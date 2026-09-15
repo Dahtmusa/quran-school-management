@@ -14,23 +14,22 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
 
           p=Path('src/lib/live-store.ts')
           s=p.read_text()
           s=s.replace("supabase().rpc('admin_get_student_directory')", "supabase().rpc('get_school_student_directory')", 1)
-          pattern=r"export async function loadTeacherDirectory\(\)[\\s\\S]*?(?=export async function teacherUpdateStudentQuranProfile)"
-          replacement='''export async function loadTeacherDirectory() {\n  const { data, error } = await supabase().rpc('get_school_student_directory');\n  if (error || !data) { console.error('Teacher directory load failed:', error); return []; }\n  return (data as any[]).map((r:any) => ({\n    id:r.student_id ?? r.id, admissionNo:r.admission_no, name:r.full_name,\n    photoUrl:r.photo_url ?? null, section:r.section === 'boarding' ? 'Boarding' : 'Day',\n    year:mapYear(r.program_year), status:r.status,\n    start:{surah:r.start_surah ?? 114, ayah:r.start_ayah ?? 1},\n    current:{surah:r.current_surah ?? r.start_surah ?? 114, ayah:r.current_ayah ?? 1},\n    direction:mapDirection(r.memorization_direction),\n    className:r.class_name ?? null, classId:r.class_id ?? null,\n    teacher:r.teacher_name ?? 'Unassigned', attendance:Number(r.attendance_percent ?? 0),\n    fees:Number(r.fees_due ?? 0), progressPercent:Number(r.progress_percent ?? 0),\n    studentIdNumber:r.student_id_number ?? null, idExpiresOn:r.id_expires_on ?? null, gender:r.gender ?? null,\n  }));\n}\n\n'''
-          s2=re.sub(pattern,replacement,s,count=1)
-          if s2==s: raise SystemExit('loadTeacherDirectory patch target not found')
-          p.write_text(s2)
+          start=s.index('export async function loadTeacherDirectory()')
+          end=s.index('export async function teacherUpdateStudentQuranProfile', start)
+          replacement='''export async function loadTeacherDirectory() {\n  const { data, error } = await supabase().rpc('get_school_student_directory');\n  if (error || !data) { console.error('Teacher directory load failed:', error); return []; }\n  return (data as any[]).map((r:any) => ({\n    id:r.student_id ?? r.id, admissionNo:r.admission_no, name:r.full_name, dateOfBirth:r.date_of_birth, gender:r.gender,\n    section:r.section === 'boarding' ? 'Boarding' : 'Day', year:r.program_year === 'year_2' ? 'Year 2' : 'Year 1', status:r.status,\n    photoUrl:r.photo_url ?? null, start:{surah:r.start_surah ?? 114,ayah:r.start_ayah ?? 1},\n    current:{surah:r.current_surah ?? r.start_surah ?? 114,ayah:r.current_ayah ?? 1,page:r.current_page,hizb:r.current_hizb},\n    direction:r.memorization_direction === 'nas_to_baqarah' ? 'Nas-to-Baqarah' : 'Baqarah-to-Nas',\n    className:r.class_name ?? null, classId:r.class_id ?? null, progressPercent:Number(r.progress_percent ?? 0),\n    parent:{name:r.parent_name,phone:r.parent_phone,relationship:r.parent_relationship},\n  }));\n}\n\n'''
+          s=s[:start]+replacement+s[end:]
+          p.write_text(s)
 
           p=Path('src/app/teacher/page.tsx')
           s=p.read_text()
           s=s.replace("import { SURAHS, label, absoluteProgress, calculateEvaluation } from '@/lib/quran';", "import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';")
           old="const canonicalProgress = absoluteProgress({ surah: currSurahId, ayah: Number(s.current?.ayah || 1) }, s.direction);"
           new="const canonicalProgress = progressBetween({ surah: startSurahId, ayah: Number(s.start?.ayah || 1) }, { surah: currSurahId, ayah: Number(s.current?.ayah || 1) }, s.direction);"
-          if old not in s: raise SystemExit('teacher progress patch target not found')
+          if old not in s: raise SystemExit('teacher progress target not found')
           s=s.replace(old,new,1)
           p.write_text(s)
 
