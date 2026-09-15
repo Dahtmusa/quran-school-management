@@ -1,0 +1,17 @@
+name: Package repository
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create package
+        run: |
+          git archive --format=zip --output=quran-school-management-main.zip HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: quran-school-management-main
+          path: quran-school-management-main.zip
