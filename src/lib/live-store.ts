@@ -27,7 +27,7 @@ export async function getCurrentProfile() {
 export async function loadStudents(): Promise<Student[]> {
   const profile = await getCurrentProfile();
   if (profile?.role === 'parent') return loadParentStudents();
-  const { data, error } = await supabase().rpc('admin_get_student_directory');
+  const { data, error } = await supabase().rpc('get_school_student_directory');
   if (error || !data) { console.error('Student directory load failed:', error); return []; }
   return data.filter((s:any) => s.status === 'active').map((s:any) => ({
     id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null, idExpiresOn:s.id_expires_on ?? null,
@@ -340,15 +340,15 @@ export async function loadSurahs() {
 }
 
 export async function loadTeacherDirectory() {
-  const { data, error } = await supabase().rpc('get_teacher_student_directory');
-  if (error || !data) return [];
-  return data.map((r:any) => ({
-    id:r.student_id, admissionNo:r.admission_no, name:r.full_name, dateOfBirth:r.date_of_birth, gender:r.gender,
-    section:r.section === 'boarding' ? 'Boarding' : 'Day', year:r.program_year === 'year_2' ? 'Year 2' : 'Year 1',
-    status:r.status, photoUrl:r.photo_url, start:{surah:r.start_surah,ayah:r.start_ayah},
-    current:{surah:r.current_surah,ayah:r.current_ayah,page:r.current_page,hizb:r.current_hizb},
+  const { data, error } = await supabase().rpc('get_school_student_directory');
+  if (error || !data) { console.error('Teacher directory load failed:', error); return []; }
+  return (data as any[]).map((r:any) => ({
+    id:r.student_id ?? r.id, admissionNo:r.admission_no, name:r.full_name, dateOfBirth:r.date_of_birth, gender:r.gender,
+    section:r.section === 'boarding' ? 'Boarding' : 'Day', year:r.program_year === 'year_2' ? 'Year 2' : 'Year 1', status:r.status,
+    photoUrl:r.photo_url ?? null, start:{surah:r.start_surah ?? 114,ayah:r.start_ayah ?? 1},
+    current:{surah:r.current_surah ?? r.start_surah ?? 114,ayah:r.current_ayah ?? 1,page:r.current_page,hizb:r.current_hizb},
     direction:r.memorization_direction === 'nas_to_baqarah' ? 'Nas-to-Baqarah' : 'Baqarah-to-Nas',
-    className:r.class_name, classId:r.class_id,
+    className:r.class_name ?? null, classId:r.class_id ?? null, progressPercent:Number(r.progress_percent ?? 0),
     parent:{name:r.parent_name,phone:r.parent_phone,relationship:r.parent_relationship},
   }));
 }

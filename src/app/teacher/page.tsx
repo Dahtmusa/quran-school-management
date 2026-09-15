@@ -5,7 +5,7 @@ import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
 import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
-import { SURAHS, label, absoluteProgress, calculateEvaluation } from '@/lib/quran';
+import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
 import { recordTeacherBoardingAttendance } from '@/lib/attendance-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -326,7 +326,7 @@ export default function TeacherDashboard() {
           const currSurahId  = s.current?.surah || startSurahId;
           const startName = SURAHS.find(x => x.id === startSurahId)?.name ?? `Surah ${startSurahId}`;
           const currName  = SURAHS.find(x => x.id === currSurahId)?.name  ?? `Surah ${currSurahId}`;
-          const canonicalProgress = absoluteProgress({ surah: currSurahId, ayah: Number(s.current?.ayah || 1) }, s.direction);
+          const canonicalProgress = progressBetween({ surah: startSurahId, ayah: Number(s.start?.ayah || 1) }, { surah: currSurahId, ayah: Number(s.current?.ayah || 1) }, s.direction);
           const sPct = Math.min(100, Math.max(0, Math.round(canonicalProgress.percent)));
 
           return (
