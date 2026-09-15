@@ -353,6 +353,16 @@ export async function loadTeacherDirectory() {
   }));
 }
 
+export async function teacherUpdateStudentQuranProfile(studentId: string, input: { direction: 'nas_to_baqarah'|'baqarah_to_nas'; currentSurah: number; currentAyah: number }) {
+  const { error } = await supabase().rpc('teacher_update_student_quran_profile', { p_student_id: studentId, p_direction: input.direction, p_current_surah: input.currentSurah, p_current_ayah: input.currentAyah });
+  if (error) throw error;
+}
+
+export async function teacherSetStudentStatus(studentId: string, status: 'active'|'suspended'|'withdrawn') {
+  const { error } = await supabase().rpc('teacher_set_student_status', { p_student_id: studentId, p_status: status });
+  if (error) throw error;
+}
+
 export async function teacherUpdateStudentSection(studentId: string, section: 'day' | 'boarding') {
   const { error } = await supabase().rpc('teacher_update_student_section', {
     p_student_id: studentId,

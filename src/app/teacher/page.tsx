@@ -3,9 +3,9 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, loadOperationalTerms, teacherSubmitHistoricalEval3, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
-import { SURAHS, label, calculateEvaluation, progressBetween, positionOrdinal } from '@/lib/quran';
+import { SURAHS, label, absoluteProgress } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
 import { recordTeacherBoardingAttendance } from '@/lib/attendance-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -40,176 +40,6 @@ export default function TeacherDashboard() {
   const [sigOpen, setSigOpen] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const sigPadRef = useRef<SignaturePadRef|null>(null);
-
-  /* ── Historical records section ── */
-  type HistEntry = { startSurah: number; startAyah: number; endSurah: number; endAyah: number; direction: string; };
-  const [histOpen, setHistOpen] = useState(false);
-  const [histTerms, setHistTerms] = useState<any[]>([]);
-  const [histTermId, setHistTermId] = useState('');
-  const [histTargetPages, setHistTargetPages] = useState(30);
-  const [histEntries, setHistEntries] = useState<Record<string, HistEntry>>({});
-  const [histSubmitting, setHistSubmitting] = useState<Set<string>>(new Set());
-  const [histMsg, setHistMsg] = useState('');
-
-  /* ── Section edit ── */
-  const [editSectionTarget, setEditSectionTarget] = useState<any | null>(null);
-  const [editSectionValue, setEditSectionValue] = useState<'day' | 'boarding'>('day');
-  const [editSectionBusy, setEditSectionBusy] = useState(false);
-  const [editSectionMsg, setEditSectionMsg] = useState('');
-
-  /* ── Add missing student ── */
-  const [addStudentOpen, setAddStudentOpen] = useState(false);
-  const [unassigned, setUnassigned] = useState<any[]>([]);
-  const [addSearch, setAddSearch] = useState('');
-  const [addBusy, setAddBusy] = useState<string | null>(null);
-  const [addMsg, setAddMsg] = useState('');
-
-  const refresh = async () => {
-    const [s, e] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
-    setStudents(s); setEvaluations(e);
-  };
-  useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
-  useEffect(() => {
-    getMySignature().then(s => { setMySig(s.signature_data ? s : null); setSigOpen(!s.signature_data); });
-  }, []);
-
-  useEffect(() => {
-    const active = evaluations.filter(e => e.status === 'draft' || e.status === 'returned');
-    setForms(prev => {
-      const next = { ...prev };
-      for (const ev of active) {
-        if (next[ev.id]) continue;
-        const saved = loadDraft(ev.id);
-        next[ev.id] = saved ?? {
-          toSurah: Number(ev.to_surah || ev.students?.current_surah || 2),
-          toAyah: Number(ev.to_ayah || ev.students?.current_ayah || 1),
-          mem: Number(ev.memorization_score || 4), acc: Number(ev.accuracy_score || 4),
-          flu: Number(ev.fluency_score || 4), taj: Number(ev.tajweed_score || 4),
-          ret: Number(ev.retention_score || 4), comment: ev.teacher_comment || '',
-        };
-      }
-      return next;
-    });
-  }, [evaluations]);
-
-  const activeEvals = useMemo(() => evaluations.filter(e => e.status === 'draft' || e.status === 'returned'), [evaluations]);
-
-  const byCampaign = useMemo(() => {
-    const map = new Map<string, { campaign: any; evals: any[] }>();
-    for (const ev of activeEvals) {
-      const cid = ev.campaign_id || 'none';
-      if (!map.has(cid)) map.set(cid, { campaign: ev.evaluation_campaigns, evals: [] });
-      map.get(cid)!.evals.push(ev);
-    }
-    return [...map.values()];
-  }, [activeEvals]);
-
-  function updateForm(evalId: string, updates: Partial<EvalForm>) {
-    setForms(prev => {
-      const next = { ...prev, [evalId]: { ...prev[evalId], ...updates } };
-      saveDraft(evalId, next[evalId]);
-      return next;
-    });
-  }
-
-  function hasMoved(ev: any): boolean {
-    const f = forms[ev.id]; if (!f) return false;
-    const dir = ev.students?.memorization_direction;
-    const fs = Number(ev.from_surah), fa = Number(ev.from_ayah);
-    if (dir === 'baqarah_to_nas') return f.toSurah > fs || (f.toSurah === fs && f.toAyah > fa);
-    return f.toSurah < fs || (f.toSurah === fs && f.toAyah < fa);
-  }
-
-  async function submitClass(campaignEvals: any[]) {
-    if (!campaignEvals.every(ev => hasMoved(ev))) { setMessage('All students must have a valid stopping position before you can submit the class evaluation.'); return; }
-    setBusy(true); setMessage('');
-    try {
-      for (const ev of campaignEvals) {
-        const f = forms[ev.id];
-        const score = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
-        await submitTeacherEvaluation({ evaluationId: ev.id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
-        clearDraft(ev.id);
-      }
-      setForms({}); await refresh();
-      setMessage('Class evaluation submitted to Admin for review. You will be notified if any are returned.');
-    } catch (err: any) { setMessage(err?.message || 'Submission failed.'); }
-    finally { setBusy(false); }
-  }
-
-  async function uploadPhoto(file: File | null) {
-    if (!file) return; setBusy(true);
-    try { const url = await uploadProfileImage(file, 'staff'); setMe((x: any) => ({ ...x, avatar_url: url })); await updateOwnProfile({ avatar_url: url }); setMessage('Profile photo updated.'); }
-    catch (e: any) { setMessage(e?.message || 'Photo upload failed'); } finally { setBusy(false); }
-  }
-
-  function mark(_studentId: string, _status: string) {
-    setMessage('Attendance is now handled by Security staff at the gate. Contact admin if a correction is needed.');
-  }
-
-  // Load terms when historical section is opened
-  useEffect(() => {
-    if (!histOpen || histTerms.length) return;
-    loadOperationalTerms().then(t => {
-      const sorted = [...t].sort((a: any, b: any) => (a.starts_on || '').localeCompare(b.starts_on || ''));
-      setHistTerms(sorted);
-      const current = sorted.find((x: any) => x.academic_years?.is_current && x.term_number === 1);
-      if (current) setHistTermId(current.id);
-    });
-  }, [histOpen]);
-
-  // Effect 1: fresh init when term or student list changes — resets to defaults
-  // Does NOT depend on evaluations, so it never triggers on refresh
-  useEffect(() => {
-    if (!histTermId || !students.length) return;
-    setHistEntries(() => {
-      const next: Record<string, HistEntry> = {};
-      for (const s of students) {
-        next[s.id] = {
-          startSurah: s.start?.surah || (s.direction === 'Baqarah-to-Nas' ? 2 : 114),
-          startAyah:  s.start?.ayah  || 1,
-          endSurah: s.current?.surah || 0,
-          endAyah:  s.current?.ayah  || 0,
-          direction: s.direction || 'Baqarah-to-Nas',
-        };
-      }
-      return next;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [histTermId, students.length]);
-
-  // Effect 2: merge DB records into form when evaluations refresh
-  // ONLY overwrites a student's entry when a DB record exists for them.
-  // Students with no DB record keep whatever the teacher already typed.
-  useEffect(() => {
-    if (!histTermId || !students.length) return;
-    setHistEntries(prev => {
-      let changed = false;
-      const next = { ...prev };
-      for (const s of students) {
-        const ex = (evaluations as any[]).find(
-          (e: any) => e.student_id === s.id && e.term_id === histTermId && e.evaluation_number === 3
-        );
-        if (ex) {
-          const fromDB: HistEntry = {
-            startSurah: Number(ex.from_surah),
-            startAyah:  Number(ex.from_ayah),
-            endSurah:   Number(ex.to_surah),
-            endAyah:    Number(ex.to_ayah),
-            direction:  prev[s.id]?.direction || s.direction || 'Baqarah-to-Nas',
-          };
-          // Only update if something actually changed
-          const cur = prev[s.id];
-          if (!cur || cur.startSurah !== fromDB.startSurah || cur.startAyah !== fromDB.startAyah || cur.endSurah !== fromDB.endSurah || cur.endAyah !== fromDB.endAyah) {
-            next[s.id] = fromDB;
-            changed = true;
-          }
-        }
-        // No DB record → leave prev[s.id] untouched (preserves teacher's input)
-      }
-      return changed ? next : prev;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [evaluations]);
 
   const surahMap = Object.fromEntries(SURAHS.map(s => [s.id, s]));
 
@@ -338,6 +168,33 @@ export default function TeacherDashboard() {
   const boardingCount = students.filter(s => s.section === 'Boarding').length;
   const filteredStudents = useMemo(() => students.filter(s => s.name?.toLowerCase().includes(studentSearch.toLowerCase())), [students, studentSearch]);
 
+  async function handleSaveQuranProfile() {
+    if (!quranEditTarget) return;
+    setQuranEditBusy(true); setQuranEditMsg('');
+    try {
+      await teacherUpdateStudentQuranProfile(quranEditTarget.id, { direction: quranEditDirection, currentSurah: quranEditSurah, currentAyah: quranEditAyah });
+      const fresh = await loadTeacherDirectory();
+      setStudents(fresh);
+      const updated = fresh.find((x:any) => x.id === quranEditTarget.id);
+      if (updated) setSelected(updated);
+      setQuranEditTarget(null);
+      setMessage('Quran profile saved as the official student record.');
+    } catch (e:any) { setQuranEditMsg(e?.message || 'Failed to save Quran profile'); }
+    finally { setQuranEditBusy(false); }
+  }
+
+  async function handleSetStudentStatus(student:any, status:'active'|'suspended'|'withdrawn') {
+    if (status === 'withdrawn' && !window.confirm('Mark this student inactive? All academic and historical records will be preserved.')) return;
+    setBusy(true); setMessage('');
+    try {
+      await teacherSetStudentStatus(student.id, status);
+      const fresh = await loadTeacherDirectory(); setStudents(fresh);
+      if (selected?.id === student.id) setSelected(fresh.find((x:any)=>x.id===student.id) || null);
+      setMessage(status === 'suspended' ? student.name + ' is now frozen.' : status === 'withdrawn' ? student.name + ' is now inactive.' : student.name + ' is active again.');
+    } catch (e:any) { setMessage(e?.message || 'Failed to update student status'); }
+    finally { setBusy(false); }
+  }
+
   async function handleSaveSection() {
     if (!editSectionTarget) return;
     setEditSectionBusy(true); setEditSectionMsg('');
@@ -396,173 +253,6 @@ export default function TeacherDashboard() {
       <StatCard label="Boarding students" value={boardingCount} color="violet"/>
       <StatCard label={activeEvals.length ? `${doneCount}/${activeEvals.length} done` : 'No active eval'} value={returnedCount>0?`${returnedCount} returned`:(activeEvals.length?`${Math.round((doneCount/activeEvals.length)*100)}%`:'—')} color={returnedCount>0?'rose':'amber'} label2={returnedCount>0?'Returned evals':activeEvals.length?'Progress':'Evaluations'}/>
     </div>
-
-    {/* ── Historical Records — pinned near the top so it's easy to find ── */}
-    <section className="overflow-hidden rounded-2xl border-2 border-amber-300 bg-white shadow-sm">
-      <button
-        onClick={() => setHistOpen(o => !o)}
-        className="flex w-full items-center justify-between bg-amber-50 p-5 text-left hover:bg-amber-100 transition-colors"
-      >
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-base font-black text-amber-900">📋 Historical Records — First Term Setup</span>
-            <span className="rounded-full bg-amber-200 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-800">Temporary</span>
-          </div>
-          <p className="mt-1 text-xs text-amber-700/80">Enter each student's start and end position for the term. Admin reviews and approves before it becomes official.</p>
-        </div>
-        <span className="ml-4 shrink-0 text-amber-500 font-bold text-sm">{histOpen ? '▲ Hide' : '▼ Open'}</span>
-      </button>
-
-      {histOpen && <>
-        {/* Controls */}
-        <div className="border-t border-amber-100 bg-amber-50/50 px-5 py-4 space-y-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="text-xs font-semibold text-slate-600">Term
-              <select value={histTermId} onChange={e => setHistTermId(e.target.value)}
-                className="mt-1 block rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-                <option value="">Select term…</option>
-                {histTerms.map((t: any) => (
-                  <option key={t.id} value={t.id}>{t.name}{t.academic_years?.is_current ? ' (current)' : ''}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-xs font-semibold text-slate-600">Pages expected (= 100%)
-              <input type="number" min={1} max={200} value={histTargetPages}
-                onChange={e => setHistTargetPages(Math.max(1, Number(e.target.value)))}
-                className="mt-1 block w-24 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
-            </label>
-          </div>
-
-          {/* Batch submit panel */}
-          {histTermId && students.length > 0 && (
-            <div className={`flex flex-col gap-2 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between ${histAllReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
-              <div>
-                {histAllReady ? (
-                  <div className="text-sm font-bold text-emerald-800">✓ All {students.length} students have positions filled in — ready to submit class</div>
-                ) : (
-                  <div className="text-sm font-bold text-amber-800">
-                    {histReadyCount}/{students.length} students ready
-                    {histIncompleteCount > 0 && <span className="ml-2 font-normal text-amber-700">— {histIncompleteCount} still need end position</span>}
-                  </div>
-                )}
-                <div className="mt-0.5 text-xs text-slate-500">All students must be complete before you can submit. Admin will review and approve the entire class.</div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button onClick={submitClassBatch} disabled={!histAllReady || histSubmitting.size > 0}
-                  className={`rounded-lg px-5 py-2 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${histAllReady ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}>
-                  {histSubmitting.size > 0 ? 'Submitting class…' : `Submit class (${students.length})`}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {histMsg && <div className="rounded-lg bg-white px-4 py-3 text-sm font-semibold text-amber-800 border border-amber-200">{histMsg} <button className="ml-2 text-amber-500" onClick={() => setHistMsg('')}>✕</button></div>}
-        </div>
-
-        {/* Student table */}
-        {!histTermId && <div className="p-8 text-center text-sm text-slate-400">Select a term above to begin.</div>}
-        {histTermId && students.length === 0 && <div className="p-8 text-center text-sm text-slate-400">No students are assigned to your account.</div>}
-        {histTermId && students.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="border-t border-amber-100 bg-amber-50 text-xs uppercase text-amber-700">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Student</th>
-                  <th className="px-3 py-3 text-center">Direction</th>
-                  <th className="px-3 py-3 text-center bg-emerald-50 text-emerald-700" colSpan={2}>Start of Term ✏️</th>
-                  <th className="px-3 py-3 text-center bg-teal-50 text-teal-700" colSpan={2}>Current Position ✏️</th>
-                  <th className="px-3 py-3 text-center">Score</th>
-                  <th className="px-3 py-3 text-center">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s, idx) => {
-                  const e = histEntries[s.id];
-                  if (!e) return null;
-                  const m = computeHistMetrics(e, histTargetPages);
-                  const existing = getHistEval3(s.id);
-                  const isBusy = histSubmitting.has(s.id);
-                  const maxEndAyah = surahMap[e.endSurah]?.ayahs ?? 286;
-                  const maxStartAyah = surahMap[e.startSurah]?.ayahs ?? 286;
-
-                  const rowIncomplete = !m;
-
-                  return (
-                    <tr key={s.id} className={`border-t border-slate-100 ${rowIncomplete && !existing ? 'bg-rose-50/30' : idx % 2 === 0 ? '' : 'bg-slate-50/40'} hover:bg-amber-50/20`}>
-                      <td className="px-4 py-2.5 text-xs text-slate-400 font-mono">{idx + 1}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          {s.photoUrl ? <img src={s.photoUrl} alt={s.name} className="h-8 w-8 rounded-full object-cover"/> : <div className="h-8 w-8 rounded-full bg-emerald-100 grid place-items-center text-xs font-black text-emerald-700">{s.name?.charAt(0)}</div>}
-                          <div>
-                            <div className="text-xs font-bold text-slate-900">{s.name}</div>
-                            <div className="text-[10px] text-slate-400">{s.admissionNo}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-2 py-2.5 text-center">
-                        <select value={e.direction} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], direction: ev.target.value } }))}
-                          className="text-xs border border-slate-200 rounded-md bg-white px-2 py-2 focus:outline-none focus:ring-1 focus:ring-amber-400">
-                          <option value="Baqarah-to-Nas">↓ B→N</option>
-                          <option value="Nas-to-Baqarah">↑ N→B</option>
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <select value={e.startSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startSurah: Number(ev.target.value), startAyah: 1 } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-2 py-2 max-w-[150px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                          <option value={0}>— Surah —</option>
-                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-emerald-50/20">
-                        <select value={e.startAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], startAyah: Number(ev.target.value) } }))}
-                          className="text-xs border border-emerald-200 rounded-md bg-white px-2 py-2 max-w-[96px] focus:outline-none focus:ring-1 focus:ring-emerald-400">
-                          <option value="">Ayah</option>
-                          {Array.from({ length: maxStartAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-teal-50/20">
-                        <select value={e.endSurah} onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endSurah: Number(ev.target.value), endAyah: 1 } }))}
-                          className="text-xs border border-teal-200 rounded-md bg-white px-2 py-2 max-w-[150px] focus:outline-none focus:ring-1 focus:ring-teal-400">
-                          <option value={0}>— Surah —</option>
-                          {SURAHS.map(sx => <option key={sx.id} value={sx.id}>{sx.id}. {sx.name}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-1 py-2.5 bg-teal-50/20">
-                        <select value={e.endAyah || ''}
-                          onChange={ev => setHistEntries(p => ({ ...p, [s.id]: { ...p[s.id], endAyah: Number(ev.target.value) } }))}
-                          className="text-xs border border-teal-200 rounded-md bg-white px-2 py-2 max-w-[96px] focus:outline-none focus:ring-1 focus:ring-teal-400">
-                          <option value="">Ayah</option>
-                          {Array.from({ length: maxEndAyah }, (_, i) => i + 1).map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {m ? (
-                          <div>
-                            <div className="text-xs font-bold text-teal-700">{m.score}% · {m.grade}</div>
-                            <div className="text-[10px] text-slate-400">{m.ayahs} ayahs · {m.pages}pp</div>
-                          </div>
-                        ) : <span className="text-[10px] text-rose-400 font-semibold">⚠ Incomplete</span>}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {existing ? (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold ${existing.status === 'approved' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : existing.status === 'pending_approval' ? 'bg-amber-50 text-amber-700 border border-amber-200' : 'bg-rose-50 text-rose-700 border border-rose-200'}`}>
-                            {existing.status === 'approved' ? '✓ Approved' : existing.status === 'pending_approval' ? '⏳ Pending' : '↩ Returned'}
-                          </span>
-                        ) : (
-                          <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-400">Not submitted</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </>}
-    </section>
 
     {/* Campaign evaluation sections */}
     {byCampaign.map(({ campaign, evals: campEvals }) => {
@@ -732,9 +422,8 @@ export default function TeacherDashboard() {
           const currSurahId  = s.current?.surah || startSurahId;
           const startName = SURAHS.find(x => x.id === startSurahId)?.name ?? `Surah ${startSurahId}`;
           const currName  = SURAHS.find(x => x.id === currSurahId)?.name  ?? `Surah ${currSurahId}`;
-          const sTot = sBtoN ? Math.max(1, 114 - startSurahId) : Math.max(1, startSurahId - 2);
-          const sDone = sBtoN ? Math.max(0, currSurahId - startSurahId) : Math.max(0, startSurahId - currSurahId);
-          const sPct = Math.min(100, Math.round((sDone / sTot) * 100));
+          const canonicalProgress = absoluteProgress({ surah: currSurahId, ayah: Number(s.current?.ayah || 1) }, s.direction);
+          const sPct = Math.min(100, Math.max(0, Math.round(canonicalProgress.percent)));
 
           return (
             <tr key={s.id} className="border-t hover:bg-slate-50/60 transition-colors">
@@ -766,12 +455,17 @@ export default function TeacherDashboard() {
               </td>
               <td className="px-4 py-3 text-right">
                 <div className="flex items-center justify-end gap-2">
-                  <button className="rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-black text-teal-700 hover:bg-teal-100 transition-colors" onClick={() => { setEditSectionTarget(s); setEditSectionValue(s.section === 'Boarding' ? 'boarding' : 'day'); setEditSectionMsg(''); }}>
-                    Edit section
-                  </button>
-                  <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>
-                    Profile
-                  </button>
+                  <button className="rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-black text-teal-700 hover:bg-teal-100 transition-colors" onClick={() => {
+                    setQuranEditTarget(s);
+                    setQuranEditDirection(s.direction === 'Baqarah-to-Nas' ? 'baqarah_to_nas' : 'nas_to_baqarah');
+                    setQuranEditSurah(Number(s.current?.surah || s.start?.surah || 114));
+                    setQuranEditAyah(Number(s.current?.ayah || s.start?.ayah || 1));
+                    setQuranEditMsg('');
+                  }}>Edit Quran</button>
+                  <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>Profile</button>
+                  {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700" onClick={() => handleSetStudentStatus(s,'suspended')}>Freeze</button>}
+                  {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700" onClick={() => handleSetStudentStatus(s,'withdrawn')}>Inactive</button>}
+                  {s.status !== 'active' && <button disabled={busy} className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700" onClick={() => handleSetStudentStatus(s,'active')}>Reactivate</button>
                 </div>
               </td>
             </tr>
@@ -845,6 +539,23 @@ export default function TeacherDashboard() {
         </div>
       </div>
     </div>}
+
+    {/* Authoritative Quran profile modal */}
+    {quranEditTarget && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
+        <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
+          <div className="flex items-center justify-between"><div><h3 className="text-xl font-black">Edit official Quran profile</h3><p className="text-xs text-slate-500">{quranEditTarget.name} · {quranEditTarget.admissionNo}</p></div><button className="btn bg-slate-100" onClick={()=>setQuranEditTarget(null)}>Close</button></div>
+          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Direction<select className="input mt-1 w-full" value={quranEditDirection} onChange={e=>setQuranEditDirection(e.target.value as any)}><option value="baqarah_to_nas">Baqarah → Nas</option><option value="nas_to_baqarah">Nas → Baqarah</option></select></label>
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Surah<select className="input mt-1 w-full" value={quranEditSurah} onChange={e=>{setQuranEditSurah(Number(e.target.value));setQuranEditAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Ayah<select className="input mt-1 w-full" value={quranEditAyah} onChange={e=>setQuranEditAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
+          </div>
+          {quranEditMsg && <div className="mt-4 rounded-xl bg-rose-50 p-3 text-xs font-semibold text-rose-700">{quranEditMsg}</div>}
+          <div className="mt-4 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-800">This is the student's official live Quran record. Saving updates the central student record and automatically recalculates the Mushaf page and Hizb. The same record is used across student profiles, teachers, admins, parents and report cards.</div>
+          <div className="mt-5 flex justify-end gap-2"><button className="btn bg-slate-100" onClick={()=>setQuranEditTarget(null)}>Cancel</button><button className="btn btn-primary" disabled={quranEditBusy} onClick={handleSaveQuranProfile}>{quranEditBusy?'Saving…':'Save official record'}</button></div>
+        </div>
+      </div>
+    )}
 
     {/* Edit section modal */}
     {editSectionTarget && (
