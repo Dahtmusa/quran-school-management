@@ -1,0 +1,80 @@
+name: Apply unified Quran profile UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: ${{ !contains(github.event.head_commit.message, '[quran-ui-sync]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update teacher Quran editor and central update client
+        shell: python
+        run: |
+          from pathlib import Path
+
+          teacher = Path('src/app/teacher/page.tsx')
+          text = teacher.read_text(encoding='utf-8')
+
+          text = text.replace(
+              "  const [quranEditTarget, setQuranEditTarget] = useState<any | null>(null);\n  const [quranEditDirection, setQuranEditDirection] = useState<'nas_to_baqarah'|'baqarah_to_nas'>('nas_to_baqarah');\n  const [quranEditSurah, setQuranEditSurah] = useState(114);\n  const [quranEditAyah, setQuranEditAyah] = useState(1);",
+              "  const [quranEditTarget, setQuranEditTarget] = useState<any | null>(null);\n  const [quranEditDirection, setQuranEditDirection] = useState<'nas_to_baqarah'|'baqarah_to_nas'>('nas_to_baqarah');\n  const [quranEditStartSurah, setQuranEditStartSurah] = useState(114);\n  const [quranEditStartAyah, setQuranEditStartAyah] = useState(1);\n  const [quranEditSurah, setQuranEditSurah] = useState(114);\n  const [quranEditAyah, setQuranEditAyah] = useState(1);"
+          )
+
+          text = text.replace(
+              "    try{await teacherUpdateStudentQuranProfile(quranEditTarget.id,{direction:quranEditDirection,currentSurah:quranEditSurah,currentAyah:quranEditAyah});",
+              "    try{await teacherUpdateStudentQuranProfile(quranEditTarget.id,{direction:quranEditDirection,startSurah:quranEditStartSurah,startAyah:quranEditStartAyah,currentSurah:quranEditSurah,currentAyah:quranEditAyah});"
+          )
+
+          text = text.replace(
+              "                    setQuranEditDirection(s.direction === 'Baqarah-to-Nas' ? 'baqarah_to_nas' : 'nas_to_baqarah');\n                    setQuranEditSurah(Number(s.current?.surah || s.start?.surah || 114));",
+              "                    setQuranEditDirection(s.direction === 'Baqarah-to-Nas' ? 'baqarah_to_nas' : 'nas_to_baqarah');\n                    setQuranEditStartSurah(Number(s.start?.surah || 114));\n                    setQuranEditStartAyah(Number(s.start?.ayah || 1));\n                    setQuranEditSurah(Number(s.current?.surah || s.start?.surah || 114));"
+          )
+
+          old = '''          <div className="mt-5 grid gap-4 sm:grid-cols-3">\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Direction<select className="input mt-1 w-full" value={quranEditDirection} onChange={e=>setQuranEditDirection(e.target.value as any)}><option value="baqarah_to_nas">Baqarah → Nas</option><option value="nas_to_baqarah">Nas → Baqarah</option></select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Surah<select className="input mt-1 w-full" value={quranEditSurah} onChange={e=>{setQuranEditSurah(Number(e.target.value));setQuranEditAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Ayah<select className="input mt-1 w-full" value={quranEditAyah} onChange={e=>setQuranEditAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>\n          </div>'''
+
+          new = '''          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Direction<select className="input mt-1 w-full" value={quranEditDirection} onChange={e=>setQuranEditDirection(e.target.value as any)}><option value="baqarah_to_nas">Baqarah → Nas</option><option value="nas_to_baqarah">Nas → Baqarah</option></select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Starting Surah<select className="input mt-1 w-full" value={quranEditStartSurah} onChange={e=>{setQuranEditStartSurah(Number(e.target.value));setQuranEditStartAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Starting Ayah<select className="input mt-1 w-full" value={quranEditStartAyah} onChange={e=>setQuranEditStartAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditStartSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Surah<select className="input mt-1 w-full" value={quranEditSurah} onChange={e=>{setQuranEditSurah(Number(e.target.value));setQuranEditAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>\n            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Ayah<select className="input mt-1 w-full" value={quranEditAyah} onChange={e=>setQuranEditAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>\n          </div>'''
+
+          if old not in text:
+              raise SystemExit('Teacher Quran modal block not found')
+          text = text.replace(old, new, 1)
+          teacher.write_text(text, encoding='utf-8')
+
+          live = Path('src/lib/live-store.ts')
+          text = live.read_text(encoding='utf-8')
+
+          old_teacher = "export async function teacherUpdateStudentQuranProfile(studentId: string, input: { direction: 'nas_to_baqarah'|'baqarah_to_nas'; currentSurah: number; currentAyah: number }) {\n  const { error } = await supabase().rpc('teacher_update_student_quran_profile', { p_student_id: studentId, p_direction: input.direction, p_current_surah: input.currentSurah, p_current_ayah: input.currentAyah });\n  if (error) throw error;\n}"
+          new_teacher = "export async function teacherUpdateStudentQuranProfile(studentId: string, input: { direction: 'nas_to_baqarah'|'baqarah_to_nas'; startSurah: number; startAyah: number; currentSurah: number; currentAyah: number }) {\n  const { error } = await supabase().rpc('staff_update_student_quran_profile', { p_student_id: studentId, p_direction: input.direction, p_start_surah: input.startSurah, p_start_ayah: input.startAyah, p_current_surah: input.currentSurah, p_current_ayah: input.currentAyah });\n  if (error) throw error;\n}"
+          if old_teacher not in text:
+              raise SystemExit('Teacher update client function not found')
+          text = text.replace(old_teacher, new_teacher, 1)
+
+          old_admin = "export async function updateStudentMemorization(studentId: string, input: {\n  memorization_direction: 'nas_to_baqarah'|'baqarah_to_nas';\n  start_surah: number;\n  start_ayah: number;\n  current_surah: number;\n  current_ayah: number;\n  program_year: 'year_1'|'year_2';\n}) {\n  const { error } = await supabase().from('students').update(input).eq('id', studentId);\n  if (error) throw error;\n}"
+          new_admin = "export async function updateStudentMemorization(studentId: string, input: {\n  memorization_direction: 'nas_to_baqarah'|'baqarah_to_nas';\n  start_surah: number;\n  start_ayah: number;\n  current_surah: number;\n  current_ayah: number;\n  program_year: 'year_1'|'year_2';\n}) {\n  const { error } = await supabase().rpc('staff_update_student_quran_profile', {\n    p_student_id: studentId,\n    p_direction: input.memorization_direction,\n    p_start_surah: input.start_surah,\n    p_start_ayah: input.start_ayah,\n    p_current_surah: input.current_surah,\n    p_current_ayah: input.current_ayah,\n    p_program_year: input.program_year,\n  });\n  if (error) throw error;\n}"
+          if old_admin not in text:
+              raise SystemExit('Admin memorization update function not found')
+          text = text.replace(old_admin, new_admin, 1)
+          live.write_text(text, encoding='utf-8')
+
+      - name: Validate no legacy direction warnings remain in source
+        shell: bash
+        run: |
+          ! grep -R -n -E "A student starting at An-Nas must use Nas-to-Baqarah|A student starting at Al-Baqarah must use Baqarah-to-Nas|Current Quran position cannot be after the student start position|Current Quran position cannot be before the student start position" src || true
+
+      - name: Commit source changes and remove helper workflow
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/teacher/page.tsx src/lib/live-store.ts .github/workflows/apply-unified-quran-profile-ui.yml
+          git rm .github/workflows/apply-unified-quran-profile-ui.yml
+          git commit -m "Add teacher start position editor and unify Quran updates [quran-ui-sync]" || exit 0
+          git push
