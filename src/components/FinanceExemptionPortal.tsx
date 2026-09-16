@@ -167,6 +167,19 @@ export default function FinanceExemptionPortal() {
           actionCell.querySelector('div')?.appendChild(button) || actionCell.appendChild(button);
         }
 
+        const payButton = Array.from(actionCell.querySelectorAll('button')).find((candidate) => candidate !== button && candidate.textContent?.trim() === 'Pay') as HTMLButtonElement | undefined;
+        if (payButton && exempt) {
+          payButton.disabled = true;
+          payButton.textContent = 'Exempted';
+          payButton.title = 'No payment is required for this student in the selected term';
+          payButton.className = 'cursor-not-allowed rounded-lg bg-slate-700 px-3 py-2.5 text-[11px] font-black text-slate-400';
+        } else if (payButton && !exempt && payButton.textContent?.trim() === 'Exempted') {
+          payButton.disabled = false;
+          payButton.textContent = 'Pay';
+          payButton.title = '';
+          payButton.className = 'rounded-lg bg-blue-500 px-3 py-2.5 text-[11px] font-black text-white hover:bg-blue-400';
+        }
+
         const statusCell = row.cells[8];
         const statusPill = statusCell?.querySelector('span');
         if (statusPill && exempt) {
