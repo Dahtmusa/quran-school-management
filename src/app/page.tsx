@@ -28,6 +28,14 @@ function Icon({ name }: { name?: string }) {
   return <span aria-hidden="true" className="homepage-icon">{glyphs[name || 'star'] || glyphs.star}</span>;
 }
 
+function SocialIcon({ name }: { name: 'facebook' | 'instagram' | 'youtube' | 'whatsapp' | 'tiktok' }) {
+  if (name === 'facebook') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 21v-8h2.8l.4-3h-3.2V8.1c0-.9.3-1.6 1.7-1.6h1.8V3.8c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.1V10H8v3h2.6v8h2.9Z" /></svg>;
+  if (name === 'instagram') return <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.2" y="3.2" width="17.6" height="17.6" rx="5" fill="none" stroke="currentColor" strokeWidth="1.9"/><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" strokeWidth="1.9"/><circle cx="17.3" cy="6.8" r="1.2" /></svg>;
+  if (name === 'youtube') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.3 7.3a2.8 2.8 0 0 0-2-2C17.6 5 12 5 12 5s-5.6 0-7.3.3a2.8 2.8 0 0 0-2 2C2.4 9 2.4 12 2.4 12s0 3 .3 4.7a2.8 2.8 0 0 0 2 2C6.4 19 12 19 12 19s5.6 0 7.3-.3a2.8 2.8 0 0 0 2-2c.3-1.7.3-4.7.3-4.7s0-3-.3-4.7ZM10 15.2V8.8l5.7 3.2L10 15.2Z" /></svg>;
+  if (name === 'whatsapp') return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 3.6A11.2 11.2 0 0 0 12.5.8a11.2 11.2 0 0 0-9.7 16.8L2 23l5.6-1.8a11.2 11.2 0 0 0 15-10.4c0-2.7-1-5.2-2.2-7.2Zm-7.9 17.1c-1.8 0-3.6-.5-5.1-1.5l-.4-.3-3.3 1 1-3.2-.3-.4a9 9 0 1 1 8.1 4.4Zm5-6.7c-.3-.1-1.8-.9-2.1-1-.3-.1-.5-.1-.7.2l-.8 1c-.2.2-.4.2-.7.1-.3-.1-1.2-.4-2.3-1.3-.8-.7-1.3-1.5-1.4-1.7-.1-.3 0-.5.1-.7l.5-.6c.2-.2.2-.4.3-.6.1-.2 0-.5-.1-.7-.1-.2-.7-1.7-.9-2.3-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.3-1.1 1.1-1.1 2.6s1.1 3 1.3 3.2c.2.2 2.2 3.5 5.4 4.7.8.3 1.4.5 1.8.6.8.3 1.5.2 2 .1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1-.2-.3-.2-.5-.3Z" /></svg>;
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3v10.1a4.1 4.1 0 1 1-2-3.5V6.8c2.6 2.3 4.8 1.7 6.4 1V5.2C16.2 5.6 14.7 4.7 14 3Z" /></svg>;
+}
+
 const defaultNav = [
   { label: 'Home', href: '/' },
   { label: 'About Us', href: '/#about' },
@@ -95,12 +103,18 @@ export default function Home() {
   const shortName = settings.short_name?.value || 'AMQM';
   const logo = settings.logo_url?.value || '';
 
-  // Split media into videos and photos for gallery
   const videos = media.filter((x: any) => x.media_type === 'video');
   const photos = media.filter((x: any) => x.media_type !== 'video');
-  // Prefer video marked as featured in CMS, otherwise first video
   const featuredVideo = videos.find((v: any) => v.featured === true) || videos[0] || null;
   const galleryPhotos = photos.slice(0, featuredVideo ? 6 : 8);
+
+  const socialItems = ([
+    ['facebook', 'Facebook'],
+    ['instagram', 'Instagram'],
+    ['youtube', 'YouTube'],
+    ['whatsapp', 'WhatsApp'],
+    ['tiktok', 'TikTok'],
+  ] as const).filter(([key]) => !!social[key]);
 
   if (loading) {
     return (
@@ -119,8 +133,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">
-
-      {/* ── Top bar ── */}
       <div className="bg-[#06372f] text-white">
         <div className="mx-auto flex min-h-8 max-w-[1320px] items-center justify-between gap-4 px-5 text-[11px] sm:px-7">
           <span className="hidden sm:inline">In the name of Allah, the Most Gracious, the Most Merciful</span>
@@ -136,7 +148,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Header / Nav ── */}
       <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
         <div className="mx-auto flex min-h-[78px] max-w-[1320px] items-center justify-between gap-5 px-5 sm:px-7">
           <Link href="/" className="flex min-w-0 items-center gap-3">
@@ -149,9 +160,7 @@ export default function Home() {
             </div>
           </Link>
           <nav className="hidden items-center gap-6 xl:flex">
-            {nav.map((x: any) => (
-              <Link key={x.label} href={x.href} className={`nav-link ${x.href === '/' ? 'text-emerald-800' : ''}`}>{x.label}</Link>
-            ))}
+            {nav.map((x: any) => <Link key={x.label} href={x.href} className={`nav-link ${x.href === '/' ? 'text-emerald-800' : ''}`}>{x.label}</Link>)}
           </nav>
           <div className="flex items-center gap-2">
             <Link href="/auth/login" className="btn rounded-xl bg-[#06372f] px-4 py-2.5 text-white">Login</Link>
@@ -178,12 +187,11 @@ export default function Home() {
               {nav.map((x: any) => <Link key={x.label} href={x.href} onClick={() => setMobileNav(false)} className="mobile-nav-link"><span>{x.label}</span><span>→</span></Link>)}
             </nav>
             <Link href="/auth/login" onClick={() => setMobileNav(false)} className="mt-5 block rounded-2xl bg-[#06372f] px-4 py-3.5 text-center text-sm font-black text-white">Login</Link>
-            {admissionOpen && <Link href="/admissions" onClick={() => setMobileNav(false)} className="mt-2 block rounded-2xl bg-[#d39a1d] px-4 py-3.5 text-center text-sm font-black text-slate-950">Apply Now</Link>}
+            {admissionOpen && <Link href="/admissions" onClick={() => setMobileNav(false)} className="mt-2 block rounded-2xl bg-[#d9a11e] px-4 py-3.5 text-center text-sm font-black text-slate-950">Apply Now</Link>}
           </aside>
         </div>
       )}
 
-      {/* ── 1. HERO ── */}
       <section className="relative isolate min-h-[540px] overflow-hidden bg-[#073a32] text-white lg:min-h-[600px]">
         {hero.hero_video ? (
           <video src={hero.hero_video} autoPlay muted loop playsInline controls className="absolute inset-0 h-full w-full object-cover opacity-60" poster={hero.hero_image || undefined} />
@@ -213,7 +221,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. MISSION & VISION (second on page — before everything else) ── */}
       {(mission.mission || mission.vision) && (
         <section className="relative overflow-hidden bg-[#06372f] py-16 text-white lg:py-20">
           <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-amber-400/8" />
@@ -233,17 +240,14 @@ export default function Home() {
         </section>
       )}
 
-      {/* ── 3. STATS BAR ── */}
       {stats.length > 0 && (
         <section className="bg-amber-400 py-6"><div className="mx-auto grid max-w-[1320px] grid-cols-2 divide-x divide-amber-500/30 px-5 sm:grid-cols-3 sm:px-7 lg:grid-cols-6 lg:divide-y-0">{stats.slice(0, 6).map((x: any, i: number) => (<div key={i} className="p-4 text-center"><div className="text-3xl font-black text-emerald-950">{x.value}</div><div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-900/70">{x.label}</div></div>))}</div></section>
       )}
 
-      {/* ── 4. FEATURES STRIP ── */}
       {features.length > 0 && (
         <section className="mx-auto max-w-[1320px] px-4 py-10 sm:px-7"><div className="grid overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-[0_8px_30px_rgba(15,23,42,.08)] sm:grid-cols-2 lg:grid-cols-6">{features.slice(0, 6).map((x: any, i: number) => (<div key={i} className="border-b border-slate-100 p-5 text-center transition hover:-translate-y-1 hover:bg-emerald-50/50 lg:border-b-0 lg:border-l lg:first:border-l-0"><Icon name={x.icon} /><h3 className="mt-3 text-sm font-black text-emerald-950">{x.title}</h3><p className="mt-2 text-xs leading-5 text-slate-500">{x.excerpt}</p></div>))}</div></section>
       )}
 
-      {/* ── 5. ABOUT + ADMISSIONS ── */}
       <section id="about" className="mx-auto max-w-[1320px] px-5 pb-16 sm:px-7 lg:pb-20"><div className="grid gap-4 lg:grid-cols-[1.05fr_1.2fr_.62fr]">
         <div className="card p-7 lg:p-8"><div className="eyebrow-light">About {shortName}</div><h2 className="mt-2 font-serif text-3xl font-black text-emerald-950">{about.title || 'Nurturing Huffaz. Building character.'}</h2><p className="mt-4 text-sm leading-7 text-slate-600">{about.text || "We combine Qur'an memorization, Islamic education, discipline and pastoral care in a safe, supportive environment."}</p><div className="mt-7 grid grid-cols-2 gap-3 text-xs font-bold text-emerald-900"><span className="rounded-xl bg-emerald-50 p-3">▦ 2-Year Programme</span><span className="rounded-xl bg-emerald-50 p-3">♧ Qualified Staff</span><span className="rounded-xl bg-emerald-50 p-3">⌂ Islamic Environment</span><span className="rounded-xl bg-emerald-50 p-3">◇ Student Care</span></div><Link href={about.cta_href || '/about'} className="btn mt-7 inline-flex border border-emerald-900 text-emerald-900">{about.cta || 'More About Us'} →</Link></div>
         <div className="relative min-h-[330px] overflow-hidden rounded-[1.7rem] bg-emerald-950 shadow-xl">{about.image ? <img src={about.image} alt={about.image_alt || 'AMQM students learning'} className="h-full w-full object-cover" /> : <div className="absolute inset-0 hero-art" />}<div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/5 to-transparent" />{about.video && <a href={about.video} target="_blank" rel="noreferrer" aria-label="Watch school video" className="absolute left-1/2 top-1/2 grid h-16 w-16 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-emerald-950 shadow-xl transition hover:scale-105">▶</a>}<div className="absolute bottom-5 left-5 text-white"><div className="text-xs font-bold uppercase tracking-[.18em] text-amber-200">{shortName}</div><div className="mt-1 font-serif text-xl font-black">See our learning environment</div></div></div>
@@ -270,25 +274,27 @@ export default function Home() {
 
       <section className="bg-[#06372f] py-14 text-white"><div className="mx-auto flex max-w-[1180px] flex-col gap-5 px-5 text-center sm:px-7 md:flex-row md:items-center md:justify-between md:text-left"><div><div className="text-xs font-black uppercase tracking-[.22em] text-amber-300">Start the journey</div><h2 className="mt-2 font-serif text-3xl font-black sm:text-4xl">Give your child a life with the Qur'an.</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/70">Discover our programmes, campus, student life and admissions pathway — then take the next step with confidence.</p></div><div className="flex shrink-0 flex-wrap justify-center gap-3 md:justify-end"><Link href="/programs" className="btn border border-white/20 bg-white/10 text-white">Explore Programmes</Link>{admissionOpen&&<Link href="/admissions" className="btn bg-[#d9a11e] text-slate-950">Apply Now →</Link>}</div></div></section>
 
-      {/* ── FOOTER ── */}
       <footer id="contact" className="bg-[#03251f] text-white">
         <div className="mx-auto grid max-w-[1320px] gap-10 px-5 py-12 sm:px-7 lg:grid-cols-[1.2fr_.8fr_.8fr]">
           <div>
             <div className="font-serif text-2xl font-black">{schoolName}</div>
             <p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/60">{footer.tagline || settings.tagline?.value || "Qur'anic memorization, education, character and excellence."}</p>
             <div className="mt-5 text-sm text-emerald-50/60">{contact.address}</div>
-            {(social.facebook || social.instagram || social.youtube || social.whatsapp || social.tiktok) && (
-              <div className="mt-6">
-                <div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Connect with us</div>
-                <div className="mt-3 flex flex-wrap gap-2.5">
-                  {social.facebook && <a aria-label="Facebook" title="Facebook" href={externalUrl(social.facebook)} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10">f</a>}
-                  {social.instagram && <a aria-label="Instagram" title="Instagram" href={externalUrl(social.instagram)} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10">◎</a>}
-                  {social.youtube && <a aria-label="YouTube" title="YouTube" href={externalUrl(social.youtube)} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-xs font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10">▶</a>}
-                  {social.whatsapp && <a aria-label="WhatsApp" title="WhatsApp" href={externalUrl(social.whatsapp)} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10">☎</a>}
-                  {social.tiktok && <a aria-label="TikTok" title="TikTok" href={externalUrl(social.tiktok)} target="_blank" rel="noreferrer" className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-white/10">♪</a>}
+            <div className="mt-7">
+              <div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Connect with us</div>
+              {socialItems.length > 0 ? (
+                <div className="social-links mt-4">
+                  {socialItems.map(([key, label]) => (
+                    <a key={key} aria-label={label} title={label} href={externalUrl(social[key])} target="_blank" rel="noreferrer" className={`social-pill social-${key}`}>
+                      <span className="social-pill-icon"><SocialIcon name={key} /></span>
+                      <span className="social-pill-label">{label}</span>
+                    </a>
+                  ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="social-links-empty mt-3">Social links can be added from Website CMS → School & Navigation.</div>
+              )}
+            </div>
           </div>
           <div><div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Quick links</div><div className="mt-4 grid gap-2 text-sm text-emerald-50/60">{nav.map((x:any)=><Link key={x.label} href={x.href} className="hover:text-white">{x.label}</Link>)}</div></div>
           <div><div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Contact</div><div className="mt-4 space-y-2 text-sm text-emerald-50/60"><div>{contact.phone}</div><div>{contact.email}</div><div>{contact.address}</div></div></div>
