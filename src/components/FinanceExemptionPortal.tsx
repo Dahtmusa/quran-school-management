@@ -15,7 +15,7 @@ function getTermSelect(): HTMLSelectElement | null {
 }
 
 function findStatusGrid(): HTMLElement | null {
-  const button = Array.from(document.querySelectorAll('button')).find((el) => el.textContent?.trim() === 'All Students');
+  const button = Array.from(document.querySelectorAll('button')).find((el) => el.textContent?.trim() === 'All Students' && !el.getAttribute('data-fee-exempted-card'));
   return button?.parentElement instanceof HTMLElement ? button.parentElement : null;
 }
 
@@ -32,10 +32,21 @@ export default function FinanceExemptionPortal() {
     if (window.location.pathname !== '/fees') return;
 
     let active = true;
+    let applying = false;
     let selectedTermId = '';
     let exemptions = new Map<string, ExemptStudent>();
     let studentsByAdmission = new Map<string, any>();
     let statusMode = 'all';
+
+    const notify = (message: string) => {
+      const existing = document.getElementById('amqm-fee-exemption-toast');
+      const toast = existing || document.createElement('div');
+      toast.id = 'amqm-fee-exemption-toast';
+      toast.className = `fixed right-4 top-20 z-[100] max-w-[420px] rounded-xl border px-4 py-3 text-sm font-bold shadow-2xl ${message.startsWith('✕') ? 'border-rose-400/30 bg-rose-950 text-rose-200' : 'border-emerald-400/30 bg-emerald-950 text-emerald-200'}`;
+      toast.textContent = message;
+      if (!existing) document.body.appendChild(toast);
+      window.setTimeout(() => toast.remove(), 4200);
+    };
 
     const loadExemptions = async () => {
       const termSelect = getTermSelect();
@@ -71,15 +82,6 @@ export default function FinanceExemptionPortal() {
       apply();
     };
 
-    const setMessage = (message: string) => {
-      const messageButtons = Array.from(document.querySelectorAll('button')).filter((el) => el.textContent?.includes('✓ ') || el.textContent?.includes('✕ '));
-      if (messageButtons[0]) {
-        messageButtons[0].textContent = message;
-        return;
-      }
-      window.dispatchEvent(new CustomEvent('amqm-fee-message', { detail: message }));
-    };
-
     const toggleExemption = async (student: any, button: HTMLButtonElement) => {
       if (!selectedTermId) {
         alert('Choose a term first.');
@@ -97,7 +99,7 @@ export default function FinanceExemptionPortal() {
           if (error) throw error;
           await syncStudentFeeAllocations(selectedTermId);
           exemptions.delete(key);
-          setMessage(`✓ ${student.name} is no longer exempted for this term.`);
+          notify(`✓ ${student.name} is no longer exempted for this term.`);
         } else {
           const reason = window.prompt(`Why is ${student.name} exempted from school fees for this term?`);
           if (!reason?.trim()) return;
@@ -107,11 +109,11 @@ export default function FinanceExemptionPortal() {
           );
           if (error) throw error;
           exemptions.set(key, { student_id: student.id, admission_no: student.admissionNo, full_name: student.name, reason: reason.trim() });
-          setMessage(`✓ ${student.name} marked exempted for ${termSelectLabel()}.`);
+          notify(`✓ ${student.name} is now exempted for ${termSelectLabel()}.`);
         }
         apply();
       } catch (error: any) {
-        setMessage(`✕ ${error?.message || 'Unable to update fee exemption.'}`);
+        notify(`✕ ${error?.message || 'Unable to update fee exemption.'}`);
       } finally {
         button.disabled = false;
       }
@@ -120,6 +122,25 @@ export default function FinanceExemptionPortal() {
     const termSelectLabel = () => {
       const select = getTermSelect();
       return select?.selectedOptions?.[0]?.textContent?.trim() || 'this term';
+    };
+
+    const hookStatusButtons = () => {
+      const map: Record<string, string> = {
+        'All Students': 'all',
+        'Paid in Full': 'full',
+        'Partial Payments': 'partial',
+        'Not Paid': 'unpaid',
+      };
+      for (const button of Array.from(document.querySelectorAll('button'))) {
+        const label = button.textContent?.trim() || '';
+        const mode = map[label];
+        if (!mode || button.getAttribute('data-fee-exemption-hook') === 'true') continue;
+        button.setAttribute('data-fee-exemption-hook', 'true');
+        button.addEventListener('click', () => {
+          statusMode = mode;
+          window.setTimeout(() => filterRows(), 0);
+        });
+      }
     };
 
     const decorateRows = () => {
@@ -151,9 +172,6 @@ export default function FinanceExemptionPortal() {
         if (statusPill && exempt) {
           statusPill.textContent = 'Exempted';
           statusPill.className = 'rounded-full bg-violet-500/15 px-2 py-1 text-[10px] font-black text-violet-300';
-        } else if (statusPill && !exempt && statusPill.textContent?.trim() === 'Exempted') {
-          statusPill.textContent = 'No fee set';
-          statusPill.className = 'rounded-full bg-slate-800 px-2 py-1 text-[10px] font-black text-slate-500';
         }
       }
     };
@@ -161,7 +179,11 @@ export default function FinanceExemptionPortal() {
     const filterRows = () => {
       for (const row of findLedgerRows()) {
         const admissionNo = admissionFromRow(row);
-        row.style.display = statusMode === 'exempted' && !exemptions.has(admissionNo) ? 'none' : '';
+        if (statusMode === 'exempted') {
+          row.style.display = exemptions.has(admissionNo) ? '' : 'none';
+        } else {
+          row.style.display = '';
+        }
       }
     };
 
@@ -192,10 +214,16 @@ export default function FinanceExemptionPortal() {
     };
 
     const apply = () => {
-      if (!active) return;
-      updateExemptedCard();
-      decorateRows();
-      filterRows();
+      if (!active || applying) return;
+      applying = true;
+      try {
+        updateExemptedCard();
+        hookStatusButtons();
+        decorateRows();
+        filterRows();
+      } finally {
+        applying = false;
+      }
     };
 
     const bootstrap = async () => {
@@ -228,6 +256,7 @@ export default function FinanceExemptionPortal() {
       termSelect?.removeEventListener('change', onTermChange);
       window.removeEventListener('resize', resize);
       observer.disconnect();
+      document.getElementById('amqm-fee-exemption-toast')?.remove();
     };
   }, []);
 
