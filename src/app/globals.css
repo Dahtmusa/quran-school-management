@@ -5,64 +5,33 @@ html{scroll-behavior:smooth}
 .input{width:100%;border:1px solid #dbe1e8;border-radius:10px;padding:9px 12px;background:white;outline:none;transition:border-color .18s ease,box-shadow .18s ease}.input:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.08)}textarea.input{min-height:90px}
 select.input{appearance:auto}.font-serif{font-family:Georgia,'Times New Roman',serif}
 button:disabled{cursor:not-allowed}
-
-/* Finance + report dashboard polish */
 .finance-shell{isolation:isolate}.finance-hero{border-radius:26px;background:linear-gradient(135deg,#062d2a 0%,#0b5d4e 58%,#9d7621 140%);box-shadow:0 18px 45px rgba(6,45,42,.16)}.finance-kpi{position:relative;overflow:hidden}.finance-kpi:after{content:"";position:absolute;right:-24px;top:-24px;width:90px;height:90px;border-radius:999px;background:rgba(15,118,110,.06)}.finance-table tbody tr{transition:background .15s ease}.finance-table tbody tr:hover{background:#f7faf9}.finance-action{white-space:nowrap}.report-dashboard-hero{box-shadow:0 18px 45px rgba(6,45,42,.16)}
-
 @media(max-width:767px){.card{border-radius:14px}.btn{min-height:40px}.input{min-height:42px}.finance-table{font-size:13px}}
-
-@media print{
-  body{background:white!important}
-  body *{visibility:hidden!important}
-  #certificate,#certificate *,#report-print,#report-print *{visibility:visible!important}
-  #certificate,#report-print{position:absolute!important;left:0;top:0;width:100%!important;box-shadow:none!important;padding:0!important}
-}
-
+@media print{body{background:white!important}body *{visibility:hidden!important}#certificate,#certificate *,#report-print,#report-print *{visibility:visible!important}#certificate,#report-print{position:absolute!important;left:0;top:0;width:100%!important;box-shadow:none!important;padding:0!important}}
 .nav-link{position:relative;font-size:13px;font-weight:700;color:#475569;transition:color .2s}.nav-link:hover{color:#065f46}.nav-link:after{content:"";position:absolute;left:0;right:0;bottom:-25px;height:2px;transform:scaleX(0);transform-origin:center;background:#d9a11e;transition:transform .2s}.nav-link:hover:after{transform:scaleX(1)}
 .eyebrow{display:inline-flex;border:1px solid rgba(245,199,76,.28);background:rgba(245,199,76,.1);border-radius:999px;padding:9px 14px;font-size:10px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:#f6d46d}.eyebrow-light{font-size:11px;font-weight:900;letter-spacing:.22em;text-transform:uppercase;color:#0f766e}.section-title{margin-top:10px;max-width:720px;font-family:Georgia,'Times New Roman',serif;font-size:clamp(2rem,4vw,3.5rem);font-weight:900;line-height:1.08;color:#073b32}.section-copy{margin-top:18px;max-width:680px;font-size:15px;line-height:1.9;color:#64748b}.mobile-menu-button{display:flex;height:42px;width:42px;align-items:center;justify-content:center;border-radius:13px;background:#f1f5f9;font-size:19px;font-weight:800;color:#06372f}.mobile-close{display:flex;height:42px;width:42px;align-items:center;justify-content:center;border-radius:13px;background:#f1f5f9;font-size:26px;color:#06372f}.mobile-nav-link{display:flex;align-items:center;justify-content:space-between;border-radius:16px;background:#f7faf8;padding:14px 16px;font-size:14px;font-weight:800;color:#06372f}.hero-skeleton{height:590px;background:linear-gradient(120deg,#dfe8e4,#eef2ef,#d7e5df);animation:pulse 1.7s infinite}.hero-art{background:radial-gradient(circle at 75% 22%,rgba(231,183,54,.45),transparent 18%),radial-gradient(circle at 20% 70%,rgba(28,121,99,.7),transparent 30%),linear-gradient(135deg,#062d2a 10%,#0c5e50 55%,#9d7a32 150%)}
-@keyframes pulse{0%,100%{opacity:.65}50%{opacity:1}}
-@keyframes hero-fade-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-@keyframes hero-float{0%,100%{transform:translateY(0) rotate(.4deg)}50%{transform:translateY(-16px) rotate(-.4deg)}}
-@keyframes glow-pulse{0%,100%{text-shadow:0 0 18px rgba(243,191,67,.5),0 0 36px rgba(243,191,67,.2)}50%{text-shadow:0 0 40px rgba(243,191,67,1),0 0 80px rgba(243,191,67,.55),0 0 130px rgba(243,191,67,.2)}}
-@keyframes hero-bg-shift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
-@keyframes hero-orb{0%,100%{transform:scale(1) translate(0,0);opacity:.7}33%{transform:scale(1.18) translate(4%,-3%);opacity:1}66%{transform:scale(.88) translate(-3%,5%);opacity:.6}}
-@keyframes hero-particle{0%{transform:translate(0,0) scale(1);opacity:.5}100%{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}
+@keyframes pulse{0%,100%{opacity:.65}50%{opacity:1}}@keyframes hero-fade-up{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}@keyframes hero-float{0%,100%{transform:translateY(0) rotate(.4deg)}50%{transform:translateY(-16px) rotate(-.4deg)}}@keyframes glow-pulse{0%,100%{text-shadow:0 0 18px rgba(243,191,67,.5),0 0 36px rgba(243,191,67,.2)}50%{text-shadow:0 0 40px rgba(243,191,67,1),0 0 80px rgba(243,191,67,.55),0 0 130px rgba(243,191,67,.2)}}@keyframes hero-bg-shift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}@keyframes hero-orb{0%,100%{transform:scale(1) translate(0,0);opacity:.7}33%{transform:scale(1.18) translate(4%,-3%);opacity:1}66%{transform:scale(.88) translate(-3%,5%);opacity:.6}}@keyframes hero-particle{0%{transform:translate(0,0) scale(1);opacity:.5}100%{transform:translate(var(--px),var(--py)) scale(0);opacity:0}}
 .hero-fade-up{animation:hero-fade-up .75s cubic-bezier(.22,1,.36,1) both}.hero-float{animation:hero-float 6s ease-in-out infinite}.hero-glow{animation:glow-pulse 2.8s ease-in-out infinite}.hero-art{background:radial-gradient(circle at 75% 22%,rgba(231,183,54,.45),transparent 18%),radial-gradient(circle at 20% 70%,rgba(28,121,99,.7),transparent 30%),linear-gradient(135deg,#062d2a 10%,#0c5e50 55%,#9d7a32 150%);animation:hero-orb 14s ease-in-out infinite}
 @media(max-width:767px){.hero-skeleton{height:520px}.section-copy{font-size:14px}.nav-link:after{display:none}}
+.homepage-icon{display:inline-flex;height:42px;width:42px;align-items:center;justify-content:center;border-radius:14px;background:#ecfdf5;color:#08735c;font-size:25px;font-weight:800;line-height:1;box-shadow:inset 0 0 0 1px rgba(6,95,70,.08)}.top-social{display:inline-flex;height:22px;width:22px;align-items:center;justify-content:center;border-radius:999px;color:#fff;opacity:.9;transition:all .2s}.top-social:hover{background:rgba(255,255,255,.12);color:#f6d46d;opacity:1}.mission-mark{display:grid;height:46px;width:46px;place-items:center;border-radius:15px;background:#fff7df;color:#c58c13;font-size:23px;font-weight:900}.mission-mark-dark{background:rgba(255,255,255,.1);color:#f6d46d}
 
-.homepage-icon{display:inline-flex;height:42px;width:42px;align-items:center;justify-content:center;border-radius:14px;background:#ecfdf5;color:#08735c;font-size:25px;font-weight:800;line-height:1;box-shadow:inset 0 0 0 1px rgba(6,95,70,.08)}
-.top-social{display:inline-flex;height:22px;width:22px;align-items:center;justify-content:center;border-radius:999px;color:#fff;opacity:.9;transition:all .2s}.top-social:hover{background:rgba(255,255,255,.12);color:#f6d46d;opacity:1}
-.mission-mark{display:grid;height:46px;width:46px;place-items:center;border-radius:15px;background:#fff7df;color:#c58c13;font-size:23px;font-weight:900}.mission-mark-dark{background:rgba(255,255,255,.1);color:#f6d46d}
+/* Modern footer social controls */
+footer .mt-3.flex.flex-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:680px;margin-top:12px}
+footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:58px;width:100%;padding:7px 18px 7px 68px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(248,250,252,.96));box-shadow:0 8px 22px rgba(0,0,0,.16);color:transparent;font-size:0;overflow:hidden;isolation:isolate;transition:transform .2s ease,box-shadow .2s ease,filter .2s ease}
+footer a[title="Facebook"]:hover,footer a[title="Instagram"]:hover,footer a[title="YouTube"]:hover,footer a[title="WhatsApp"]:hover,footer a[title="TikTok"]:hover{transform:translateY(-3px);box-shadow:0 15px 30px rgba(0,0,0,.22);filter:saturate(1.08)}
+footer a[title="Facebook"]:active,footer a[title="Instagram"]:active,footer a[title="YouTube"]:active,footer a[title="WhatsApp"]:active,footer a[title="TikTok"]:active{transform:scale(.965);box-shadow:0 5px 12px rgba(0,0,0,.16)}
+footer a[title="Facebook"]:focus-visible,footer a[title="Instagram"]:focus-visible,footer a[title="YouTube"]:focus-visible,footer a[title="WhatsApp"]:focus-visible,footer a[title="TikTok"]:focus-visible{outline:3px solid #f6d46d;outline-offset:3px}
+footer a[title="Facebook"]::before,footer a[title="Instagram"]::before,footer a[title="YouTube"]::before,footer a[title="WhatsApp"]::before,footer a[title="TikTok"]::before{position:absolute;left:7px;top:50%;display:grid;height:44px;width:44px;place-items:center;transform:translateY(-50%);border-radius:999px;color:#fff;font-size:23px;font-weight:900;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 5px 13px rgba(0,0,0,.18);z-index:1}
+footer a[title="Facebook"]::after,footer a[title="Instagram"]::after,footer a[title="YouTube"]::after,footer a[title="WhatsApp"]::after,footer a[title="TikTok"]::after{display:block;width:100%;font-size:14px;font-weight:900;letter-spacing:.01em;line-height:1;white-space:nowrap;text-align:left;transition:transform .2s ease}
+footer a[title="Facebook"]::before{content:"f";background:#1877f2;font-family:Arial,sans-serif}footer a[title="Facebook"]::after{content:"Facebook   →";color:#245dc7}
+footer a[title="Instagram"]::before{content:"◎";background:linear-gradient(135deg,#ffb13b 0%,#dd2a7b 50%,#6228d7 100%);font-size:24px}footer a[title="Instagram"]::after{content:"Instagram   →";color:#a32aa0}
+footer a[title="YouTube"]::before{content:"▶";background:#ff0000;font-size:17px;padding-left:2px}footer a[title="YouTube"]::after{content:"YouTube   →";color:#d81919}
+footer a[title="WhatsApp"]::before{content:"◔";background:#25d366;font-size:25px}footer a[title="WhatsApp"]::after{content:"WhatsApp   →";color:#149b45}
+footer a[title="TikTok"]::before{content:"";background:#090909 url('/social-icons/tiktok.svg') center/28px 28px no-repeat}footer a[title="TikTok"]::after{content:"TikTok   →";color:#16171a}
+footer a[title="Facebook"]:hover::after,footer a[title="Instagram"]:hover::after,footer a[title="YouTube"]:hover::after,footer a[title="WhatsApp"]:hover::after,footer a[title="TikTok"]:hover::after{transform:translateX(4px)}
+@media(max-width:639px){.hero-skeleton{height:520px}.homepage-icon{height:40px;width:40px}.section-title{font-size:2rem}.nav-link:after{display:none}footer .mt-3.flex.flex-wrap{grid-template-columns:1fr;gap:9px;width:100%;max-width:none}footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{min-height:56px;padding-left:65px;border-radius:17px}footer a[title="Facebook"]::before,footer a[title="Instagram"]::before,footer a[title="YouTube"]::before,footer a[title="WhatsApp"]::before,footer a[title="TikTok"]::before{height:42px;width:42px}footer a[title="TikTok"]::before{background-size:27px 27px}}
+@media(prefers-reduced-motion:reduce){footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{transition:none}}
 
-/* Footer social buttons — pill treatment inspired by the supplied reference image */
-.social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:430px}
-.social-pill{position:relative;display:flex;align-items:center;min-height:58px;padding:7px 16px 7px 62px;border:1px solid rgba(15,23,42,.08);border-radius:999px;background:#fff;box-shadow:0 8px 22px rgba(2,37,31,.12);overflow:hidden;transition:transform .18s ease,box-shadow .18s ease}
-.social-pill:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(2,37,31,.18)}
-.social-pill-icon{position:absolute;left:6px;display:grid;height:46px;width:46px;place-items:center;border-radius:999px;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
-.social-pill-icon svg{height:24px;width:24px;fill:currentColor;stroke:currentColor}
-.social-pill-label{font-size:15px;font-weight:800;line-height:1;white-space:nowrap}
-.social-facebook .social-pill-icon{background:#3158ad}.social-facebook .social-pill-label{color:#3158ad}
-.social-instagram .social-pill-icon{background:linear-gradient(135deg,#f7a72a 0%,#e1306c 48%,#6f25d9 100%)}.social-instagram .social-pill-label{color:#a533a9}
-.social-youtube .social-pill-icon{background:#e21e1e}.social-youtube .social-pill-label{color:#e21e1e}
-.social-whatsapp .social-pill-icon{background:#28b957}.social-whatsapp .social-pill-label{color:#159b46}
-.social-tiktok .social-pill-icon{background:#111827}.social-tiktok .social-pill-label{color:#111827}
-.social-links-empty{font-size:12px;color:rgba(236,253,245,.45)}
-@media(max-width:639px){.hero-skeleton{height:520px}.homepage-icon{height:40px;width:40px}.section-title{font-size:2rem}.nav-link:after{display:none}.social-links{grid-template-columns:1fr;max-width:360px}.social-pill{min-height:54px}.social-pill-icon{height:44px;width:44px}.social-pill-label{font-size:14px}}
-
-/* AMQM responsive application shell */
-@media(max-width:767px){
-  body{min-width:320px}
-  button,a,input,select,textarea{touch-action:manipulation}
-  .mobile-nav-scroll{overscroll-behavior:contain}
-}
-
-/* Prevent iOS Safari auto-zoom when focusing form fields (needs >=16px) */
-@media(max-width:767px){
-  input,select,textarea{font-size:16px!important}
-  .input{font-size:16px}
-}
-
-/* Keep tables usable on small screens without stretching the page */
-@media(max-width:767px){
-  .rc-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
-}
+@media(max-width:767px){body{min-width:320px}button,a,input,select,textarea{touch-action:manipulation}.mobile-nav-scroll{overscroll-behavior:contain}}
+@media(max-width:767px){input,select,textarea{font-size:16px!important}.input{font-size:16px}}
+@media(max-width:767px){.rc-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}}
