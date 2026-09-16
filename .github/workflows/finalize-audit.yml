@@ -1,0 +1,90 @@
+name: Finalize canonical student audit
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply final source changes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          report = Path('src/app/reports/page.tsx')
+          text = report.read_text()
+          old = '<div class="rc-hifz-art"><div class="rc-book">▱</div><div>A Journey<br/><b>of a Lifetime</b></div></div>'
+          new = '<div class="rc-hifz-art"><img src="/report-card/quran-art.webp" class="rc-book-image" alt="Qur’an and mosque"/><div>A Journey<br/><b>of a Lifetime</b></div></div>'
+          if old not in text: raise SystemExit('Report art marker not found')
+          text = text.replace(old, new, 1)
+          old_css = ".rc-book{font-size:36px;color:#a57b1c;line-height:1}"
+          new_css = ".rc-book-image{width:27mm;height:27mm;object-fit:contain;display:block;flex:0 0 auto}"
+          if old_css not in text: raise SystemExit('Report art CSS marker not found')
+          report.write_text(text.replace(old_css, new_css, 1))
+
+          live = Path('src/lib/live-store.ts')
+          t = live.read_text()
+          pattern = r"export async function loadParentStudents\(\): Promise<Student\[\]> \{.*?\n\}\n\nconst evaluationSelect"
+          replacement = '''export async function loadParentStudents(): Promise<Student[]> {
+            const db = supabase();
+            const { data: links, error: linksError } = await db.from('parent_students').select('student_id');
+            if (linksError) return [];
+            const studentIds = new Set((links ?? []).map((row:any) => row.student_id).filter(Boolean));
+            if (!studentIds.size) return [];
+            const { data, error } = await db.rpc('get_school_student_directory');
+            if (error || !data) {
+              console.error('Parent student directory load failed:', error);
+              return [];
+            }
+            return (data as any[])
+              .filter((r:any) => studentIds.has(r.student_id ?? r.id))
+              .map((r:any) => ({
+                id:r.student_id ?? r.id,
+                admissionNo:r.admission_no,
+                name:r.full_name,
+                studentIdNumber:r.student_id_number ?? null,
+                idExpiresOn:r.id_expires_on ?? null,
+                section:r.section === 'boarding' ? 'Boarding' : 'Day',
+                year:mapYear(r.program_year),
+                attendance:0,
+                fees:0,
+                teacher:r.teacher_name ?? '',
+                start:{surah:r.start_surah ?? 114, ayah:r.start_ayah ?? 1},
+                current:{surah:r.current_surah ?? r.start_surah ?? 114, ayah:r.current_ayah ?? r.start_ayah ?? 1},
+                direction:mapDirection(r.memorization_direction),
+                className:r.class_name ?? null,
+                classId:r.class_id ?? null,
+                photoUrl:r.photo_url ?? null,
+                gender:r.gender ?? null,
+              } satisfies Student));
+          }
+
+          const evaluationSelect'''
+          patched, n = re.subn(pattern, replacement, t, count=1, flags=re.S)
+          if n != 1: raise SystemExit('Parent loader marker not found')
+          live.write_text(patched)
+
+          Path('AMQM-CANONICAL-SOURCE-AUDIT.md').write_text('''# AMQM Canonical Student Source Audit — Final\n\nDate: 2026-09-16\n\n## Source of truth\n`public.students` is the live source of truth for each student’s start position, memorization direction, current position, current page and current Hizb.\n\nThe `get_school_student_directory()` RPC is the canonical read path for admin, teacher and parent student directories.\n\n## Progress\nHifz completion is calculated from the student’s own start position to current position using the student’s direction, with exact 604-page Hafs metadata. Historical evaluation rows remain historical snapshots and do not overwrite the live student profile.\n\n## Report cards\nAttendance is no longer displayed on student report cards because the school did not record report-card attendance. No attendance data was deleted from the database.\nThe previous placeholder book drawing is replaced by the supplied Quran image, with the existing 27mm artwork area retained.\n\n## Parent portal\nParent-linked students now use the same canonical student directory data source rather than a separate nested `students(*)` Quran/profile mapping.\n\n## Legacy compatibility\n`src/lib/data.ts` remains for shared types/helpers and legacy/demo compatibility, but production student directories are loaded from the live Supabase store.\n''')
+
+          if 'attendance' in report.read_text().lower(): raise SystemExit('Attendance reference remains in report card source')
+          print('Final source changes applied')
+          PY
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+      - name: Commit and remove helper
+        run: |
+          rm -f .github/workflows/finalize-audit.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/reports/page.tsx src/lib/live-store.ts AMQM-CANONICAL-SOURCE-AUDIT.md .github/workflows/finalize-audit.yml public/report-card/quran-art.webp
+          git diff --cached --quiet || git commit -m 'Finalize canonical student audit and report card art'
+          git push
