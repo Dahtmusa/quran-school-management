@@ -173,15 +173,15 @@ html,body{margin:0;padding:0;background:#fff;font-family:Georgia,'Times New Roma
 @media print{.page{margin:0}.rc-footer-band{break-inside:avoid}.rc-section{break-inside:avoid}}
 `;
 
-function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false): string {
+function buildFullPageHTML(title: string, bodyHTML: string, autoPrint = false, baseHref = ''): string {
   const printScript = autoPrint
     ? `<script>window.onload=function(){window.focus();setTimeout(function(){window.print();},700);};<\/script>`
     : '';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}${printScript}</body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><base href="${baseHref || '/'}"><title>${title}</title><style>${PRINT_CSS}</style></head><body>${bodyHTML}${printScript}</body></html>`;
 }
 
 function openPrintWindow(title: string, bodyHTML: string) {
-  const html = buildFullPageHTML(title, bodyHTML, true);
+  const html = buildFullPageHTML(title, bodyHTML, true, `${window.location.origin}/`);
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const w = window.open(url, '_blank');
@@ -309,7 +309,7 @@ function ReportPreview({student,term,settings,close,signatures}:{student:any;ter
       {width:160,margin:1,color:{dark:'#062d2a',light:'#ffffff'}}
     ).catch(()=>'').then(qr=>{
       const body=buildReportCardHTML(student,settings,termLabel,signatures,qr);
-      const html=buildFullPageHTML(`Report Card · ${student.name}`,body);
+      const html=buildFullPageHTML(`Report Card · ${student.name}`,body,false,`${window.location.origin}/`);
       const blob=new Blob([html],{type:'text/html;charset=utf-8'});
       url=URL.createObjectURL(blob);
       setBlobUrl(url);
