@@ -1,4 +1,4 @@
-import PublicHomepage from '@/components/PublicHomepage';
+import PublicHomepage from '@/components/PublicHomepageSchool';
 
 export default function HomePage() {
   return <PublicHomepage />;
