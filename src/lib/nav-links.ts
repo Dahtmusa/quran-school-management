@@ -1,5 +1,5 @@
 // Single source of truth for role-based dashboard navigation, shared by the
-// desktop Sidebar and the mobile Topbar drawer.
+desktop Sidebar and the mobile Topbar drawer.
 export type NavLink = [href: string, label: string, icon: string];
 
 export const adminLinks: NavLink[] = [
@@ -11,6 +11,7 @@ export const adminLinks: NavLink[] = [
   ['/attendance', 'Attendance', '✓'],
   ['/evaluations', 'Quran Evaluations', '☾'],
   ['/fees', 'Finance & Fees', '₦'],
+  ['/fees/bulk-documents', 'Invoices & Receipts', '▤'],
   ['/program-setup', 'Program & Terms', '❖'],
   ['/calendar', 'School Calendar', '◷'],
   ['/reports', 'Report Cards', '▤'],
@@ -24,7 +25,7 @@ export const teacherLinks: NavLink[] = [
   ['/teacher/students', 'My Students', '◉'],
 ];
 export const parentLinks: NavLink[] = [['/parent', 'My Children', '⌂'], ['/reports', 'Reports', '▤']];
-export const financeLinks: NavLink[] = [['/fees', 'Finance & Fees', '₦']];
+export const financeLinks: NavLink[] = [['/fees', 'Finance & Fees', '₦'], ['/fees/bulk-documents', 'Invoices & Receipts', '▤']];
 export const admissionsLinks: NavLink[] = [['/admissions/manage', 'Admissions', '▣'], ['/students', 'Students', '◉']];
 export const securityLinks: NavLink[] = [['/security', 'Scanner', '✓']];
 
