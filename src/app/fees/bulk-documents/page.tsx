@@ -122,11 +122,12 @@ export default function BulkFinanceDocumentsPage() {
 
   const currentTerm = current?.term_id ? terms.find(t => t.id === current.term_id) : terms.find(t => t.is_current);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
-  const schoolName = settings.school_name?.value || 'ALIYU AND MAIMUNA CENTER FOR QUR\'ANIC MEMORIZATION';
+  const schoolName = settings.school_name?.value || 'ALIYU AND MAIMUNA CENTER FOR QUR\\'ANIC MEMORIZATION';
   const shortName = settings.short_name?.value || 'AMQM';
   const logoUrl = settings.logo_url?.value || '';
   const schoolAddress = settings.contact?.address || '';
   const currency = settings.currency?.value || '₦';
+  const printedOn = dateText(new Date());
 
   const paymentByStudent = useMemo(() => {
     const map: Record<string, any[]> = {};
@@ -164,11 +165,12 @@ export default function BulkFinanceDocumentsPage() {
     const invoiceNo = `INV-${String(student.admissionNo || 'STUDENT').toUpperCase()}-${nextTerm?.term_number || 'NEXT'}`;
     const receiptTotal = ps.reduce((n: number, p: any) => n + Number(p.amount || 0), 0);
     const signatureMarkup = directorSignature
-      ? `<img src="${escapeHTML(directorSignature.signature_data)}" alt="School Director signature" class="director-signature-image"><span>School Director${directorSignature.signer_name ? ` · ${escapeHTML(directorSignature.signer_name)}` : ''}</span>`
-      : '<span>School Director</span>';
+      ? `<div class="signature-block"><img src="${escapeHTML(directorSignature.signature_data)}" alt="School Director signature" class="director-signature-image"><span class="signature-label">School Director${directorSignature.signer_name ? ` · ${escapeHTML(directorSignature.signer_name)}` : ''}</span></div>`
+      : '<div class="signature-block"><span class="signature-label">School Director</span></div>';
+    const logoMarkup = logoUrl ? `<img src="${escapeHTML(logoUrl)}" alt="School logo" class="document-logo">` : '';
     return `<article class="sheet">
       <section class="half invoice">
-        <div class="doc-header"><div class="brand"><div class="brand-name">${escapeHTML(schoolName)}</div><div class="brand-address">${escapeHTML(schoolAddress)}</div></div><div class="doc-title">SCHOOL FEES<br>INVOICE</div></div>
+        <div class="doc-header"><div class="brand">${logoMarkup}<div class="brand-copy"><div class="brand-name">${escapeHTML(schoolName)}</div><div class="brand-address">${escapeHTML(schoolAddress)}</div></div></div><div class="doc-title">SCHOOL FEES<br>INVOICE</div></div>
         <div class="line"><b>Student:</b> ${escapeHTML(student.name)} <span><b>Admission:</b> ${escapeHTML(student.admissionNo || '—')}</span></div>
         <div class="line"><b>Class:</b> ${escapeHTML(student.className || 'Unassigned')} <span><b>Section:</b> ${escapeHTML(student.section || 'Day')}</span></div>
         <div class="term-banner">${escapeHTML(nextTermName)}</div>
@@ -177,20 +179,20 @@ export default function BulkFinanceDocumentsPage() {
           ${nextFee ? `<tr><td>${escapeHTML(nextFee.name || 'Term Fee')}<small>${escapeHTML(nextTermName)}</small></td><td>${money(currency, nextFeeAmount)}</td></tr>` : `<tr><td>Next-term fee structure not configured</td><td>—</td></tr>`}
           <tr class="total"><td>TOTAL PAYABLE</td><td>${nextFee ? money(currency, totalPayable) : money(currency, carryAmount)}</td></tr>
         </tbody></table>
-        <div class="meta"><div><b>Invoice No.</b><br>${escapeHTML(invoiceNo)}</div><div><b>Due Date</b><br>${dateText(nextFee?.due_date)}</div><div><b>Issued</b><br>${dateText(new Date())}</div></div>
+        <div class="meta"><div><b>Invoice No.</b><br>${escapeHTML(invoiceNo)}</div><div><b>Due Date</b><br>${dateText(nextFee?.due_date)}</div><div><b>Issued</b><br>${printedOn}</div></div>
         <div class="invoice-foot">${nextFee ? 'Please quote the invoice number when making payment.' : 'Finance setup is incomplete for this student/section; review the fee structure before issuing.'}</div>
       </section>
       <div class="cut"><span>✂ CUT / FOLD HERE</span></div>
       <section class="half receipt">
-        <div class="doc-header"><div class="brand"><div class="brand-name">${escapeHTML(schoolName)}</div><div class="brand-address">${escapeHTML(schoolAddress)}</div></div><div class="doc-title">PAYMENT<br>RECEIPTS</div></div>
+        <div class="doc-header"><div class="brand">${logoMarkup}<div class="brand-copy"><div class="brand-name">${escapeHTML(schoolName)}</div><div class="brand-address">${escapeHTML(schoolAddress)}</div></div></div><div class="doc-title">PAYMENT<br>RECEIPTS</div></div>
         <div class="line"><b>Student:</b> ${escapeHTML(student.name)} <span><b>Admission:</b> ${escapeHTML(student.admissionNo || '—')}</span></div>
         <div class="line"><b>Current term:</b> ${escapeHTML(currentTerm ? `${tLabel(currentTerm)} ${currentTerm.academic_years?.name || ''}` : '—')} <span><b>Section:</b> ${escapeHTML(student.section || 'Day')}</span></div>
         ${ps.length ? `<div class="receipt-list">${ps.map((p: any) => `<div class="receipt-row"><div><b>REC-${escapeHTML(String(p.id || '').slice(-8).toUpperCase())}</b><small>${dateText(p.paid_on)} · ${escapeHTML(p.method || 'Cash')}${p.reference ? ` · ${escapeHTML(p.reference)}` : ''}</small></div><strong>${money(currency, Number(p.amount || 0))}</strong></div>`).join('')}</div>` : `<div class="no-receipts">No payment receipts recorded for the current term.</div>`}
         <div class="receipt-total"><div><span>Total received this term</span><b>${money(currency, receiptTotal)}</b></div><div><span>Current term balance</span><b>${currentBalance == null ? '—' : money(currency, currentBalance)}</b></div></div>
         <div class="ack">Received with thanks. This document lists payments currently recorded in AMQM Finance.</div>
-        <div class="signature">${signatureMarkup}<span class="signature-date">Date: __________________</span></div>
+        <div class="signature-area">${signatureMarkup}<div class="signature-date"><span>Date</span><strong>${printedOn}</strong></div></div>
       </section>
-      <footer class="sheet-footer"><span>${shortName} · Finance Document</span><span>One student · invoice + current-term receipts</span><span>Printed ${dateText(new Date())}</span></footer>
+      <footer class="sheet-footer"><span>${shortName} · Finance Document</span><span>One student · invoice + current-term receipts</span><span>Printed ${printedOn}</span></footer>
     </article>`;
   }
 
@@ -200,7 +202,7 @@ export default function BulkFinanceDocumentsPage() {
     const w = window.open('', '_blank');
     if (!w) { setPrinting(false); alert('Please allow pop-ups for bulk printing.'); return; }
     const title = `AMQM Finance Documents · ${currentTerm ? tLabel(currentTerm) : 'Current Term'}`;
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHTML(title)}</title><style>${PRINT_CSS}</style></head><body>${documentData.map(buildSheetHTML).join('')}<script>window.onload=function(){window.focus();setTimeout(function(){window.print()},500)};<\/script></body></html>`);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHTML(title)}</title><style>${PRINT_CSS}</style></head><body>${documentData.map(buildSheetHTML).join('')}<script>window.onload=function(){window.focus();var imgs=Array.from(document.images);Promise.all(imgs.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.onload=img.onerror=resolve;});})).then(function(){setTimeout(function(){window.print()},350);});};<\\/script></body></html>`);
     w.document.close();
     setTimeout(() => setPrinting(false), 1200);
   }
@@ -245,8 +247,8 @@ html,body{margin:0;padding:0;background:#fff;color:#16332e;font-family:'Segoe UI
 .half{height:132mm;min-height:132mm;border:1px solid #c7b87f;border-radius:4mm;padding:5mm 6mm;overflow:hidden;position:relative}
 .invoice{background:linear-gradient(135deg,#fffefa 0%,#f7fbf7 100%)}
 .receipt{background:linear-gradient(135deg,#fbfcf8 0%,#fffdfa 100%)}
-.doc-header{display:flex;align-items:flex-start;justify-content:space-between;gap:6mm;border-bottom:1.2mm solid #0b5d4b;padding-bottom:3mm}
-.brand{min-width:0}.brand-name{font-size:12px;font-weight:900;text-transform:uppercase;line-height:1.15;color:#083f34}.brand-address{font-size:6.4px;line-height:1.35;color:#61726d;margin-top:1mm;text-transform:uppercase}
+.doc-header{display:flex;align-items:center;justify-content:space-between;gap:6mm;border-bottom:1.2mm solid #0b5d4b;padding-bottom:3mm}
+.brand{display:flex;align-items:center;gap:3mm;min-width:0}.brand-copy{min-width:0}.document-logo{width:18mm;height:18mm;object-fit:contain;flex:0 0 auto}.brand-name{font-size:12px;font-weight:900;text-transform:uppercase;line-height:1.15;color:#083f34}.brand-address{font-size:6.4px;line-height:1.35;color:#61726d;margin-top:1mm;text-transform:uppercase}
 .doc-title{font-size:15px;line-height:1.05;text-align:right;font-weight:900;color:#075844;letter-spacing:.06em;white-space:nowrap}
 .line{display:flex;justify-content:space-between;gap:5mm;font-size:8px;margin-top:2.5mm;color:#243f38}.line span{white-space:nowrap}
 .term-banner{margin:3mm 0;padding:2.5mm;border:1px solid #9dc3b3;background:#edf8f1;border-radius:2mm;color:#075844;text-align:center;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em}
@@ -254,7 +256,7 @@ table{width:100%;border-collapse:collapse;margin-top:3mm;font-size:7.6px}th{back
 .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;margin-top:3mm}.meta>div{border:1px solid #d5ddd8;border-radius:2mm;padding:2mm;font-size:6.6px;background:#fff}.meta b{font-size:5.5px;text-transform:uppercase;color:#70807b;letter-spacing:.06em}.invoice-foot{margin-top:2.5mm;padding-top:2.2mm;border-top:1px dashed #bfcac5;font-size:6.6px;color:#61706b}
 .receipt-list{margin-top:3mm;display:flex;flex-direction:column;gap:1.4mm;max-height:51mm;overflow:hidden}.receipt-row{display:flex;justify-content:space-between;gap:4mm;padding:2mm 2.2mm;border:1px solid #d3ddd8;border-radius:2mm;background:#fff}.receipt-row b{font-size:7.4px;color:#0b604e}.receipt-row small{display:block;margin-top:.5mm;font-size:6.2px;color:#6d7b76}.receipt-row strong{font-size:8px;color:#0b604e;white-space:nowrap}.no-receipts{margin-top:4mm;border:1px dashed #c4cfca;border-radius:2mm;padding:7mm;text-align:center;font-size:7px;color:#75827e;background:#fff}
 .receipt-total{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-top:3mm}.receipt-total>div{border-radius:2.5mm;border:1px solid #cbd7d1;background:#eff7f2;padding:2.8mm;text-align:center}.receipt-total span{display:block;font-size:6px;text-transform:uppercase;letter-spacing:.05em;color:#668078}.receipt-total b{display:block;margin-top:1mm;font-size:11px;color:#075844}.ack{margin-top:2.5mm;padding:2.5mm;border-radius:2mm;background:#fff8e8;border-left:3px solid #caa44c;font-size:6.6px;color:#65582d}
-.signature{display:flex;align-items:flex-end;justify-content:space-between;gap:10mm;margin-top:3mm;font-size:6.2px;color:#5e6d68}.signature>span{min-width:45mm;text-align:center}.director-signature-image{display:block;width:45mm;height:12mm;object-fit:contain;object-position:center bottom;margin:0 auto 1mm}.signature>span:not(.signature-date){border-top:1px solid #899690;padding-top:1.5mm}.signature-date{border-top:1px solid #899690;padding-top:1.5mm;min-width:45mm;text-align:center}
+.signature-area{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(38mm,.8fr);align-items:end;gap:8mm;margin-top:3mm}.signature-block{text-align:center;min-width:0}.director-signature-image{display:block;width:52mm;height:13mm;object-fit:contain;object-position:center bottom;margin:0 auto 1mm}.signature-label{display:block;border-top:1px solid #899690;padding-top:1.5mm;font-size:6.2px;color:#5e6d68;line-height:1.2}.signature-date{border-top:1px solid #899690;padding-top:1.5mm;text-align:center;font-size:6.2px;color:#5e6d68;min-width:38mm}.signature-date span{display:block;text-transform:uppercase;letter-spacing:.05em;font-size:5.5px;color:#74827d}.signature-date strong{display:block;margin-top:.7mm;font-weight:800;color:#334b44}
 .cut{height:7mm;flex:0 0 7mm;display:flex;align-items:center;justify-content:center;color:#887021;font-size:6px;font-weight:800;letter-spacing:.18em;border-top:1px dashed #b6a56d;border-bottom:1px dashed #b6a56d;margin:1mm 0}.cut span{background:#fffefa;padding:0 3mm}
 .sheet-footer{margin-top:auto;height:4.5mm;display:flex;align-items:flex-end;justify-content:space-between;font-size:5.6px;color:#71807b;white-space:nowrap}.sheet-footer span:nth-child(2){font-weight:700;color:#49665d}
 @media print{body{background:#fff}.sheet{margin:0}.half{break-inside:avoid}.cut{break-inside:avoid}}
