@@ -122,7 +122,7 @@ export default function BulkFinanceDocumentsPage() {
 
   const currentTerm = current?.term_id ? terms.find(t => t.id === current.term_id) : terms.find(t => t.is_current);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
-  const schoolName = settings.school_name?.value || 'ALIYU AND MAIMUNA CENTER FOR QUR\\'ANIC MEMORIZATION';
+  const schoolName = settings.school_name?.value || "ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION";
   const shortName = settings.short_name?.value || 'AMQM';
   const logoUrl = settings.logo_url?.value || '';
   const schoolAddress = settings.contact?.address || '';
