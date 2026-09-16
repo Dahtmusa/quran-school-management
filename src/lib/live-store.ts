@@ -41,9 +41,37 @@ export async function loadStudents(): Promise<Student[]> {
 }
 
 export async function loadParentStudents(): Promise<Student[]> {
-  const { data, error } = await supabase().from('parent_students').select('student_id,relationship,students:student_id(*,classes:class_id(name))');
-  if(error||!data) return [];
-  return (data as any[]).map((r:any)=>{const st=r.students;return {id:st.id,admissionNo:st.admission_no,name:st.full_name,studentIdNumber:st.student_id_number??null,idExpiresOn:st.id_expires_on??null,section:st.section==='boarding'?'Boarding':'Day',year:mapYear(st.program_year),attendance:0,fees:0,teacher:'',start:{surah:st.start_surah??114,ayah:st.start_ayah??1},current:{surah:st.current_surah??st.start_surah??114,ayah:st.current_ayah??st.start_ayah??1},direction:mapDirection(st.memorization_direction),className:st.classes?.name??null,photoUrl:st.photo_url??null} satisfies Student});
+  const db = supabase();
+  const { data: links, error: linksError } = await db.from('parent_students').select('student_id');
+  if (linksError) return [];
+  const studentIds = new Set((links ?? []).map((row:any) => row.student_id).filter(Boolean));
+  if (!studentIds.size) return [];
+  const { data, error } = await db.rpc('get_school_student_directory');
+  if (error || !data) {
+    console.error('Parent student directory load failed:', error);
+    return [];
+  }
+  return (data as any[])
+    .filter((r:any) => studentIds.has(r.student_id ?? r.id))
+    .map((r:any) => ({
+      id:r.student_id ?? r.id,
+      admissionNo:r.admission_no,
+      name:r.full_name,
+      studentIdNumber:r.student_id_number ?? null,
+      idExpiresOn:r.id_expires_on ?? null,
+      section:r.section === 'boarding' ? 'Boarding' : 'Day',
+      year:mapYear(r.program_year),
+      attendance:0,
+      fees:0,
+      teacher:r.teacher_name ?? '',
+      start:{surah:r.start_surah ?? 114, ayah:r.start_ayah ?? 1},
+      current:{surah:r.current_surah ?? r.start_surah ?? 114, ayah:r.current_ayah ?? r.start_ayah ?? 1},
+      direction:mapDirection(r.memorization_direction),
+      className:r.class_name ?? null,
+      classId:r.class_id ?? null,
+      photoUrl:r.photo_url ?? null,
+      gender:r.gender ?? null,
+    } satisfies Student));
 }
 
 const evaluationSelect = '*, students:student_id(full_name,admission_no,photo_url,class_id,section,memorization_direction,current_page,classes:class_id(name)), terms:term_id(name,term_number), evaluation_campaigns:campaign_id(title,opens_at,closes_at,status)';
