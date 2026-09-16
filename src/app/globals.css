@@ -15,23 +15,72 @@ button:disabled{cursor:not-allowed}
 @media(max-width:767px){.hero-skeleton{height:520px}.section-copy{font-size:14px}.nav-link:after{display:none}}
 .homepage-icon{display:inline-flex;height:42px;width:42px;align-items:center;justify-content:center;border-radius:14px;background:#ecfdf5;color:#08735c;font-size:25px;font-weight:800;line-height:1;box-shadow:inset 0 0 0 1px rgba(6,95,70,.08)}.top-social{display:inline-flex;height:22px;width:22px;align-items:center;justify-content:center;border-radius:999px;color:#fff;opacity:.9;transition:all .2s}.top-social:hover{background:rgba(255,255,255,.12);color:#f6d46d;opacity:1}.mission-mark{display:grid;height:46px;width:46px;place-items:center;border-radius:15px;background:#fff7df;color:#c58c13;font-size:23px;font-weight:900}.mission-mark-dark{background:rgba(255,255,255,.1);color:#f6d46d}
 
-/* Modern footer social controls */
-footer .mt-3.flex.flex-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:680px;margin-top:12px}
-footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{position:relative;display:flex;align-items:center;justify-content:space-between;min-height:58px;width:100%;padding:7px 18px 7px 68px;border:1px solid rgba(255,255,255,.14);border-radius:18px;background:linear-gradient(135deg,rgba(255,255,255,.98),rgba(248,250,252,.96));box-shadow:0 8px 22px rgba(0,0,0,.16);color:transparent;font-size:0;overflow:hidden;isolation:isolate;transition:transform .2s ease,box-shadow .2s ease,filter .2s ease}
-footer a[title="Facebook"]:hover,footer a[title="Instagram"]:hover,footer a[title="YouTube"]:hover,footer a[title="WhatsApp"]:hover,footer a[title="TikTok"]:hover{transform:translateY(-3px);box-shadow:0 15px 30px rgba(0,0,0,.22);filter:saturate(1.08)}
-footer a[title="Facebook"]:active,footer a[title="Instagram"]:active,footer a[title="YouTube"]:active,footer a[title="WhatsApp"]:active,footer a[title="TikTok"]:active{transform:scale(.965);box-shadow:0 5px 12px rgba(0,0,0,.16)}
-footer a[title="Facebook"]:focus-visible,footer a[title="Instagram"]:focus-visible,footer a[title="YouTube"]:focus-visible,footer a[title="WhatsApp"]:focus-visible,footer a[title="TikTok"]:focus-visible{outline:3px solid #f6d46d;outline-offset:3px}
-footer a[title="Facebook"]::before,footer a[title="Instagram"]::before,footer a[title="YouTube"]::before,footer a[title="WhatsApp"]::before,footer a[title="TikTok"]::before{position:absolute;left:7px;top:50%;display:grid;height:44px;width:44px;place-items:center;transform:translateY(-50%);border-radius:999px;color:#fff;font-size:23px;font-weight:900;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.25),0 5px 13px rgba(0,0,0,.18);z-index:1}
-footer a[title="Facebook"]::after,footer a[title="Instagram"]::after,footer a[title="YouTube"]::after,footer a[title="WhatsApp"]::after,footer a[title="TikTok"]::after{display:block;width:100%;font-size:14px;font-weight:900;letter-spacing:.01em;line-height:1;white-space:nowrap;text-align:left;transition:transform .2s ease}
-footer a[title="Facebook"]::before{content:"f";background:#1877f2;font-family:Arial,sans-serif}footer a[title="Facebook"]::after{content:"Facebook   →";color:#245dc7}
-footer a[title="Instagram"]::before{content:"◎";background:linear-gradient(135deg,#ffb13b 0%,#dd2a7b 50%,#6228d7 100%);font-size:24px}footer a[title="Instagram"]::after{content:"Instagram   →";color:#a32aa0}
-footer a[title="YouTube"]::before{content:"▶";background:#ff0000;font-size:17px;padding-left:2px}footer a[title="YouTube"]::after{content:"YouTube   →";color:#d81919}
-footer a[title="WhatsApp"]::before{content:"◔";background:#25d366;font-size:25px}footer a[title="WhatsApp"]::after{content:"WhatsApp   →";color:#149b45}
-footer a[title="TikTok"]::before{content:"";background:#090909 url('/social-icons/tiktok.svg') center/28px 28px no-repeat}footer a[title="TikTok"]::after{content:"TikTok   →";color:#16171a}
-footer a[title="Facebook"]:hover::after,footer a[title="Instagram"]:hover::after,footer a[title="YouTube"]:hover::after,footer a[title="WhatsApp"]:hover::after,footer a[title="TikTok"]:hover::after{transform:translateX(4px)}
-@media(max-width:639px){.hero-skeleton{height:520px}.homepage-icon{height:40px;width:40px}.section-title{font-size:2rem}.nav-link:after{display:none}footer .mt-3.flex.flex-wrap{grid-template-columns:1fr;gap:9px;width:100%;max-width:none}footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{min-height:56px;padding-left:65px;border-radius:17px}footer a[title="Facebook"]::before,footer a[title="Instagram"]::before,footer a[title="YouTube"]::before,footer a[title="WhatsApp"]::before,footer a[title="TikTok"]::before{height:42px;width:42px}footer a[title="TikTok"]::before{background-size:27px 27px}}
-@media(prefers-reduced-motion:reduce){footer a[title="Facebook"],footer a[title="Instagram"],footer a[title="YouTube"],footer a[title="WhatsApp"],footer a[title="TikTok"]{transition:none}}
-
 @media(max-width:767px){body{min-width:320px}button,a,input,select,textarea{touch-action:manipulation}.mobile-nav-scroll{overscroll-behavior:contain}}
 @media(max-width:767px){input,select,textarea{font-size:16px!important}.input{font-size:16px}}
 @media(max-width:767px){.rc-table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}}
+
+/* Footer social links */
+footer .social-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;width:100%;max-width:1060px;margin:18px auto 0!important;padding:0!important}
+footer div:has(> .social-links){position:relative;width:100%;max-width:1100px;margin:0 auto 8px!important;padding:34px 18px 24px!important;border:1px solid rgba(255,255,255,.08);border-radius:30px;background:radial-gradient(circle at 50% 0%,rgba(23,105,83,.36),transparent 48%),linear-gradient(135deg,#031d18 0%,#062d26 55%,#03120f 100%);box-shadow:0 24px 70px rgba(0,0,0,.25);order:-1;overflow:hidden}
+footer div:has(> .social-links)::before{content:"";position:absolute;left:50%;top:17px;width:260px;height:1px;transform:translateX(-50%);background:linear-gradient(90deg,transparent,rgba(243,191,67,.9),transparent);opacity:.75}
+footer div:has(> .social-links)>div:first-child{font-size:0!important;line-height:1.1;text-align:center;margin:0!important;padding:10px 0 0!important;color:#fff!important;position:relative;z-index:2}
+footer div:has(> .social-links)>div:first-child::before{content:"Follow";font-family:Georgia,'Times New Roman',serif;font-size:42px;font-weight:900;letter-spacing:-.04em;color:#fff}
+footer div:has(> .social-links)>div:first-child::after{content:" Us";font-family:Georgia,'Times New Roman',serif;font-size:42px;font-weight:900;letter-spacing:-.04em;color:#f3bf43;margin-left:10px;display:inline}
+footer div:has(> .social-links)>div:first-child + .social-links::before{content:"Stay connected with AMQM for the latest news, updates and inspiring content.";display:block;position:absolute;top:116px;left:18px;right:18px;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:500;line-height:1.5;color:rgba(236,253,245,.72)}
+footer div:has(> .social-links)>div:first-child + .social-links{position:relative;padding-top:38px!important}
+footer .social-pill{position:relative!important;display:flex!important;align-items:center!important;gap:16px!important;min-height:86px!important;width:100%!important;padding:10px 62px 10px 12px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:24px!important;background:#fff!important;color:#fff!important;text-decoration:none!important;font-size:inherit!important;overflow:hidden!important;isolation:isolate;box-shadow:0 14px 32px rgba(0,0,0,.24)!important;transition:transform .18s ease,box-shadow .18s ease,filter .18s ease!important}
+footer .social-pill::before{content:""!important;position:absolute!important;inset:0!important;z-index:-1!important;background:linear-gradient(110deg,transparent 0%,rgba(255,255,255,.18) 42%,transparent 58%);transform:translateX(-110%);transition:transform .55s ease!important}
+footer .social-pill:hover::before{transform:translateX(110%)!important}
+footer .social-pill::after{content:"›"!important;position:absolute!important;right:13px!important;top:50%!important;display:grid!important;height:46px!important;width:46px!important;place-items:center!important;transform:translateY(-50%)!important;border-radius:999px!important;background:rgba(255,255,255,.16)!important;color:#fff!important;font-family:Arial,sans-serif!important;font-size:38px!important;font-weight:300!important;line-height:1!important;transition:transform .18s ease,background .18s ease!important;z-index:4!important}
+footer .social-pill:hover{transform:translateY(-4px)!important;box-shadow:0 22px 44px rgba(0,0,0,.34)!important;filter:saturate(1.07)!important}
+footer .social-pill:hover::after{transform:translate(3px,-50%)!important;background:rgba(255,255,255,.24)!important}
+footer .social-pill:active{transform:scale(.985)!important;box-shadow:0 8px 18px rgba(0,0,0,.2)!important}
+footer .social-pill:focus-visible{outline:3px solid #f3bf43!important;outline-offset:3px}
+footer .social-pill-icon{position:relative!important;display:grid!important;height:62px!important;width:62px!important;min-width:62px!important;place-items:center!important;border-radius:999px!important;background:rgba(0,0,0,.18)!important;color:#fff!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.23),0 8px 20px rgba(0,0,0,.22)!important;z-index:2!important}
+footer .social-pill-icon svg{height:32px!important;width:32px!important;display:block!important;color:#fff!important}
+footer .social-pill-label{display:block!important;min-width:0!important;padding:0!important;font-size:22px!important;font-weight:900!important;letter-spacing:-.025em!important;line-height:1.02!important;white-space:normal!important;text-align:left!important;color:#fff!important;z-index:2!important}
+footer .social-pill-label::after{display:block!important;margin-top:6px!important;font-family:Arial,Helvetica,sans-serif!important;font-size:12px!important;font-weight:500!important;letter-spacing:.005em!important;line-height:1.2!important;color:rgba(255,255,255,.78)!important}
+footer a[title="Facebook"].social-pill{background:linear-gradient(135deg,#176ff1 0%,#2459c8 100%)!important}
+footer a[title="Facebook"].social-pill .social-pill-icon{background:rgba(6,61,157,.58)!important}
+footer a[title="Facebook"].social-pill .social-pill-label::after{content:"Like our page"}
+footer a[title="Instagram"].social-pill{background:linear-gradient(135deg,#ffb13b 0%,#ef2d75 48%,#7026df 100%)!important}
+footer a[title="Instagram"].social-pill .social-pill-icon{background:linear-gradient(135deg,rgba(255,170,49,.72),rgba(153,32,207,.58))!important}
+footer a[title="Instagram"].social-pill .social-pill-label::after{content:"Follow our journey"}
+footer a[title="YouTube"].social-pill{background:linear-gradient(135deg,#ff2638 0%,#d90012 100%)!important}
+footer a[title="YouTube"].social-pill .social-pill-icon{background:rgba(164,0,16,.54)!important}
+footer a[title="YouTube"].social-pill .social-pill-label::after{content:"Watch our videos"}
+footer a[title="WhatsApp"].social-pill{background:linear-gradient(135deg,#20d66b 0%,#00a84e 100%)!important}
+footer a[title="WhatsApp"].social-pill .social-pill-icon{background:rgba(0,122,62,.5)!important}
+footer a[title="WhatsApp"].social-pill .social-pill-label::after{content:"Join our community"}
+footer a[title="TikTok"].social-pill{background:linear-gradient(135deg,#050708 0%,#0f1416 100%)!important;border-color:transparent!important;box-shadow:0 0 0 2px #25f4ee,0 0 0 3px #fe2c55,0 16px 36px rgba(0,0,0,.28)!important}
+footer a[title="TikTok"].social-pill .social-pill-icon{background:#050607 url('/social-icons/tiktok.svg') center/37px 37px no-repeat!important}
+footer a[title="TikTok"].social-pill .social-pill-icon svg{display:none!important}
+footer a[title="TikTok"].social-pill .social-pill-label::after{content:"Follow for short videos"}
+footer a[title="TikTok"].social-pill{grid-column:1/-1}
+footer .social-links + *{}
+
+@media(min-width:768px){
+  footer>div:first-child{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;align-items:start}
+  footer>div:first-child>div:first-child{grid-column:1/-1;text-align:left}
+  footer>div:first-child>div:nth-child(2){grid-column:1}
+  footer>div:first-child>div:nth-child(3){grid-column:2}
+}
+@media(max-width:639px){
+  footer>div:first-child{display:grid!important;grid-template-columns:1fr!important}
+  footer>div:first-child>div:first-child,footer>div:first-child>div:nth-child(2),footer>div:first-child>div:nth-child(3){grid-column:1!important}
+  footer div:has(> .social-links){max-width:none;margin-bottom:8px!important;border-radius:24px;padding:28px 10px 20px!important}
+  footer div:has(> .social-links)>div:first-child::before{font-size:34px}
+  footer div:has(> .social-links)>div:first-child::after{font-size:34px;margin-left:7px}
+  footer div:has(> .social-links)>div:first-child + .social-links::before{top:103px;font-size:11px;line-height:1.45;left:12px;right:12px}
+  footer div:has(> .social-links)>div:first-child + .social-links{padding-top:33px!important;margin-top:11px!important}
+  footer .social-links{grid-template-columns:1fr!important;gap:10px!important}
+  footer .social-pill{min-height:72px!important;padding:8px 53px 8px 9px!important;border-radius:20px!important;gap:13px!important}
+  footer .social-pill-icon{height:54px!important;width:54px!important;min-width:54px!important}
+  footer .social-pill-icon svg{height:29px!important;width:29px!important}
+  footer .social-pill-label{font-size:18px!important}
+  footer .social-pill-label::after{margin-top:5px!important;font-size:10px!important}
+  footer .social-pill::after{right:9px!important;height:38px!important;width:38px!important;font-size:31px!important}
+  footer a[title="TikTok"].social-pill{grid-column:auto}
+  footer a[title="TikTok"].social-pill .social-pill-icon{background-size:31px 31px!important}
+}
+@media(prefers-reduced-motion:reduce){footer .social-pill,footer .social-pill::before,footer .social-pill::after{transition:none!important}}
