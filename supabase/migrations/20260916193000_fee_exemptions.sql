@@ -31,7 +31,6 @@ create policy "finance manage fee exemptions"
   using (public.my_role() in ('super_admin','admin','principal','finance'))
   with check (public.my_role() in ('super_admin','admin','principal','finance'));
 
--- Keep created_by correct for direct browser inserts.
 create or replace function public.set_fee_exemption_actor()
 returns trigger
 language plpgsql
@@ -61,16 +60,14 @@ security definer
 set search_path = public
 as $$
 begin
-  if new.active then
-    if exists (
-      select 1
-      from public.payments p
-      where p.student_id = new.student_id
-        and p.term_id = new.term_id
-        and p.voided_at is null
-    ) then
-      raise exception 'Cannot exempt this student for the selected term because a payment has already been recorded for that term.';
-    end if;
+  if new.active and exists (
+    select 1
+    from public.payments p
+    where p.student_id = new.student_id
+      and p.term_id = new.term_id
+      and p.voided_at is null
+  ) then
+    raise exception 'Cannot exempt this student for the selected term because a payment has already been recorded for that term.';
   end if;
   return new;
 end;
@@ -103,8 +100,7 @@ begin
       );
 
     update public.invoices
-       set status = 'void',
-           updated_at = now()
+       set status = 'void'
      where student_id = new.student_id
        and term_id = new.term_id
        and coalesce(amount_paid, 0) = 0
