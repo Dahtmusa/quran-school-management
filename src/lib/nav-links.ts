@@ -1,5 +1,5 @@
 // Single source of truth for role-based dashboard navigation, shared by the
-desktop Sidebar and the mobile Topbar drawer.
+// desktop Sidebar and the mobile Topbar drawer.
 export type NavLink = [href: string, label: string, icon: string];
 
 export const adminLinks: NavLink[] = [
