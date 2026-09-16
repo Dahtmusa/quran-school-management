@@ -324,7 +324,15 @@ export async function updateStudentMemorization(studentId: string, input: {
   current_ayah: number;
   program_year: 'year_1'|'year_2';
 }) {
-  const { error } = await supabase().from('students').update(input).eq('id', studentId);
+  const { error } = await supabase().rpc('staff_update_student_quran_profile', {
+    p_student_id: studentId,
+    p_direction: input.memorization_direction,
+    p_start_surah: input.start_surah,
+    p_start_ayah: input.start_ayah,
+    p_current_surah: input.current_surah,
+    p_current_ayah: input.current_ayah,
+    p_program_year: input.program_year,
+  });
   if (error) throw error;
 }
 
@@ -381,8 +389,8 @@ export async function loadTeacherDirectory() {
   }));
 }
 
-export async function teacherUpdateStudentQuranProfile(studentId: string, input: { direction: 'nas_to_baqarah'|'baqarah_to_nas'; currentSurah: number; currentAyah: number }) {
-  const { error } = await supabase().rpc('teacher_update_student_quran_profile', { p_student_id: studentId, p_direction: input.direction, p_current_surah: input.currentSurah, p_current_ayah: input.currentAyah });
+export async function teacherUpdateStudentQuranProfile(studentId: string, input: { direction: 'nas_to_baqarah'|'baqarah_to_nas'; startSurah: number; startAyah: number; currentSurah: number; currentAyah: number }) {
+  const { error } = await supabase().rpc('staff_update_student_quran_profile', { p_student_id: studentId, p_direction: input.direction, p_start_surah: input.startSurah, p_start_ayah: input.startAyah, p_current_surah: input.currentSurah, p_current_ayah: input.currentAyah });
   if (error) throw error;
 }
 

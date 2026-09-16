@@ -47,6 +47,8 @@ export default function TeacherDashboard() {
   const [editSectionMsg, setEditSectionMsg] = useState('');
   const [quranEditTarget, setQuranEditTarget] = useState<any | null>(null);
   const [quranEditDirection, setQuranEditDirection] = useState<'nas_to_baqarah'|'baqarah_to_nas'>('nas_to_baqarah');
+  const [quranEditStartSurah, setQuranEditStartSurah] = useState(114);
+  const [quranEditStartAyah, setQuranEditStartAyah] = useState(1);
   const [quranEditSurah, setQuranEditSurah] = useState(114);
   const [quranEditAyah, setQuranEditAyah] = useState(1);
   const [quranEditBusy, setQuranEditBusy] = useState(false);
@@ -111,7 +113,7 @@ export default function TeacherDashboard() {
 
   async function handleSaveQuranProfile(){
     if(!quranEditTarget)return; setQuranEditBusy(true);setQuranEditMsg('');
-    try{await teacherUpdateStudentQuranProfile(quranEditTarget.id,{direction:quranEditDirection,currentSurah:quranEditSurah,currentAyah:quranEditAyah});const fresh=await loadTeacherDirectory();setStudents(fresh);const updated=fresh.find((x:any)=>x.id===quranEditTarget.id);if(updated)setSelected(updated);setQuranEditTarget(null);setMessage('Quran profile saved as the official student record.');}catch(e:any){setQuranEditMsg(e?.message||'Failed to save Quran profile');}finally{setQuranEditBusy(false);}
+    try{await teacherUpdateStudentQuranProfile(quranEditTarget.id,{direction:quranEditDirection,startSurah:quranEditStartSurah,startAyah:quranEditStartAyah,currentSurah:quranEditSurah,currentAyah:quranEditAyah});const fresh=await loadTeacherDirectory();setStudents(fresh);const updated=fresh.find((x:any)=>x.id===quranEditTarget.id);if(updated)setSelected(updated);setQuranEditTarget(null);setMessage('Quran profile saved as the official student record.');}catch(e:any){setQuranEditMsg(e?.message||'Failed to save Quran profile');}finally{setQuranEditBusy(false);}
   }
   async function handleSetStudentStatus(student:any,status:'active'|'suspended'|'withdrawn'){
     if(status==='withdrawn'&&!window.confirm('Mark this student inactive? All academic and historical records will be preserved.'))return;setBusy(true);setMessage('');
@@ -362,6 +364,8 @@ export default function TeacherDashboard() {
                   <button className="rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-black text-teal-700 hover:bg-teal-100 transition-colors" onClick={() => {
                     setQuranEditTarget(s);
                     setQuranEditDirection(s.direction === 'Baqarah-to-Nas' ? 'baqarah_to_nas' : 'nas_to_baqarah');
+                    setQuranEditStartSurah(Number(s.start?.surah || 114));
+                    setQuranEditStartAyah(Number(s.start?.ayah || 1));
                     setQuranEditSurah(Number(s.current?.surah || s.start?.surah || 114));
                     setQuranEditAyah(Number(s.current?.ayah || s.start?.ayah || 1));
                     setQuranEditMsg('');
@@ -449,8 +453,10 @@ export default function TeacherDashboard() {
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 p-4">
         <div className="w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl">
           <div className="flex items-center justify-between"><div><h3 className="text-xl font-black">Edit official Quran profile</h3><p className="text-xs text-slate-500">{quranEditTarget.name} · {quranEditTarget.admissionNo}</p></div><button className="btn bg-slate-100" onClick={()=>setQuranEditTarget(null)}>Close</button></div>
-          <div className="mt-5 grid gap-4 sm:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <label className="text-xs font-black uppercase tracking-wide text-slate-500">Direction<select className="input mt-1 w-full" value={quranEditDirection} onChange={e=>setQuranEditDirection(e.target.value as any)}><option value="baqarah_to_nas">Baqarah → Nas</option><option value="nas_to_baqarah">Nas → Baqarah</option></select></label>
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Starting Surah<select className="input mt-1 w-full" value={quranEditStartSurah} onChange={e=>{setQuranEditStartSurah(Number(e.target.value));setQuranEditStartAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>
+            <label className="text-xs font-black uppercase tracking-wide text-slate-500">Starting Ayah<select className="input mt-1 w-full" value={quranEditStartAyah} onChange={e=>setQuranEditStartAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditStartSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
             <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Surah<select className="input mt-1 w-full" value={quranEditSurah} onChange={e=>{setQuranEditSurah(Number(e.target.value));setQuranEditAyah(1)}}>{SURAHS.map(x=><option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}</select></label>
             <label className="text-xs font-black uppercase tracking-wide text-slate-500">Current Ayah<select className="input mt-1 w-full" value={quranEditAyah} onChange={e=>setQuranEditAyah(Number(e.target.value))}>{Array.from({length:SURAHS.find(x=>x.id===quranEditSurah)?.ayahs||286},(_,i)=>i+1).map(n=><option key={n} value={n}>{n}</option>)}</select></label>
           </div>
