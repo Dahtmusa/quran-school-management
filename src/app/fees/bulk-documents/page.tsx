@@ -58,7 +58,7 @@ function dateText(value: any) {
 }
 
 function escapeHTML(value: any) {
-  return String(value ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' } as any)[c]);
+  return String(value ?? '').replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' } as any)[c]);
 }
 
 export default function BulkFinanceDocumentsPage() {
@@ -70,6 +70,7 @@ export default function BulkFinanceDocumentsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [allStudentFees, setAllStudentFees] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
+  const [directorSignature, setDirectorSignature] = useState<{ signer_name: string; signature_data: string } | null>(null);
   const [classFilter, setClassFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [printing, setPrinting] = useState(false);
@@ -98,8 +99,18 @@ export default function BulkFinanceDocumentsPage() {
         setSettings(cms || {});
 
         const db = createClient();
-        const { data: historicalFees } = await db.from('student_fees').select('id,student_id,amount_due,amount_paid,fee_structure_id,fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,academic_years:academic_year_id(name,starts_on))');
-        if (active) setAllStudentFees(historicalFees || []);
+        const [{ data: historicalFees }, { data: reportCardSignatures }] = await Promise.all([
+          db.from('student_fees').select('id,student_id,amount_due,amount_paid,fee_structure_id,fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,academic_years:academic_year_id(name,starts_on))'),
+          db.rpc('load_signatures_for_report_cards'),
+        ]);
+        if (active) {
+          setAllStudentFees(historicalFees || []);
+          const director = reportCardSignatures?.director;
+          setDirectorSignature(director?.signature_data ? {
+            signer_name: String(director.signer_name || 'School Director'),
+            signature_data: String(director.signature_data),
+          } : null);
+        }
       } catch (e: any) {
         if (active) setError(e?.message || 'Could not load finance records.');
       } finally {
@@ -152,6 +163,9 @@ export default function BulkFinanceDocumentsPage() {
     const nextTermName = nextTerm ? `${tLabel(nextTerm)} ${nextTerm.academic_years?.name || ''}`.trim() : 'Next term not configured';
     const invoiceNo = `INV-${String(student.admissionNo || 'STUDENT').toUpperCase()}-${nextTerm?.term_number || 'NEXT'}`;
     const receiptTotal = ps.reduce((n: number, p: any) => n + Number(p.amount || 0), 0);
+    const signatureMarkup = directorSignature
+      ? `<img src="${escapeHTML(directorSignature.signature_data)}" alt="School Director signature" class="director-signature-image"><span>School Director${directorSignature.signer_name ? ` · ${escapeHTML(directorSignature.signer_name)}` : ''}</span>`
+      : '<span>School Director</span>';
     return `<article class="sheet">
       <section class="half invoice">
         <div class="doc-header"><div class="brand"><div class="brand-name">${escapeHTML(schoolName)}</div><div class="brand-address">${escapeHTML(schoolAddress)}</div></div><div class="doc-title">SCHOOL FEES<br>INVOICE</div></div>
@@ -174,7 +188,7 @@ export default function BulkFinanceDocumentsPage() {
         ${ps.length ? `<div class="receipt-list">${ps.map((p: any) => `<div class="receipt-row"><div><b>REC-${escapeHTML(String(p.id || '').slice(-8).toUpperCase())}</b><small>${dateText(p.paid_on)} · ${escapeHTML(p.method || 'Cash')}${p.reference ? ` · ${escapeHTML(p.reference)}` : ''}</small></div><strong>${money(currency, Number(p.amount || 0))}</strong></div>`).join('')}</div>` : `<div class="no-receipts">No payment receipts recorded for the current term.</div>`}
         <div class="receipt-total"><div><span>Total received this term</span><b>${money(currency, receiptTotal)}</b></div><div><span>Current term balance</span><b>${currentBalance == null ? '—' : money(currency, currentBalance)}</b></div></div>
         <div class="ack">Received with thanks. This document lists payments currently recorded in AMQM Finance.</div>
-        <div class="signature"><span>Finance Officer</span><span>Date: __________________</span></div>
+        <div class="signature">${signatureMarkup}<span class="signature-date">Date: __________________</span></div>
       </section>
       <footer class="sheet-footer"><span>${shortName} · Finance Document</span><span>One student · invoice + current-term receipts</span><span>Printed ${dateText(new Date())}</span></footer>
     </article>`;
@@ -239,7 +253,8 @@ html,body{margin:0;padding:0;background:#fff;color:#16332e;font-family:'Segoe UI
 table{width:100%;border-collapse:collapse;margin-top:3mm;font-size:7.6px}th{background:#e9f2ee;color:#17483e;text-transform:uppercase;font-size:6.1px;letter-spacing:.05em;padding:2mm 1.8mm;text-align:left;border:1px solid #cbd5d0}th:last-child,td:last-child{text-align:right}td{padding:2mm 1.8mm;border:1px solid #d4ddd9;vertical-align:top}td small{display:block;font-size:6.2px;color:#73817d;margin-top:.5mm}.total td{font-weight:900;font-size:8.6px;background:#fff3d8;color:#6e5315;border-top:1.2px solid #c6a65d}
 .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:2mm;margin-top:3mm}.meta>div{border:1px solid #d5ddd8;border-radius:2mm;padding:2mm;font-size:6.6px;background:#fff}.meta b{font-size:5.5px;text-transform:uppercase;color:#70807b;letter-spacing:.06em}.invoice-foot{margin-top:2.5mm;padding-top:2.2mm;border-top:1px dashed #bfcac5;font-size:6.6px;color:#61706b}
 .receipt-list{margin-top:3mm;display:flex;flex-direction:column;gap:1.4mm;max-height:51mm;overflow:hidden}.receipt-row{display:flex;justify-content:space-between;gap:4mm;padding:2mm 2.2mm;border:1px solid #d3ddd8;border-radius:2mm;background:#fff}.receipt-row b{font-size:7.4px;color:#0b604e}.receipt-row small{display:block;margin-top:.5mm;font-size:6.2px;color:#6d7b76}.receipt-row strong{font-size:8px;color:#0b604e;white-space:nowrap}.no-receipts{margin-top:4mm;border:1px dashed #c4cfca;border-radius:2mm;padding:7mm;text-align:center;font-size:7px;color:#75827e;background:#fff}
-.receipt-total{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-top:3mm}.receipt-total>div{border-radius:2.5mm;border:1px solid #cbd7d1;background:#eff7f2;padding:2.8mm;text-align:center}.receipt-total span{display:block;font-size:6px;text-transform:uppercase;letter-spacing:.05em;color:#668078}.receipt-total b{display:block;margin-top:1mm;font-size:11px;color:#075844}.ack{margin-top:2.5mm;padding:2.5mm;border-radius:2mm;background:#fff8e8;border-left:3px solid #caa44c;font-size:6.6px;color:#65582d}.signature{display:flex;justify-content:space-between;gap:10mm;margin-top:3mm;font-size:6.2px;color:#5e6d68}.signature span{border-top:1px solid #899690;padding-top:1.5mm;min-width:45mm;text-align:center}
+.receipt-total{display:grid;grid-template-columns:1fr 1fr;gap:2mm;margin-top:3mm}.receipt-total>div{border-radius:2.5mm;border:1px solid #cbd7d1;background:#eff7f2;padding:2.8mm;text-align:center}.receipt-total span{display:block;font-size:6px;text-transform:uppercase;letter-spacing:.05em;color:#668078}.receipt-total b{display:block;margin-top:1mm;font-size:11px;color:#075844}.ack{margin-top:2.5mm;padding:2.5mm;border-radius:2mm;background:#fff8e8;border-left:3px solid #caa44c;font-size:6.6px;color:#65582d}
+.signature{display:flex;align-items:flex-end;justify-content:space-between;gap:10mm;margin-top:3mm;font-size:6.2px;color:#5e6d68}.signature>span{min-width:45mm;text-align:center}.director-signature-image{display:block;width:45mm;height:12mm;object-fit:contain;object-position:center bottom;margin:0 auto 1mm}.signature>span:not(.signature-date){border-top:1px solid #899690;padding-top:1.5mm}.signature-date{border-top:1px solid #899690;padding-top:1.5mm;min-width:45mm;text-align:center}
 .cut{height:7mm;flex:0 0 7mm;display:flex;align-items:center;justify-content:center;color:#887021;font-size:6px;font-weight:800;letter-spacing:.18em;border-top:1px dashed #b6a56d;border-bottom:1px dashed #b6a56d;margin:1mm 0}.cut span{background:#fffefa;padding:0 3mm}
 .sheet-footer{margin-top:auto;height:4.5mm;display:flex;align-items:flex-end;justify-content:space-between;font-size:5.6px;color:#71807b;white-space:nowrap}.sheet-footer span:nth-child(2){font-weight:700;color:#49665d}
 @media print{body{background:#fff}.sheet{margin:0}.half{break-inside:avoid}.cut{break-inside:avoid}}
