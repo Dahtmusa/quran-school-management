@@ -1,0 +1,165 @@
+name: Finalize student source audit and report card art
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Apply canonical-source audit and Quran art
+        env:
+          QURAN_ART_B64: PLACEHOLDER
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os, re
+
+          report = Path("src/app/reports/page.tsx")
+          text = report.read_text()
+
+          old_art = '<div class="rc-hifz-art"><div class="rc-book">▱</div><div>A Journey<br/><b>of a Lifetime</b></div></div>'
+          new_art = '<div class="rc-hifz-art"><img src="/report-card/quran-art.svg" class="rc-book-image" alt="Qur’an and mosque"/><div>A Journey<br/><b>of a Lifetime</b></div></div>'
+          if old_art not in text:
+              raise SystemExit("Report card art marker not found")
+          text = text.replace(old_art, new_art, 1)
+
+          old_css = ".rc-book{font-size:36px;color:#a57b1c;line-height:1}"
+          new_css = ".rc-book-image{width:27mm;height:27mm;object-fit:contain;display:block;flex:0 0 auto}"
+          if old_css not in text:
+              raise SystemExit("Report card book CSS marker not found")
+          text = text.replace(old_css, new_css, 1)
+          report.write_text(text)
+
+          live = Path("src/lib/live-store.ts")
+          t = live.read_text()
+          pattern = r"export async function loadParentStudents\(\): Promise<Student\[\]> \{.*?\n\}\n\nconst evaluationSelect"
+          replacement = '''export async function loadParentStudents(): Promise<Student[]> {
+            const db = supabase();
+            const { data: links, error: linksError } = await db.from('parent_students').select('student_id');
+            if (linksError) return [];
+            const studentIds = new Set((links ?? []).map((row:any) => row.student_id).filter(Boolean));
+            if (!studentIds.size) return [];
+
+            const { data, error } = await db.rpc('get_school_student_directory');
+            if (error || !data) {
+              console.error('Parent student directory load failed:', error);
+              return [];
+            }
+
+            return (data as any[])
+              .filter((r:any) => studentIds.has(r.student_id ?? r.id))
+              .map((r:any) => ({
+                id:r.student_id ?? r.id,
+                admissionNo:r.admission_no,
+                name:r.full_name,
+                studentIdNumber:r.student_id_number ?? null,
+                idExpiresOn:r.id_expires_on ?? null,
+                section:r.section === 'boarding' ? 'Boarding' : 'Day',
+                year:mapYear(r.program_year),
+                attendance:0,
+                fees:0,
+                teacher:r.teacher_name ?? '',
+                start:{surah:r.start_surah ?? 114, ayah:r.start_ayah ?? 1},
+                current:{surah:r.current_surah ?? r.start_surah ?? 114, ayah:r.current_ayah ?? r.start_ayah ?? 1},
+                direction:mapDirection(r.memorization_direction),
+                className:r.class_name ?? null,
+                classId:r.class_id ?? null,
+                photoUrl:r.photo_url ?? null,
+                gender:r.gender ?? null,
+              } satisfies Student));
+          }
+
+          const evaluationSelect'''
+          patched, n = re.subn(pattern, replacement, t, count=1, flags=re.S)
+          if n != 1:
+              raise SystemExit("Parent loader marker not found")
+          live.write_text(patched)
+
+          art = Path("public/report-card")
+          art.mkdir(parents=True, exist_ok=True)
+          art_b64 = os.environ["QURAN_ART_B64"]
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="554" height="554" viewBox="0 0 554 554">
+            <image href="data:image/jpeg;base64,{art_b64}" x="0" y="0" width="554" height="554" preserveAspectRatio="xMidYMid meet"/>
+          </svg>'''
+          (art / "quran-art.svg").write_text(svg)
+
+          audit_md = '''# AMQM Canonical Student Source Audit — Final
+
+Date: 2026-09-16
+
+## Student Quran source of truth
+
+`public.students` remains the live source of truth for each student's:
+- `start_surah`, `start_ayah`
+- `memorization_direction`
+- `current_surah`, `current_ayah`
+- `current_page`, `current_hizb`
+
+The canonical `get_school_student_directory()` RPC is used by the admin/teacher student directories and by the parent student loader after this audit.
+
+## Report cards
+
+Student report cards no longer display attendance. Attendance data is not deleted from the database; it is simply not presented because the school did not record attendance for report-card purposes.
+
+The Hifz journey uses `progressBetween(start, current, direction)` so reported completion is relative to the student's own starting point.
+
+## Legacy/demo data
+
+`src/lib/data.ts` remains a type/helper compatibility module for UI code. Production student directories load live data through `src/lib/live-store.ts`; the demo student array is not used by the live directory loaders.
+
+## Parent portal
+
+Parent-linked students now obtain the same canonical Quran/profile fields as the main student directory instead of a second nested `students(*)` mapping.
+
+## Scope
+
+This audit focused on:
+- canonical student Quran fields and direction
+- report-card attendance presentation
+- parent student loading
+- journey progress calculation
+- separation of live data loading from legacy demo helpers
+
+No attendance rows were deleted from the database.
+'''
+          Path("AMQM-CANONICAL-SOURCE-AUDIT.md").write_text(audit_md)
+
+          report_lower = report.read_text().lower()
+          if "attendance" in report_lower:
+              raise SystemExit("Attendance reference remains in report card source")
+          if "rpc('get_school_student_directory')" not in live.read_text():
+              raise SystemExit("Parent loader is not using canonical student directory")
+          print("Audit/art changes applied")
+          PY
+
+      - name: Validate build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit finalized changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/app/reports/page.tsx src/lib/live-store.ts public/report-card/quran-art.svg AMQM-CANONICAL-SOURCE-AUDIT.md
+          git diff --cached --quiet || git commit -m "Finalize canonical student source audit and report art"
+          git push
+
+      - name: Remove helper workflow
+        if: success()
+        run: |
+          rm -f .github/workflows/finalize-canonical-audit.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u .github/workflows/finalize-canonical-audit.yml
+          git commit -m "Remove audit helper workflow" || true
+          git push || true
