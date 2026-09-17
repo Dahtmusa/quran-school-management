@@ -9,13 +9,13 @@ permissions:
 
 jobs:
   update:
-    if: ${{ !contains(github.event.head_commit.message, 'chore: increase A4 report card typography') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Increase report card print typography
+        if: ${{ !contains(github.event.head_commit.message, 'chore: increase A4 report card typography') }}
         shell: python
         run: |
           from pathlib import Path
@@ -45,6 +45,7 @@ jobs:
           path.write_text(text, encoding='utf-8')
 
       - name: Tighten only the print spacing needed for A4 fit
+        if: ${{ !contains(github.event.head_commit.message, 'chore: increase A4 report card typography') }}
         shell: python
         run: |
           from pathlib import Path
@@ -54,12 +55,10 @@ jobs:
           end = text.index('`;\n\nfunction buildFullPageHTML', start)
           css = text[start:end]
           replacements = {
-              '.page{width:210mm;height:297mm;padding:6mm 6.5mm 0;display:flex;flex-direction:column;gap:2.4mm;':
-              '.page{width:210mm;height:297mm;padding:5.5mm 6.5mm 0;display:flex;flex-direction:column;gap:2mm;',
-              '.rc-academic-body{display:grid;grid-template-columns:1fr 44mm;gap:2.5mm;':
-              '.rc-academic-body{display:grid;grid-template-columns:1fr 44mm;gap:2mm;',
-              '.rc-table th{background:#edf3ef;color:#163c35;font-size:':
-              '.rc-table th{background:#edf3ef;color:#163c35;font-size:',
+              'padding:6mm 6.5mm 0;display:flex;flex-direction:column;gap:2.4mm;':
+              'padding:5.5mm 6.5mm 0;display:flex;flex-direction:column;gap:2mm;',
+              'grid-template-columns:1fr 44mm;gap:2.5mm;':
+              'grid-template-columns:1fr 44mm;gap:2mm;',
           }
           for old, new in replacements.items():
               css = css.replace(old, new)
@@ -67,6 +66,7 @@ jobs:
           path.write_text(text, encoding='utf-8')
 
       - name: Verify A4 print rules and commit
+        if: ${{ !contains(github.event.head_commit.message, 'chore: increase A4 report card typography') }}
         shell: bash
         run: |
           grep -q '@page{size:A4 portrait;margin:0}' src/app/reports/page.tsx
