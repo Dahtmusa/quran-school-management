@@ -1,0 +1,79 @@
+name: One-time report card typography update
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    if: ${{ !contains(github.event.head_commit.message, 'chore: increase A4 report card typography') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Increase report card print typography
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          path = Path('src/app/reports/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('const PRINT_CSS = `')
+          end = text.index('`;\n\nfunction buildFullPageHTML', start)
+          css = text[start:end]
+
+          def bump(match: re.Match[str]) -> str:
+              raw = float(match.group(1))
+              if raw <= 5.5:
+                  factor = 1.28
+              elif raw <= 7.0:
+                  factor = 1.20
+              elif raw <= 10.0:
+                  factor = 1.16
+              else:
+                  factor = 1.10
+              value = round(raw * factor, 1)
+              return f'font-size:{value:g}px'
+
+          updated = re.sub(r'font-size:(\d+(?:\.\d+)?)px', bump, css)
+          text = text[:start] + updated + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+      - name: Tighten only the print spacing needed for A4 fit
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/app/reports/page.tsx')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('const PRINT_CSS = `')
+          end = text.index('`;\n\nfunction buildFullPageHTML', start)
+          css = text[start:end]
+          replacements = {
+              '.page{width:210mm;height:297mm;padding:6mm 6.5mm 0;display:flex;flex-direction:column;gap:2.4mm;':
+              '.page{width:210mm;height:297mm;padding:5.5mm 6.5mm 0;display:flex;flex-direction:column;gap:2mm;',
+              '.rc-academic-body{display:grid;grid-template-columns:1fr 44mm;gap:2.5mm;':
+              '.rc-academic-body{display:grid;grid-template-columns:1fr 44mm;gap:2mm;',
+              '.rc-table th{background:#edf3ef;color:#163c35;font-size:':
+              '.rc-table th{background:#edf3ef;color:#163c35;font-size:',
+          }
+          for old, new in replacements.items():
+              css = css.replace(old, new)
+          text = text[:start] + css + text[end:]
+          path.write_text(text, encoding='utf-8')
+
+      - name: Verify A4 print rules and commit
+        shell: bash
+        run: |
+          grep -q '@page{size:A4 portrait;margin:0}' src/app/reports/page.tsx
+          grep -q '.page{width:210mm;height:297mm;' src/app/reports/page.tsx
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/reports/page.tsx .github/workflows/temp-report-font-fix.yml
+          git rm .github/workflows/temp-report-font-fix.yml
+          git commit -m 'chore: increase A4 report card typography'
+          git push
