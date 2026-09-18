@@ -2,7 +2,11 @@
 import AdminShell from '@/components/AdminShell';
 import {
   deleteSchoolCalendarEvent, ensureAcademicTerm, loadOperationalTerms,
-  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm, setCurrentAcademicTerm, closeTermAndStartNext, runCalendarAutomation, loadHistoricalBaselineReadiness, captureHistoricalBaseline, closeHistoricalFirstTermStartSecond
+  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm,
+  runCalendarAutomation, loadHistoricalBaselineReadiness, captureHistoricalBaseline,
+  closeHistoricalFirstTermStartSecond, loadAcademicCycleSnapshot,
+  prepareNextTerm, closeCurrentTerm, openAcademicTerm, closeAcademicSession,
+  openAcademicSession
 } from '@/lib/live-store';
 import { useEffect, useState } from 'react';
 import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
@@ -40,12 +44,19 @@ export default function CalendarAdmin() {
   const [expandedTerm, setExpandedTerm] = useState<number>(0);
   const [historicalVerified, setHistoricalVerified] = useState(false);
   const [baseline, setBaseline] = useState<any>(null);
+  const [cycle, setCycle] = useState<any>(null);
 
   const refresh = async () => {
-    const [cal, t, cur] = await Promise.all([loadSchoolCalendar(), loadOperationalTerms(), loadCurrentAcademicTerm()]);
+    const [cal, t, cur, cycleSnapshot] = await Promise.all([
+      loadSchoolCalendar(),
+      loadOperationalTerms(),
+      loadCurrentAcademicTerm(),
+      loadAcademicCycleSnapshot(),
+    ]);
     setEvents(cal);
     setTerms(t);
     setCurrent(cur);
+    setCycle(cycleSnapshot);
     const settings = await loadCMSSettings();
     setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));
     try { setBaseline(await loadHistoricalBaselineReadiness()); } catch { setBaseline(null); }
@@ -118,15 +129,34 @@ export default function CalendarAdmin() {
     });
   }
 
-  async function setCurrentTerm(termId: string) {
-    if (!termId) return;
+  async function runLifecycle(action: 'closeTerm'|'prepareNext'|'openNext'|'closeSession'|'openSession') {
     setBusy(true);
+    setMessage('');
     try {
-      const r: any = await setCurrentAcademicTerm(termId);
-      setMessage(`${r.academic_year_name} · ${r.term_name} is now the active term.`);
+      let result:any = null;
+      if (action === 'closeTerm') {
+        if (!cycle?.current_term?.id) throw new Error('There is no current digital term to close.');
+        result = await closeCurrentTerm(cycle.current_term.id);
+      } else if (action === 'prepareNext') {
+        if (!cycle?.current_term?.id) throw new Error('The current term is already closed.');
+        result = await prepareNextTerm(cycle.current_term.id);
+      } else if (action === 'openNext') {
+        if (!cycle?.next_term?.id) throw new Error('There is no next configured term.');
+        result = await openAcademicTerm(cycle.next_term.id);
+      } else if (action === 'closeSession') {
+        if (!cycle?.session?.id) throw new Error('No current academic session found.');
+        result = await closeAcademicSession(cycle.session.id);
+      } else {
+        if (!cycle?.next_session?.id) throw new Error('No scheduled next academic session found.');
+        result = await openAcademicSession(cycle.next_session.id);
+      }
+      setMessage(result?.message || 'Academic lifecycle action completed.');
       await refresh();
-    } catch (e: any) { setMessage(e?.message || 'Unable to set current term'); }
-    finally { setBusy(false); }
+    } catch (e:any) {
+      setMessage(e?.message || 'Academic lifecycle action failed.');
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Group events by type for the timeline
@@ -244,45 +274,136 @@ export default function CalendarAdmin() {
       </div>
     </div>
 
-    {/* Set active term */}
-    {terms.length > 0 && <section className="card p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-lg font-black">Active term</h2>
-          <p className="mt-1 text-sm text-slate-500">Calendar dates control scheduled evaluation windows. Term closure is a separate controlled action so no academic records are silently closed.</p>
+    {/* ── LIFECYCLE CONTROL CENTER ── */}
+    {terms.length > 0 && <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b bg-slate-950 p-5 text-white">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Academic lifecycle</div>
+            <h2 className="mt-1 text-xl font-black">Controlled term & session progression</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-white/65">The system now advances in order: prepare → close term → prepare successor → open on its start date. At the end of Third Term, close the session, then open the next academic session.</p>
+          </div>
+          {cycle?.session && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-200">{cycle.session.name} · {cycle.session.status}</span>}
         </div>
       </div>
 
-      {current?.term && <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
-        <div className="text-sm font-black text-amber-950">Term control</div>
-        <p className="mt-1 text-xs leading-5 text-amber-900/80">Close a term only after all three evaluations are approved. The system then locks the term position and opens the next term from Evaluation 3 automatically.</p>
-        <button className="btn mt-3 bg-amber-600 text-white hover:bg-amber-700" disabled={busy} onClick={async()=>{
-          if(!current?.term_id) return;
-          if(!confirm(`Close ${current.term.name} and start the next configured term? All active students must have 3 approved evaluations.`)) return;
-          setBusy(true); setMessage('');
-          try { const r:any=await closeTermAndStartNext(current.term_id); setMessage(r?.message || 'Term closed and the next term is now active.'); await refresh(); }
-          catch(e:any){setMessage(e?.message||'Term could not be closed.')} finally {setBusy(false)}
-        }}>{busy ? 'Processing…' : 'Close Term & Start Next Term'}</button>
-      </div>}
+      <div className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr]">
+        <div className="rounded-2xl border bg-slate-50 p-4">
+          <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Current stage</div>
+          {cycle?.current_term ? (
+            <>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <div className="text-lg font-black text-slate-900">{cycle.session?.name} · {cycle.current_term.name}</div>
+                <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">{cycle.current_term.status}</span>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">{cycle.current_term.starts_on} → {cycle.current_term.ends_on}</div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {cycle.current_term.status === 'historical_baseline' && (
+                  <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">Protected historical baseline — use the verification/start control below.</span>
+                )}
+                {cycle.can_close_current_term && (
+                  <button className="btn bg-amber-600 text-white hover:bg-amber-700" disabled={busy} onClick={() => {
+                    if (confirm(`Close ${cycle.current_term.name}? This finalizes the term record and report-card snapshots. The next term will not open automatically.`)) runLifecycle('closeTerm');
+                  }}>{busy ? 'Processing…' : 'Close Current Term'}</button>
+                )}
+                {!cycle.can_close_current_term && cycle.current_term.status === 'digital_active' && (
+                  <span className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-600 border">Not ready to close · {cycle.missing_current_evaluations || 0} students missing approved evaluations</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-1 text-lg font-black text-slate-900">No term currently open</div>
+              <div className="mt-1 text-xs text-slate-500">The session is between terms or awaiting a new session opening.</div>
+            </>
+          )}
+        </div>
 
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div><div className="text-sm font-black">Historical data import</div><p className="mt-1 text-xs leading-5 text-slate-600">Historical Eval 1–3 are preserved as import records. Once the school verifies the import, Historical Eval 3 remains the starting position for the first live term and the import tool can be hidden from normal operations.</p></div>
-          {!historicalVerified ? <button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{if(!confirm('Confirm that all historical student records have been verified. This hides the historical import shortcut from normal evaluation operations; records are not deleted.'))return; setBusy(true); try{await saveCMSSetting('amqm_historical_import_verified',true); setHistoricalVerified(true); setMessage('Historical import verified. Historical records remain preserved.');}catch(e:any){setMessage(e?.message||'Could not update historical import status')}finally{setBusy(false)}}}>Mark Historical Data Verified</button> : <span className="pill bg-emerald-100 text-emerald-800">✓ Historical import verified</span>}
+        <div className="rounded-2xl border bg-white p-4">
+          <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Next controlled action</div>
+          {cycle?.next_term ? (
+            <>
+              <div className="mt-1 text-lg font-black text-slate-900">{cycle.next_term.name}</div>
+              <div className="mt-1 text-xs text-slate-500">{cycle.next_term.starts_on} → {cycle.next_term.ends_on} · {cycle.next_term.status}</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {cycle.current_term?.status === 'digital_closed' || cycle.current_term?.status === 'historical_closed' ? (
+                  <button className="btn bg-slate-900 text-white" disabled={busy} onClick={() => runLifecycle('prepareNext')}>Prepare Next Term</button>
+                ) : null}
+                {cycle.can_open_next_term && (
+                  <button className="btn bg-emerald-700 text-white hover:bg-emerald-800" disabled={busy} onClick={() => {
+                    if (confirm(`Open ${cycle.next_term.name}? Student placement and teacher assignment checks will run before activation.`)) runLifecycle('openNext');
+                  }}>{busy ? 'Processing…' : 'Open Next Term'}</button>
+                )}
+                {cycle.next_term.status === 'prepared' && !cycle.can_open_next_term && (
+                  <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 border">Prepared · opens on {cycle.next_term.starts_on}</span>
+                )}
+              </div>
+            </>
+          ) : cycle?.next_session ? (
+            <>
+              <div className="mt-1 text-lg font-black text-slate-900">Next session · {cycle.next_session.name}</div>
+              <div className="mt-1 text-xs text-slate-500">{cycle.next_session.starts_on} → {cycle.next_session.ends_on} · {cycle.next_session.status}</div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {cycle.can_open_next_session && (
+                  <button className="btn bg-emerald-700 text-white hover:bg-emerald-800" disabled={busy} onClick={() => {
+                    if (confirm(`Open academic session ${cycle.next_session.name}? Returning Year 1 students will advance to Year 2 and new-session placements will be prepared.`)) runLifecycle('openSession');
+                  }}>{busy ? 'Processing…' : 'Open New Session'}</button>
+                )}
+                {!cycle.can_open_next_session && <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 border">Scheduled · opens on {cycle.next_session.starts_on}</span>}
+              </div>
+            </>
+          ) : (
+            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No successor is configured yet. Use the Academic Year Planner above to create the next session and its three terms.</div>
+          )}
         </div>
       </div>
-      {current?.term?.term_number === 1 && <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><div className="text-sm font-black text-emerald-950">Digital school readiness</div><p className="mt-1 text-xs leading-5 text-emerald-900/80">First Term is historical only. The system has captured a protected baseline for every active student before Second Term becomes digital.</p><div className="mt-2 text-xs font-bold">Baseline: {baseline?.baseline_rows ?? 0}/{baseline?.active_students ?? 0} students · {baseline?.missing_baseline ?? '—'} missing · {baseline?.missing_quran_position ?? '—'} missing Qur’an positions</div></div><div className="flex flex-wrap gap-2">{!historicalVerified&&<button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{setBusy(true);try{await captureHistoricalBaseline();await saveCMSSetting('amqm_historical_import_verified',true);setHistoricalVerified(true);setBaseline(await loadHistoricalBaselineReadiness());setMessage('Historical baseline captured and verified. No historical records were deleted.')}catch(e:any){setMessage(e?.message||'Baseline verification failed')}finally{setBusy(false)}}}>Verify & Capture Baseline</button>}{historicalVerified&&baseline?.ready&&<button className="btn bg-emerald-700 text-white" disabled={busy} onClick={async()=>{if(!confirm('This will archive First Term and make Second Term the first fully digital operational term. No historical evaluations will be deleted. Continue?'))return;setBusy(true);try{const r=await closeHistoricalFirstTermStartSecond('Historical First Term imported baseline closed; Second Term digital operations started.');setMessage(r?.message||'Second Term digital operations started.');await refresh()}catch(e:any){setMessage(e?.message||'Digital school transition failed')}finally{setBusy(false)}}}>Start Digital Second Term</button>}{historicalVerified&&<span className="pill bg-emerald-100 text-emerald-800">✓ Historical baseline verified</span>}</div></div>
-      </div>}
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto]">
-        <select className="input" defaultValue={current?.term_id || ''} onChange={e => setCurrentTerm(e.target.value)}>
-          <option value="">Select active term…</option>
-          {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <option key={t.id} value={t.id}>{academicYearName(t.academic_years)} · {t.name} ({t.starts_on} → {t.ends_on})</option>)}
-        </select>
-        <span className="pill bg-emerald-50 text-emerald-700 self-center">Manual term closure</span>
+      {cycle?.session?.id && cycle.can_close_session && (
+        <div className="border-t bg-amber-50 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <div className="text-sm font-black text-amber-950">Session closure is ready</div>
+              <p className="mt-1 text-xs leading-5 text-amber-900/75">All configured terms in {cycle.session.name} are closed and there is no active term. Closing the session freezes its lifecycle and clears the current-cycle pointer.</p>
+            </div>
+            <button className="btn bg-amber-700 text-white hover:bg-amber-800" disabled={busy} onClick={() => {
+              if (confirm(`Close academic session ${cycle.session.name}? This is the final administrative close for the session.`)) runLifecycle('closeSession');
+            }}>{busy ? 'Processing…' : 'Close Academic Session'}</button>
+          </div>
+        </div>
+      )}
+
+      <div className="border-t p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-sm font-black text-slate-900">Placement checkpoint</div>
+            <p className="mt-1 text-xs text-slate-500">A new term/session will not become active until every active student has an enrollment, a class in the correct academic session, and a teacher assigned to that class.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600">Next-term placement pending: {cycle?.next_term_placement_pending ?? '—'}</span>
+            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600">Next-session placement pending: {cycle?.next_session_placement_pending ?? '—'}</span>
+            {cycle?.current_term && !cycle.can_close_current_term && cycle.current_term.status === 'digital_active' && <span className="rounded-full bg-amber-100 px-3 py-1.5 text-[10px] font-black uppercase text-amber-800">Evaluation completion required before close</span>}
+          </div>
+        </div>
       </div>
     </section>}
+
+    {/* Historical import / digital-start controls */}
+    {terms.length > 0 && current?.term?.term_number === 1 && current?.term?.lifecycle_status === 'historical_baseline' && <section className="card p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-black">First-Term historical baseline</h2>
+          <p className="mt-1 text-sm text-slate-500">The imported First Term remains protected. Verify the baseline, then start Second Term through the controlled digital launch.</p>
+          <div className="mt-2 text-xs font-bold text-slate-600">Baseline: {baseline?.baseline_rows ?? 0}/{baseline?.active_students ?? 0} students · {baseline?.missing_baseline ?? '—'} missing · {baseline?.missing_quran_position ?? '—'} missing Qur’an positions</div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {!historicalVerified && <button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{setBusy(true);try{await captureHistoricalBaseline();await saveCMSSetting('amqm_historical_import_verified',true);setHistoricalVerified(true);setBaseline(await loadHistoricalBaselineReadiness());setMessage('Historical baseline captured and verified. No historical records were deleted.');await refresh()}catch(e:any){setMessage(e?.message||'Baseline verification failed')}finally{setBusy(false)}}}>Verify & Capture Baseline</button>}
+          {historicalVerified && baseline?.ready && <button className="btn bg-emerald-700 text-white" disabled={busy} onClick={async()=>{if(!confirm('This will archive First Term and make Second Term the first fully digital operational term. No historical evaluations will be deleted. Continue?'))return;setBusy(true);try{const r=await closeHistoricalFirstTermStartSecond('Historical First Term imported baseline closed; Second Term digital operations started.');setMessage(r?.message||'Second Term digital operations started.');await refresh()}catch(e:any){setMessage(e?.message||'Digital school transition failed')}finally{setBusy(false)}}}>Start Digital Second Term</button>}
+          {historicalVerified && <span className="pill bg-emerald-100 text-emerald-800">✓ Historical baseline verified</span>}
+        </div>
+      </div>
+    </section>}
+
+    <!-- intentionally no manual term selector; lifecycle actions are sequential -->
 
     {/* Timeline */}
     {(terms.length > 0 || events.length > 0) && <section className="card overflow-hidden">
