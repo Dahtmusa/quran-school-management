@@ -273,54 +273,46 @@ export async function updateStudentClass(studentId: string, classId: string | nu
   const { error } = await client.from('students').update({ class_id: classId || null }).eq('id', studentId);
   if (error) throw error;
 
-  // Keep the student's active placement in the current/prepared academic term
-  // synchronized with the global student profile used by operational screens.
+  // Keep operational placements synchronized for the current session while
+  // deliberately leaving historical term enrollment records untouched.
   const { data: cycle } = await client
     .from('academic_cycle_settings')
-    .select('current_academic_year_id,current_term_id')
+    .select('current_academic_year_id')
     .eq('id', true)
     .maybeSingle();
 
   if (cycle?.current_academic_year_id) {
-    const { data: targetTerm } = await client
-      .from('terms')
-      .select('id')
-      .eq('academic_year_id', cycle.current_academic_year_id)
-      .in('lifecycle_status', ['digital_active', 'prepared'])
-      .order('is_current', { ascending: false })
-      .order('starts_on', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (targetTerm?.id) {
-      let teacherId: string | null = null;
-      if (classId) {
-        const { data: teacher } = await client
-          .from('class_teachers')
-          .select('teacher_id')
-          .eq('class_id', classId)
-          .order('is_primary', { ascending: false })
-          .order('assigned_at', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-        teacherId = teacher?.teacher_id ?? null;
-      }
-
-      const { error: enrollmentError } = await client
-        .from('student_enrollments')
-        .update({
-          class_id: classId || null,
-          teacher_id: teacherId,
-        })
-        .eq('student_id', studentId)
-        .eq('term_id', targetTerm.id)
-        .eq('status', 'active');
-
-      if (enrollmentError) throw enrollmentError;
+    let teacherId: string | null = null;
+    if (classId) {
+      const { data: teacher } = await client
+        .from('class_teachers')
+        .select('teacher_id')
+        .eq('class_id', classId)
+        .order('is_primary', { ascending: false })
+        .order('assigned_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      teacherId = teacher?.teacher_id ?? null;
     }
+
+    const { error: enrollmentError } = await client
+      .from('student_enrollments')
+      .update({ class_id: classId || null, teacher_id: teacherId })
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .in(
+        'term_id',
+        (await client
+          .from('terms')
+          .select('id')
+          .eq('academic_year_id', cycle.current_academic_year_id)
+          .in('lifecycle_status', ['scheduled', 'prepared', 'digital_active']))
+          .data?.map((row: any) => row.id) || []
+      );
+
+    if (enrollmentError) throw enrollmentError;
   }
 }
-
 export async function createStudent(input: {
   admissionNo?: string;
   fullName: string;
