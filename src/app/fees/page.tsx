@@ -448,6 +448,45 @@ export default function Fees() {
     finally { setPaying(false); }
   }
 
+  async function toggleFeeExemption(s: Student) {
+    if (!selectedTermId) { setMessage('Choose a term before managing fee exemptions.'); return; }
+    if (exemptionBusy) return;
+    const existing = feeExemptions.get(s.id);
+    setExemptionBusy(s.id);
+    try {
+      const client = createClient();
+      if (existing) {
+        const { error } = await client.from('student_fee_exemptions')
+          .update({ active: false })
+          .eq('student_id', s.id)
+          .eq('term_id', selectedTermId);
+        if (error) throw error;
+        await syncStudentFeeAllocations(selectedTermId);
+        setFeeExemptions(prev => { const next = new Map(prev); next.delete(s.id); return next; });
+        setMessage(s.name + ' is no longer exempted for ' + (currentTerm ? tLabel(currentTerm) : 'this term') + '.');
+        await refresh();
+      } else {
+        const reason = window.prompt(
+          'Why is ' + s.name + ' exempted from school fees for ' + (currentTerm ? tLabel(currentTerm) : 'this term') + '?\n\nEnter a clear reason (for example: scholarship, sponsorship, hardship support).'
+        );
+        if (!reason || !reason.trim()) return;
+        const notes = window.prompt('Additional exemption notes (optional):') || null;
+        const { error } = await client.from('student_fee_exemptions').upsert(
+          { student_id: s.id, term_id: selectedTermId, reason: reason.trim(), notes: notes && notes.trim() ? notes.trim() : null, active: true },
+          { onConflict: 'student_id,term_id' }
+        );
+        if (error) throw error;
+        await syncStudentFeeAllocations(selectedTermId);
+        setFeeExemptions(prev => { const next = new Map(prev); next.set(s.id, { reason: reason.trim(), notes: notes && notes.trim() ? notes.trim() : null }); return next; });
+        setMessage(s.name + ' is exempted for ' + (currentTerm ? tLabel(currentTerm) : 'this term') + '. No payment should be recorded.');
+        await refresh();
+      }
+    } catch (e: any) {
+      setMessage(e?.message || 'Unable to update fee exemption.');
+    } finally {
+      setExemptionBusy(null);
+    }
+  }
   async function markFullyPaid(s: Student) {
     const v = byStudentAccount.get(s.id) || { outstanding: 0 };
     const bal = Math.max(0, v.outstanding);
