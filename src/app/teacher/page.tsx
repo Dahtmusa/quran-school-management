@@ -7,7 +7,7 @@ import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadP
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
-import { recordTeacherBoardingAttendance } from '@/lib/attendance-store';
+import { loadTeacherBoardingAttendanceToday, recordTeacherBoardingAttendance, type TeacherBoardingAttendanceRow } from '@/lib/attendance-store';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string; };
@@ -39,6 +39,8 @@ export default function TeacherDashboard() {
   const [sigMsg, setSigMsg] = useState('');
   const [sigOpen, setSigOpen] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
+  const [boardingAttendance, setBoardingAttendance] = useState<TeacherBoardingAttendanceRow[]>([]);
+  const [studentView, setStudentView] = useState<'all'|'day'|'boarding'>('all');
   const sigPadRef = useRef<SignaturePadRef|null>(null);
 
   const [editSectionTarget, setEditSectionTarget] = useState<any | null>(null);
@@ -60,8 +62,14 @@ export default function TeacherDashboard() {
   const [addMsg, setAddMsg] = useState('');
 
   const refresh = async () => {
-    const [studentRows, evaluationRows] = await Promise.all([loadTeacherDirectory(), loadTeacherEvaluations()]);
-    setStudents(studentRows); setEvaluations(evaluationRows);
+    const [studentRows, evaluationRows, attendanceRows] = await Promise.all([
+      loadTeacherDirectory(),
+      loadTeacherEvaluations(),
+      loadTeacherBoardingAttendanceToday(),
+    ]);
+    setStudents(studentRows);
+    setEvaluations(evaluationRows);
+    setBoardingAttendance(attendanceRows);
     return studentRows;
   };
   useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
@@ -109,7 +117,19 @@ export default function TeacherDashboard() {
     catch(err:any){setMessage(err?.message || 'Submission failed.');} finally{setBusy(false);}
   }
   async function uploadPhoto(file:File|null){ if(!file)return; setBusy(true); try{const url=await uploadProfileImage(file,'staff');setMe((x:any)=>({...x,avatar_url:url}));await updateOwnProfile({avatar_url:url});setMessage('Profile photo updated.');}catch(e:any){setMessage(e?.message||'Photo upload failed');}finally{setBusy(false);} }
-  function mark(_studentId:string,_status:string){setMessage('Attendance is now handled by Security staff at the gate. Contact admin if a correction is needed.');}
+  async function markBoardingAttendance(studentId:string,status:'present'|'late'|'absent'|'excused'|'sick'){
+    setAttendanceBusy(true);
+    setMessage('');
+    try{
+      await recordTeacherBoardingAttendance(studentId,status);
+      const fresh=await loadTeacherBoardingAttendanceToday();
+      setBoardingAttendance(fresh);
+      const row=fresh.find((x:any)=>x.studentId===studentId);
+      setMessage(row ? `${row.fullName} marked ${row.statusLabel?.toLowerCase() || status}.` : 'Boarding attendance recorded.');
+    }catch(e:any){
+      setMessage(e?.message || 'Attendance could not be recorded.');
+    }finally{setAttendanceBusy(false);}
+  }
 
   async function handleSaveQuranProfile(){
     if(!quranEditTarget)return; setQuranEditBusy(true);setQuranEditMsg('');
@@ -130,7 +150,15 @@ export default function TeacherDashboard() {
   const returnedCount = activeEvals.filter(ev => ev.status === 'returned').length;
   const dayCount = students.filter(s => s.section === 'Day').length;
   const boardingCount = students.filter(s => s.section === 'Boarding').length;
-  const filteredStudents = useMemo(() => students.filter(s => s.name?.toLowerCase().includes(studentSearch.toLowerCase())), [students, studentSearch]);
+  const boardingMarkedCount = boardingAttendance.filter(row => !!row.statusCode).length;
+  const boardingRemainingCount = Math.max(0, boardingAttendance.length - boardingMarkedCount);
+  const filteredStudents = useMemo(() => students.filter(s => {
+    const matchesSearch = s.name?.toLowerCase().includes(studentSearch.toLowerCase());
+    const matchesView = studentView === 'all'
+      || (studentView === 'day' && s.section === 'Day')
+      || (studentView === 'boarding' && s.section === 'Boarding');
+    return matchesSearch && matchesView;
+  }), [students, studentSearch, studentView]);
 
   return <AdminShell title="Teacher Workspace"><div className="space-y-5">
 
@@ -159,6 +187,53 @@ export default function TeacherDashboard() {
       <StatCard label="Boarding students" value={boardingCount} color="violet"/>
       <StatCard label={activeEvals.length ? `${doneCount}/${activeEvals.length} done` : 'No active eval'} value={returnedCount>0?`${returnedCount} returned`:(activeEvals.length?`${Math.round((doneCount/activeEvals.length)*100)}%`:'—')} color={returnedCount>0?'rose':'amber'} label2={returnedCount>0?'Returned evals':activeEvals.length?'Progress':'Evaluations'}/>
     </div>
+
+    {/* Attendance responsibility — teacher can only record boarding attendance */}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b bg-slate-50 p-5">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-600">Attendance</div>
+            <h2 className="mt-1 text-xl font-black text-slate-900">Today&apos;s attendance responsibility</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Day students are recorded at the main gate. Your teacher attendance workspace is limited to the boarding students assigned to your class.</p>
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            <div className="rounded-xl border bg-blue-50 px-3 py-2 text-center"><div className="text-[10px] font-black uppercase tracking-wide text-blue-600">Day · Gate</div><div className="mt-0.5 text-xl font-black text-blue-900">{dayCount}</div></div>
+            <div className="rounded-xl border bg-violet-50 px-3 py-2 text-center"><div className="text-[10px] font-black uppercase tracking-wide text-violet-600">Boarding</div><div className="mt-0.5 text-xl font-black text-violet-900">{boardingAttendance.length}</div></div>
+            <div className="rounded-xl border bg-emerald-50 px-3 py-2 text-center"><div className="text-[10px] font-black uppercase tracking-wide text-emerald-600">Marked</div><div className="mt-0.5 text-xl font-black text-emerald-900">{boardingMarkedCount}</div></div>
+            <div className="rounded-xl border bg-amber-50 px-3 py-2 text-center"><div className="text-[10px] font-black uppercase tracking-wide text-amber-600">Remaining</div><div className="mt-0.5 text-xl font-black text-amber-900">{boardingRemainingCount}</div></div>
+          </div>
+        </div>
+      </div>
+      <div className="p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs font-black uppercase tracking-wider text-slate-500">Boarding students assigned to you</div>
+          <span className="rounded-full bg-violet-100 px-3 py-1 text-[10px] font-black uppercase tracking-wide text-violet-700">Teacher can mark boarding only</span>
+        </div>
+        {boardingAttendance.length === 0 ? (
+          <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-slate-400">No active boarding students are assigned to your account.</div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {boardingAttendance.map(row => (
+              <div key={row.studentId} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-black text-slate-900">{row.fullName}</div>
+                    <div className="mt-0.5 text-xs text-slate-400">{row.admissionNo || '—'} · {row.className || 'Unassigned class'}</div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-black uppercase ${row.statusCode ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{row.statusLabel || 'Not marked'}</span>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <button disabled={attendanceBusy} onClick={() => markBoardingAttendance(row.studentId,'present')} className="rounded-xl bg-emerald-50 px-2 py-2 text-[11px] font-black text-emerald-700 hover:bg-emerald-100 disabled:opacity-50">Present</button>
+                  <button disabled={attendanceBusy} onClick={() => markBoardingAttendance(row.studentId,'late')} className="rounded-xl bg-amber-50 px-2 py-2 text-[11px] font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50">Late</button>
+                  <button disabled={attendanceBusy} onClick={() => markBoardingAttendance(row.studentId,'absent')} className="rounded-xl bg-rose-50 px-2 py-2 text-[11px] font-black text-rose-700 hover:bg-rose-100 disabled:opacity-50">Absent</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
 
     {/* Campaign evaluation sections */}
     {byCampaign.map(({ campaign, evals: campEvals }) => {
@@ -303,6 +378,11 @@ export default function TeacherDashboard() {
           <p className="text-xs text-slate-500">{students.length} student{students.length !== 1 ? 's' : ''} assigned to your account</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex rounded-xl border bg-slate-50 p-1">
+            {([['all','All'],['day','Day students'],['boarding','Boarding']] as const).map(([key,label]) => (
+              <button key={key} onClick={() => setStudentView(key)} className={`rounded-lg px-3 py-1.5 text-xs font-black transition-colors ${studentView===key ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{label}</button>
+            ))}
+          </div>
           <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-44" />
           <button onClick={openAddStudent} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors whitespace-nowrap">+ Add student</button>
         </div>
