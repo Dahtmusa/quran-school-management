@@ -352,7 +352,7 @@ export async function createStaffAccount(input: {fullName:string;email:string;pa
   return data;
 }
 
-export async function updateStaffProfile(id:string,input:{full_name?:string;email?:string|null;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null;role?:string;qualifications?:string|null;experience?:string|null;subjects?:string|null;preferred_email?:string|null}) {
+export async function updateStaffProfile(id:string,input:{full_name?:string;email?:string|null;gender?:string|null;phone?:string|null;job_title?:string|null;department?:string|null;employment_status?:string;avatar_url?:string|null;bio?:string|null;show_on_website?:boolean;username?:string|null;role?:string;qualifications?:string|null;experience?:string|null;subjects?:string|null;preferred_email?:string|null}) {
   const { error } = await supabase().from('profiles').update(input).eq('id',id);
   if (error) throw error;
 }
