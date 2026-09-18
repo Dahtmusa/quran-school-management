@@ -634,7 +634,7 @@ export default function Fees() {
   const pillCls = (st: ReturnType<typeof getStatus>) =>
     st === 'full' ? 'bg-emerald-50 text-emerald-700' : st === 'partial' ? 'bg-amber-50 text-amber-700' : st === 'unpaid' ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-400';
   const pillLabel = (st: ReturnType<typeof getStatus>) =>
-    st === 'full' ? 'Paid in full' : st === 'partial' ? 'Partial' : st === 'unpaid' ? 'Unpaid' : 'No fee set';
+    st === 'full' ? 'Paid in full' : st === 'partial' ? 'Partial' : st === 'unpaid' ? 'Unpaid' : st === 'exempted' ? 'Exempted' : 'No fee set';
 
   return (
     <AdminShell title="Finance & Fees">
@@ -663,7 +663,7 @@ export default function Fees() {
           {message && <button type="button" className="flex w-full items-center justify-between rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200" onClick={() => setMessage('')}><span>✓ {message}</span><span>×</span></button>}
 
           {/* KPI cards */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
             {[
               ['Current Term Fees', expected, '▣', 'text-white', 'bg-blue-500/20 text-blue-300'],
               ['Paid This Term', collected, '✓', 'text-emerald-300', 'bg-emerald-500/20 text-emerald-300'],
@@ -733,7 +733,7 @@ export default function Fees() {
           {/* Student ledger */}
           <section className="rounded-2xl border border-slate-800 bg-[#092638] shadow-xl">
             <div className="flex flex-col gap-4 border-b border-slate-800 p-5 xl:flex-row xl:items-center xl:justify-between">
-              <div><div className="flex items-center gap-2"><h2 className="text-lg font-black text-white">Students</h2><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-400">{ledgerStudents.length}</span></div><p className="mt-1 text-xs text-slate-500">{classFilter || 'All classes'} · {currentTerm ? tLabel(currentTerm) : 'Selected term'}</p></div>
+              <div><div className="flex items-center gap-2"><h2 className="text-lg font-black text-white">Students</h2><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-400">{ledgerStudents.length}</span></div><p className="mt-1 text-xs text-slate-500">{classFilter || 'All classes'} · {currentTerm ? tLabel(currentTerm) : 'Selected term'} · <span className="text-violet-300">Use Exempt to remove this term&apos;s fee obligation</span></p></div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex h-10 w-64 items-center rounded-xl border border-slate-700 bg-[#061b27] px-3"><span className="text-slate-500">⌕</span><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students by name or admission no..." className="w-full bg-transparent px-2 text-xs text-white outline-none placeholder:text-slate-600" /></div>
                 <button className="h-10 rounded-xl border border-slate-700 px-3 text-xs font-bold text-slate-300 hover:bg-slate-800" onClick={toggleAllVisible}>{ledgerStudents.length && ledgerStudents.every(s => selectedIds.has(s.id)) ? 'Clear selection' : 'Select all'}</button>
