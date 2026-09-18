@@ -24,7 +24,7 @@ anchor_term as (
   join ay on ay.id=t.academic_year_id
   where (select count(*) from current_term)=0
     and t.lifecycle_status in ('historical_closed','digital_closed')
-  order by t.starts_on desc,t.term_number desc
+  order by starts_on desc,term_number desc
   limit 1
 ),
 next_term as (
@@ -126,7 +126,13 @@ select jsonb_build_object(
   ) from ay),
   'can_open_next_session',(select (
     ns.id is not null and ns.starts_on<=current_date
-    and coalesce((select ay.lifecycle_status from ay),'')='closed'
+    and coalesce((
+      select p.lifecycle_status
+      from public.academic_years p
+      where p.starts_on<ns.starts_on
+      order by p.starts_on desc
+      limit 1
+    ),'') in ('closed','archived')
   ) from next_session ns)
 );
 $$;
