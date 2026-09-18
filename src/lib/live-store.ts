@@ -511,6 +511,12 @@ export async function closeTermAndStartNext(termId:string,notes?:string) {
   if(error) throw error; return data;
 }
 
+export async function loadSchoolCalendarConfig(){const [yearsRes,termsRes,eventsRes]=await Promise.all([supabase().from('academic_years').select('id,name,starts_on,ends_on,is_current,lifecycle_status').order('starts_on',{ascending:false}),supabase().from('terms').select('id,academic_year_id,name,term_number,starts_on,ends_on,is_current,lifecycle_status').order('term_number'),supabase().from('school_calendar_events').select('*').order('starts_on').order('created_at')]);if(yearsRes.error)throw yearsRes.error;if(termsRes.error)throw termsRes.error;if(eventsRes.error)throw eventsRes.error;return {years:yearsRes.data||[],terms:termsRes.data||[],events:eventsRes.data||[]};}
+
+export async function saveSimpleAcademicCalendar(input:any){const {data,error}=await supabase().rpc('amqm_save_simple_calendar',{p_year_name:String(input.yearName).trim(),p_year_start:input.yearStart,p_year_end:input.yearEnd,p_terms:input.terms});if(error)throw error;return data as any;}
+
+export async function syncAcademicCalendarState(){const {data,error}=await supabase().rpc('amqm_sync_calendar_state');if(error)throw error;return data as any;}
+
 export async function runCalendarAutomation() {
   const { data,error } = await supabase().rpc('amqm_process_calendar_automation');
   if(error) throw error; return data;
@@ -621,6 +627,8 @@ export async function deleteSchoolCalendarEvent(id:string){const {error}=await s
 export async function pushEvaluationToTeacher(id:string){const {error}=await supabase().rpc('push_evaluation_to_teacher',{p_evaluation_id:id});if(error)throw error;}
 
 export async function loadCurrentAcademicTerm(){
+  try { await supabase().rpc('amqm_sync_calendar_state'); } catch {}
+  try { await supabase().rpc('amqm_process_calendar_automation'); } catch {}
   const {data,error}=await supabase().rpc('get_current_academic_term');
   if(error) return null;
   return data && data.term_id ? data : null;
