@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
-import FinanceExemptionPortal from '@/components/FinanceExemptionPortal';
 
 const tLabel = (t: any) => t?.term_number === 1 ? 'First Term' : t?.term_number === 2 ? 'Second Term' : t?.term_number === 3 ? 'Third Term' : t?.name || 'Term';
 
@@ -224,7 +223,9 @@ export default function Fees() {
   const [terms, setTerms] = useState<any[]>([]);
   const [selectedTermId, setSelectedTermId] = useState('');
   const [classFilter, setClassFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all'|'full'|'partial'|'unpaid'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all'|'full'|'partial'|'unpaid'|'exempted'>('all');
+  const [feeExemptions, setFeeExemptions] = useState<Map<string, { reason: string; notes?: string | null }>>(new Map());
+  const [exemptionBusy, setExemptionBusy] = useState<string | null>(null);
   const [bank, setBank] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
@@ -340,6 +341,23 @@ export default function Fees() {
   const currentTerm = useMemo(() => terms.find(t => t.id === selectedTermId) || null, [terms, selectedTermId]);
   const nextTerm = useMemo(() => findNextTerm(currentTerm, terms), [currentTerm, terms]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadFeeExemptions() {
+      if (!selectedTermId) { setFeeExemptions(new Map()); return; }
+      const { data, error } = await createClient()
+        .from('student_fee_exemptions')
+        .select('student_id,reason,notes')
+        .eq('term_id', selectedTermId)
+        .eq('active', true);
+      if (cancelled) return;
+      if (error) { console.error('Fee exemption load failed:', error); setMessage(error.message || 'Unable to load fee exemptions.'); setFeeExemptions(new Map()); return; }
+      setFeeExemptions(new Map((data || []).map((row: any) => [row.student_id, { reason: row.reason || 'Fee exemption', notes: row.notes || null }])));
+    }
+    loadFeeExemptions();
+    return () => { cancelled = true; };
+  }, [selectedTermId]);
+
   const termFees = useMemo(() => summary.fees.filter((x: any) =>
     x.fee_structures?.term_id === selectedTermId ||
     (!x.fee_structures?.term_id && x.fee_structures?.academic_year_id === currentTerm?.academic_year_id)
@@ -379,7 +397,8 @@ export default function Fees() {
     return map;
   }, [byClass, byStudent, previousOutstandingByStudent, summary.payments, selectedTermId]);
 
-  function getStatus(s: Student): 'full'|'partial'|'unpaid'|'none' {
+  function getStatus(s: Student): 'full'|'partial'|'unpaid'|'exempted'|'none' {
+    if (feeExemptions.has(s.id)) return 'exempted';
     const v = byStudentAccount.get(s.id) || { payable: 0, outstanding: 0, paidThisTerm: 0 };
     if (v.payable <= 0) return 'none';
     if (v.outstanding <= 0) return 'full';
@@ -390,7 +409,7 @@ export default function Fees() {
   // Keep status filtering after the account map is initialized. Previously clicking
   // Paid in Full / Partial / Not Paid could evaluate getStatus() before
   // byStudentAccount existed, crashing the client page at runtime.
-  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudentAccount]);
+  const filtered = useMemo(() => statusFilter === 'all' ? byClass : byClass.filter(s => getStatus(s) === statusFilter), [byClass, statusFilter, byStudentAccount, feeExemptions]);
   const ledgerStudents = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return filtered;
@@ -405,12 +424,13 @@ export default function Fees() {
   const totalPayable = expected;
   const totalOutstanding = outstanding;
   const counts = useMemo(() => {
-    let full = 0, partial = 0, unpaid = 0;
-    for (const s of byClass) { const st = getStatus(s); if (st === 'full') full++; else if (st === 'partial') partial++; else if (st === 'unpaid') unpaid++; }
-    return { full, partial, unpaid };
+    let full = 0, partial = 0, unpaid = 0, exempted = 0;
+    for (const s of byClass) { const st = getStatus(s); if (st === 'full') full++; else if (st === 'partial') partial++; else if (st === 'unpaid') unpaid++; else if (st === 'exempted') exempted++; }
+    return { full, partial, unpaid, exempted };
   }, [byClass, byStudentAccount]);
 
   function openPay(s: Student) {
+    if (feeExemptions.has(s.id)) { setMessage(s.name + ' is exempted from school fees for the selected term.'); return; }
     const v = byStudentAccount.get(s.id) || { outstanding: 0 };
     setPayAmount(String(Math.max(0, v.outstanding) || ''));
     setPayMethod('Cash'); setPayRef(''); setPayTarget(s);
