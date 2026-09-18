@@ -1,478 +1,308 @@
 'use client';
+
 import AdminShell from '@/components/AdminShell';
+import SectionBadge from '@/components/SectionBadge';
 import {
-  deleteSchoolCalendarEvent, ensureAcademicTerm, loadOperationalTerms,
-  loadSchoolCalendar, saveSchoolCalendarEvent, loadCurrentAcademicTerm,
-  runCalendarAutomation, loadHistoricalBaselineReadiness, captureHistoricalBaseline,
-  closeHistoricalFirstTermStartSecond, loadAcademicCycleSnapshot,
-  prepareNextTerm, closeCurrentTerm, openAcademicTerm, closeAcademicSession,
-  openAcademicSession
+  loadSchoolCalendarConfig,
+  loadCurrentAcademicTerm,
+  saveSimpleAcademicCalendar,
+  syncAcademicCalendarState,
+  runCalendarAutomation,
 } from '@/lib/live-store';
-import { useEffect, useState } from 'react';
-import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
+import { useEffect, useMemo, useState } from 'react';
 
-const TERM_LABELS = ['First Term', 'Second Term', 'Third Term'];
+type EvalWindow = { open: string; close: string };
+type TermPlan = { number: 1|2|3; name: string; start: string; end: string; evals: EvalWindow[] };
+type YearPlan = { yearName: string; yearStart: string; yearEnd: string; terms: TermPlan[] };
 
-// Supabase relation fields can be returned as either a single object or a one-item array.
-// Normalize both shapes so the Calendar page remains type-safe during Vercel builds.
-function academicYearName(value: any): string {
-  if (Array.isArray(value)) return value[0]?.name ?? '';
-  return value?.name ?? '';
+const TERM_NAMES = ['First Term','Second Term','Third Term'] as const;
+
+function blankPlan(): YearPlan {
+  const year = new Date().getFullYear();
+  return {
+    yearName: `${year}/${String(year + 1).slice(-2)}`,
+    yearStart: '',
+    yearEnd: '',
+    terms: [1,2,3].map(number => ({
+      number: number as 1|2|3,
+      name: TERM_NAMES[number-1],
+      start: '',
+      end: '',
+      evals: [1,2,3].map(() => ({open:'',close:''})),
+    })),
+  };
 }
 
-type TermDates = { start: string; end: string; evals: { open: string; close: string }[] };
-type YearPlan = { yearName: string; yearStart: string; yearEnd: string; terms: TermDates[] };
+function toLocalInput(value?: string|null) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Africa/Lagos',
+    year:'numeric', month:'2-digit', day:'2-digit',
+    hour:'2-digit', minute:'2-digit', hour12:false,
+  }).formatToParts(d);
+  const get=(type:string)=>parts.find(p=>p.type===type)?.value || '';
+  return `${get('year')}-${get('month')}-${get('day')}T${get('hour') === '24' ? '00' : get('hour')}:${get('minute')}`;
+}
 
-const defaultEvals = () => [{ open: '', close: '' }, { open: '', close: '' }, { open: '', close: '' }];
-const defaultPlan = (): YearPlan => ({
-  yearName: new Date().getFullYear() + '/' + (new Date().getFullYear() + 1).toString().slice(2),
-  yearStart: '', yearEnd: '',
-  terms: [
-    { start: '', end: '', evals: defaultEvals() },
-    { start: '', end: '', evals: defaultEvals() },
-    { start: '', end: '', evals: defaultEvals() },
-  ],
-});
+function displayDate(value?: string|null) {
+  if (!value) return '—';
+  const d = new Date(value + (value.length === 10 ? 'T00:00:00' : ''));
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'});
+}
 
 export default function CalendarAdmin() {
-  const [plan, setPlan] = useState<YearPlan>(defaultPlan());
-  const [terms, setTerms] = useState<any[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-  const [current, setCurrent] = useState<any>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [expandedTerm, setExpandedTerm] = useState<number>(0);
-  const [historicalVerified, setHistoricalVerified] = useState(false);
-  const [baseline, setBaseline] = useState<any>(null);
-  const [cycle, setCycle] = useState<any>(null);
+  const [plan,setPlan]=useState<YearPlan>(blankPlan());
+  const [current,setCurrent]=useState<any>(null);
+  const [savedTerms,setSavedTerms]=useState<any[]>([]);
+  const [events,setEvents]=useState<any[]>([]);
+  const [busy,setBusy]=useState(false);
+  const [message,setMessage]=useState('');
+  const [error,setError]=useState('');
 
-  const refresh = async () => {
-    const [cal, t, cur, cycleSnapshot] = await Promise.all([
-      loadSchoolCalendar(),
-      loadOperationalTerms(),
-      loadCurrentAcademicTerm(),
-      loadAcademicCycleSnapshot(),
-    ]);
-    setEvents(cal);
-    setTerms(t);
+  const refresh=async()=>{
+    setError('');
+    const [cfg,cur]=await Promise.all([loadSchoolCalendarConfig(),loadCurrentAcademicTerm()]);
     setCurrent(cur);
-    setCycle(cycleSnapshot);
-    const settings = await loadCMSSettings();
-    setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));
-    try { setBaseline(await loadHistoricalBaselineReadiness()); } catch { setBaseline(null); }
-  };
-  useEffect(() => { refresh(); }, []);
-
-  function setTermField(i: number, field: keyof Omit<TermDates, 'evals'>, value: string) {
-    setPlan(p => { const terms = [...p.terms]; terms[i] = { ...terms[i], [field]: value }; return { ...p, terms }; });
-  }
-  function setEvalField(ti: number, ei: number, field: 'open' | 'close', value: string) {
-    setPlan(p => {
-      const terms = [...p.terms];
-      const evals = [...terms[ti].evals];
-      evals[ei] = { ...evals[ei], [field]: value };
-      terms[ti] = { ...terms[ti], evals };
-      return { ...p, terms };
-    });
-  }
-
-  async function saveYearPlan() {
-    if (!plan.yearName || !plan.yearStart || !plan.yearEnd) { setMessage('Please fill in the academic year name and start/end dates.'); return; }
-    const missingTerm = plan.terms.findIndex(t => t.start && !t.end || !t.start && t.end);
-    if (missingTerm >= 0) { setMessage(`Term ${missingTerm + 1}: please fill both start and end dates (or leave both blank).`); return; }
-    setBusy(true); setMessage('');
-    try {
-      let saved = 0;
-      // Create operational terms
-      const termIds: string[] = [];
-      for (let i = 0; i < plan.terms.length; i++) {
-        const t = plan.terms[i];
-        if (!t.start || !t.end) { termIds[i] = ''; continue; }
-        termIds[i] = await ensureAcademicTerm({ yearName: plan.yearName, yearStart: plan.yearStart, yearEnd: plan.yearEnd, termNumber: i + 1, termStart: t.start, termEnd: t.end });
-        saved++;
-      }
-      // Save session opening/closing events
-      if (plan.yearStart) await saveCalEvent('school_opening', `Session Opening – ${plan.yearName}`, plan.yearStart, plan.yearStart, '');
-      if (plan.yearEnd) await saveCalEvent('school_closing', `Session Closing – ${plan.yearName}`, plan.yearEnd, plan.yearEnd, '');
-      // Save evaluation windows as calendar markers
-      for (let ti = 0; ti < plan.terms.length; ti++) {
-        const t = plan.terms[ti];
-        if (!t.start) continue;
-        for (let ei = 0; ei < t.evals.length; ei++) {
-          const ev = t.evals[ei];
-          if (!ev.open || !ev.close) continue;
-          await saveSchoolCalendarEvent({
-            event_type: `evaluation_${ei + 1}`,
-            title: `${TERM_LABELS[ti]} · Evaluation ${ei + 1}`,
-            notes: `Evaluation ${ei + 1} window for ${plan.yearName} ${TERM_LABELS[ti]}`,
-            starts_on: ev.open.slice(0, 10), ends_on: ev.close.slice(0, 10),
-            starts_at: new Date(ev.open).toISOString(), ends_at: new Date(ev.close).toISOString(),
-            term_id: termIds[ti] || null, academic_year_id: null, evaluation_number: ei + 1,
-          });
-        }
-      }
-      await runCalendarAutomation();
-      setMessage(`Academic year ${plan.yearName} set up successfully. ${saved} term${saved !== 1 ? 's' : ''} created/updated. Evaluation windows are now linked to the calendar and will open automatically when due.`);
-      await refresh();
-    } catch (e: any) { setMessage(e?.message || 'Setup failed. Check all dates are valid.'); }
-    finally { setBusy(false); }
-  }
-
-  async function saveCalEvent(type: string, title: string, startsOn: string, endsOn: string, notes: string) {
-    await saveSchoolCalendarEvent({
-      event_type: type, title, notes: notes || null,
-      starts_on: startsOn ? startsOn.slice(0, 10) : null,
-      ends_on: endsOn ? endsOn.slice(0, 10) : null,
-      starts_at: startsOn ? new Date(startsOn).toISOString() : null,
-      ends_at: endsOn ? new Date(endsOn).toISOString() : null,
-      term_id: null, evaluation_number: null,
-    });
-  }
-
-  async function runLifecycle(action: 'closeTerm'|'prepareNext'|'openNext'|'closeSession'|'openSession') {
-    setBusy(true);
-    setMessage('');
-    try {
-      let result:any = null;
-      if (action === 'closeTerm') {
-        if (!cycle?.current_term?.id) throw new Error('There is no current digital term to close.');
-        result = await closeCurrentTerm(cycle.current_term.id);
-      } else if (action === 'prepareNext') {
-        const sourceTermId = cycle?.current_term?.id || cycle?.last_closed_term?.id;
-        if (!sourceTermId) throw new Error('No closed term is available to prepare a successor.');
-        result = await prepareNextTerm(sourceTermId);
-      } else if (action === 'openNext') {
-        if (!cycle?.next_term?.id) throw new Error('There is no next configured term.');
-        result = await openAcademicTerm(cycle.next_term.id);
-      } else if (action === 'closeSession') {
-        if (!cycle?.session?.id) throw new Error('No current academic session found.');
-        result = await closeAcademicSession(cycle.session.id);
-      } else {
-        if (!cycle?.next_session?.id) throw new Error('No scheduled next academic session found.');
-        result = await openAcademicSession(cycle.next_session.id);
-      }
-      setMessage(result?.message || 'Academic lifecycle action completed.');
-      await refresh();
-    } catch (e:any) {
-      setMessage(e?.message || 'Academic lifecycle action failed.');
-    } finally {
-      setBusy(false);
+    setSavedTerms(cfg.terms);
+    setEvents(cfg.events);
+    const year=cfg.years.find((y:any)=>y.is_current) || cfg.years[0];
+    const yearTerms=(cfg.terms||[]).filter((t:any)=>t.academic_year_id===year?.id);
+    const yearEvents=(cfg.events||[]).filter((e:any)=>e.academic_year_id===year?.id);
+    if(year){
+      setPlan({
+        yearName:year.name || '',
+        yearStart:year.starts_on || '',
+        yearEnd:year.ends_on || '',
+        terms:[1,2,3].map(number=>{
+          const t=yearTerms.find((x:any)=>Number(x.term_number)===number);
+          return {
+            number:number as 1|2|3,
+            name:TERM_NAMES[number-1],
+            start:t?.starts_on || '',
+            end:t?.ends_on || '',
+            evals:[1,2,3].map(n=>{
+              const e=yearEvents.find((x:any)=>x.term_id===t?.id && Number(x.evaluation_number)===n);
+              return {open:toLocalInput(e?.starts_at),close:toLocalInput(e?.ends_at)};
+            }),
+          };
+        }),
+      });
     }
+  };
+
+  useEffect(()=>{refresh().catch(e=>setError(e?.message||'Unable to load the school calendar.'));},[]);
+
+  const nextTerm=useMemo(()=>{
+    const today=new Date().toISOString().slice(0,10);
+    return plan.terms.find(t=>t.start && t.start>today) || null;
+  },[plan.terms]);
+
+  const updateTerm=(i:number,field:'start'|'end',value:string)=>{
+    setPlan(p=>{const terms=[...p.terms];terms[i]={...terms[i],[field]:value};return {...p,terms};});
+  };
+  const updateEval=(ti:number,ei:number,field:'open'|'close',value:string)=>{
+    setPlan(p=>{
+      const terms=[...p.terms];
+      const evals=[...terms[ti].evals];
+      evals[ei]={...evals[ei],[field]:value};
+      terms[ti]={...terms[ti],evals};
+      return {...p,terms};
+    });
+  };
+
+  function validate():string|null {
+    if(!plan.yearName.trim()) return 'Enter the academic session name.';
+    if(!plan.yearStart || !plan.yearEnd) return 'Enter the session opening and closing dates.';
+    if(plan.yearEnd<=plan.yearStart) return 'The session closing date must be after the opening date.';
+    let previousEnd='';
+    for(const term of plan.terms){
+      if(!term.start && !term.end) continue;
+      if(!term.start || !term.end) return `${term.name}: enter both start and end dates, or leave both blank.`;
+      if(term.end<term.start) return `${term.name}: the end date must be after the start date.`;
+      if(term.start<plan.yearStart || term.end>plan.yearEnd) return `${term.name}: dates must stay inside the academic session.`;
+      if(previousEnd && term.start<=previousEnd) return `${term.name}: terms must not overlap.`;
+      previousEnd=term.end;
+      for(let i=0;i<term.evals.length;i++){
+        const ev=term.evals[i];
+        if(!ev.open && !ev.close) continue;
+        if(!ev.open || !ev.close) return `${term.name}, Evaluation ${i+1}: enter both open and close times.`;
+        if(new Date(ev.close)<=new Date(ev.open)) return `${term.name}, Evaluation ${i+1}: close time must be after open time.`;
+        const openDay=new Date(ev.open).toISOString().slice(0,10);
+        const closeDay=new Date(ev.close).toISOString().slice(0,10);
+        if(openDay<term.start || closeDay>term.end) return `${term.name}, Evaluation ${i+1}: the evaluation window must fall inside the term dates.`;
+      }
+    }
+    return null;
   }
 
-  // Group events by type for the timeline
-  const sessionEvents = events.filter(e => e.event_type === 'school_opening' || e.event_type === 'school_closing');
-  const evalEvents = events.filter(e => ['evaluation_1','evaluation_2','evaluation_3'].includes(e.event_type));
-  const otherEvents = events.filter(e => e.event_type !== 'school_opening' && e.event_type !== 'school_closing' && !['evaluation_1','evaluation_2','evaluation_3'].includes(e.event_type));
+  async function save(){
+    const validation=validate();
+    if(validation){setError(validation);setMessage('');return;}
+    setBusy(true);setError('');setMessage('');
+    try{
+      const payload=plan.terms.map(t=>({
+        term_number:t.number,start:t.start,end:t.end,
+        evaluations:t.evals.map((e,i)=>({
+          number:i+1,
+          open:e.open?new Date(e.open).toISOString():'',
+          close:e.close?new Date(e.close).toISOString():'',
+        })),
+      }));
+      const result=await saveSimpleAcademicCalendar({
+        yearName:plan.yearName,
+        yearStart:plan.yearStart,
+        yearEnd:plan.yearEnd,
+        terms:payload,
+      });
+      await refresh();
+      setMessage(`Calendar saved. ${result?.terms_saved||0} term(s) and ${result?.evaluation_windows_saved||0} evaluation window(s) are connected to the school system.`);
+    }catch(e:any){setError(e?.message||'Calendar could not be saved.');}
+    finally{setBusy(false);}
+  }
 
-  return <AdminShell title="School Calendar"><div className="space-y-6">
+  async function repair(){
+    setBusy(true);setError('');setMessage('');
+    try{
+      await syncAcademicCalendarState();
+      await runCalendarAutomation();
+      await refresh();
+      setMessage('Calendar repaired and synchronised. Current-term status and due evaluation windows have been refreshed.');
+    }catch(e:any){setError(e?.message||'Calendar synchronisation failed.');}
+    finally{setBusy(false);}
+  }
 
-    {/* Hero */}
-    <section className="rounded-[2rem] bg-gradient-to-br from-slate-950 via-emerald-950 to-[#1a2a1a] p-6 text-white shadow-xl md:p-8">
-      <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">Academic calendar & automation</div>
-      <h2 className="mt-2 text-3xl font-black md:text-4xl">Set up your academic year in one go.</h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/75">Fill in all term dates and evaluation windows below, then click Save. The system creates all operational terms automatically. Go to Evaluations to assign classes once dates are set.</p>
-    </section>
+  return (
+    <AdminShell title="School Calendar">
+      <div className="space-y-6">
+        <section className="rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-950 to-slate-900 p-6 text-white shadow-xl md:p-8">
+          <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">School calendar</div>
+          <h2 className="mt-2 text-3xl font-black md:text-4xl">Set the dates once. Let the school run from them.</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">
+            Enter the session, three term dates and optional evaluation windows. The same calendar then drives the current-term status and evaluation schedule.
+          </p>
+        </section>
 
-    {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
+        {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
+        {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
 
-    {/* Active term banner */}
-    {current?.term && <div className="rounded-2xl bg-emerald-950 p-4 text-white flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-      <div><span className="text-xs font-black uppercase tracking-wider text-emerald-300">Currently active</span><div className="mt-1 text-lg font-black">{current.academic_year?.name} · {current.term.name} <span className="text-emerald-300 text-sm font-normal">({current.term.starts_on} → {current.term.ends_on})</span></div></div>
-      <span className="pill bg-emerald-700 text-emerald-100">Active term</span>
-    </div>}
+        <section className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Academic session</div>
+            <div className="mt-1 text-xl font-black">{plan.yearName || 'Not set'}</div>
+            <div className="mt-1 text-xs text-slate-500">{displayDate(plan.yearStart)} → {displayDate(plan.yearEnd)}</div>
+          </div>
+          <div className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Current term</div>
+            <div className="mt-1 text-xl font-black">{current?.term?.name || 'Not active'}</div>
+            <div className="mt-1 text-xs text-slate-500">{current?.term?.starts_on || '—'} → {current?.term?.ends_on || '—'}</div>
+          </div>
+          <div className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Next configured term</div>
+            <div className="mt-1 text-xl font-black">{nextTerm?.name || '—'}</div>
+            <div className="mt-1 text-xs text-slate-500">{nextTerm?.start ? displayDate(nextTerm.start) : 'No future term configured'}</div>
+          </div>
+        </section>
 
-    {/* ── YEAR PLANNER ── */}
-    <div className="rounded-3xl border-2 border-emerald-200 overflow-hidden">
-      <div className="bg-emerald-50 border-b border-emerald-200 p-5">
-        <h2 className="text-xl font-black text-emerald-950">Academic Year Planner</h2>
-        <p className="mt-1 text-sm text-slate-600">Fill in all dates once and save. Each term and evaluation window is created automatically.</p>
-      </div>
-
-      {/* Year header */}
-      <div className="border-b bg-white p-5">
-        <div className="text-xs font-black uppercase tracking-wide text-slate-500 mb-3">Academic session</div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <label className="text-xs font-bold text-slate-600">Year name (e.g. 2026/27)
-            <input className="input mt-1 w-full font-black" value={plan.yearName} onChange={e => setPlan(p => ({ ...p, yearName: e.target.value }))} placeholder="2026/27" />
-          </label>
-          <label className="text-xs font-bold text-slate-600">Session opens
-            <input className="input mt-1 w-full" type="date" value={plan.yearStart} onChange={e => setPlan(p => ({ ...p, yearStart: e.target.value }))} />
-          </label>
-          <label className="text-xs font-bold text-slate-600">Session closes
-            <input className="input mt-1 w-full" type="date" value={plan.yearEnd} onChange={e => setPlan(p => ({ ...p, yearEnd: e.target.value }))} />
-          </label>
-        </div>
-      </div>
-
-      {/* Term accordion blocks */}
-      {plan.terms.map((term, ti) => {
-        const isOpen = expandedTerm === ti;
-        const configured = term.start && term.end;
-        const evalCount = term.evals.filter(e => e.open && e.close).length;
-        return <div key={ti} className={`border-b ${isOpen ? 'bg-white' : 'bg-slate-50'}`}>
-          <button className="flex w-full items-center justify-between p-5 text-left hover:bg-slate-100 transition-colors" onClick={() => setExpandedTerm(isOpen ? -1 : ti)}>
-            <div className="flex items-center gap-4">
-              <div className={`flex h-10 w-10 items-center justify-center rounded-2xl font-black text-lg ${configured ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-500'}`}>T{ti + 1}</div>
+        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <div className="border-b bg-slate-50 p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="font-black">{TERM_LABELS[ti]}</div>
-                <div className="mt-0.5 text-xs text-slate-500">
-                  {configured ? `${term.start} → ${term.end}` : 'Dates not set'}
-                  {evalCount > 0 && <span className="ml-3 font-bold text-emerald-700">{evalCount}/3 eval windows set</span>}
+                <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">One simple setup screen</div>
+                <h2 className="mt-1 text-xl font-black text-slate-900">Academic session</h2>
+                <p className="mt-1 text-sm text-slate-500">The form loads the dates already saved in the database, so the admin does not have to re-enter them.</p>
+              </div>
+              <SectionBadge section="day" />
+            </div>
+          </div>
+          <div className="grid gap-4 p-5 sm:grid-cols-3">
+            <label className="text-xs font-black text-slate-600">Session name
+              <input className="input mt-1 w-full" value={plan.yearName} onChange={e=>setPlan(p=>({...p,yearName:e.target.value}))} placeholder="2026/27" />
+            </label>
+            <label className="text-xs font-black text-slate-600">Session opens
+              <input className="input mt-1 w-full" type="date" value={plan.yearStart} onChange={e=>setPlan(p=>({...p,yearStart:e.target.value}))} />
+            </label>
+            <label className="text-xs font-black text-slate-600">Session closes
+              <input className="input mt-1 w-full" type="date" value={plan.yearEnd} onChange={e=>setPlan(p=>({...p,yearEnd:e.target.value}))} />
+            </label>
+          </div>
+        </section>
+
+        <div className="space-y-4">
+          {plan.terms.map((term,ti)=>{
+            const configured=Boolean(term.start&&term.end);
+            return (
+              <section key={term.number} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b bg-slate-50 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className={`grid h-11 w-11 place-items-center rounded-2xl font-black ${configured?'bg-emerald-100 text-emerald-800':'bg-slate-200 text-slate-500'}`}>T{term.number}</div>
+                    <div>
+                      <h2 className="font-black text-slate-900">{term.name}</h2>
+                      <div className="mt-0.5 text-xs text-slate-500">{configured?`${displayDate(term.start)} → ${displayDate(term.end)}`:'Dates not configured yet'}</div>
+                    </div>
+                  </div>
+                  <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${configured?'bg-emerald-100 text-emerald-700':'bg-slate-100 text-slate-500'}`}>{configured?'Configured':'Not set'}</span>
                 </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {configured && <span className="pill bg-emerald-50 text-emerald-700">Configured</span>}
-              <span className="text-slate-400">{isOpen ? '▲' : '▼'}</span>
-            </div>
-          </button>
 
-          {isOpen && <div className="border-t p-5 space-y-5">
-            {/* Term dates */}
-            <div>
-              <div className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Term dates</div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="text-xs font-bold">Term starts<input className="input mt-1 w-full" type="date" value={term.start} onChange={e => setTermField(ti, 'start', e.target.value)} /></label>
-                <label className="text-xs font-bold">Term ends<input className="input mt-1 w-full" type="date" value={term.end} onChange={e => setTermField(ti, 'end', e.target.value)} /></label>
-              </div>
-            </div>
+                <div className="space-y-5 p-5">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label className="text-xs font-black text-slate-600">Term starts
+                      <input className="input mt-1 w-full" type="date" value={term.start} onChange={e=>updateTerm(ti,'start',e.target.value)} />
+                    </label>
+                    <label className="text-xs font-black text-slate-600">Term ends
+                      <input className="input mt-1 w-full" type="date" value={term.end} onChange={e=>updateTerm(ti,'end',e.target.value)} />
+                    </label>
+                  </div>
 
-            {/* Evaluation windows */}
-            <div>
-              <div className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Evaluation windows — set open & close dates for each</div>
-              <div className="space-y-3">
-                {term.evals.map((ev, ei) => {
-                  const done = ev.open && ev.close;
-                  return <div key={ei} className={`rounded-2xl border p-4 ${done ? 'border-emerald-200 bg-emerald-50' : 'bg-slate-50'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <div className={`flex h-7 w-7 items-center justify-center rounded-xl text-xs font-black ${done ? 'bg-emerald-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{ei + 1}</div>
-                        <span className="text-sm font-black">Evaluation {ei + 1}</span>
-                        {done && <span className="text-xs font-bold text-emerald-700">✓ Set</span>}
-                      </div>
+                  <div>
+                    <div className="mb-3">
+                      <div className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Evaluation windows</div>
+                      <div className="mt-1 text-xs text-slate-400">Optional. Each window must sit inside this term.</div>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <label className="text-xs font-bold text-slate-600">Window opens
-                        <input className="input mt-1 w-full" type="datetime-local" value={ev.open} onChange={e => setEvalField(ti, ei, 'open', e.target.value)} />
-                      </label>
-                      <label className="text-xs font-bold text-slate-600">Window closes
-                        <input className="input mt-1 w-full" type="datetime-local" value={ev.close} min={ev.open || undefined} onChange={e => setEvalField(ti, ei, 'close', e.target.value)} />
-                      </label>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      {term.evals.map((ev,ei)=>(
+                        <div key={ei} className="rounded-2xl border bg-slate-50 p-4">
+                          <div className="mb-3 flex items-center justify-between">
+                            <span className="text-sm font-black text-slate-800">Evaluation {ei+1}</span>
+                            {ev.open&&ev.close && <span className="text-[10px] font-black text-emerald-700">Set</span>}
+                          </div>
+                          <label className="block text-[11px] font-bold text-slate-500">Opens
+                            <input className="input mt-1 w-full" type="datetime-local" value={ev.open} onChange={e=>updateEval(ti,ei,'open',e.target.value)} />
+                          </label>
+                          <label className="mt-3 block text-[11px] font-bold text-slate-500">Closes
+                            <input className="input mt-1 w-full" type="datetime-local" value={ev.close} min={ev.open||undefined} onChange={e=>updateEval(ti,ei,'close',e.target.value)} />
+                          </label>
+                        </div>
+                      ))}
                     </div>
-                  </div>;
-                })}
-              </div>
-            </div>
-          </div>}
-        </div>;
-      })}
+                  </div>
+                </div>
+              </section>
+            );
+          })}
+        </div>
 
-      {/* Save button */}
-      <div className="flex flex-col gap-3 bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-slate-500">Saving creates all operational terms and saves evaluation window dates for reference. Classes are assigned on the Evaluations page.</p>
-        <button className="btn btn-primary shrink-0 px-8 py-3 text-base" disabled={busy || !plan.yearName} onClick={saveYearPlan}>{busy ? 'Saving…' : '💾 Save year setup'}</button>
-      </div>
-    </div>
-
-    {/* ── LIFECYCLE CONTROL CENTER ── */}
-    {terms.length > 0 && <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-      <div className="border-b bg-slate-950 p-5 text-white">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-amber-300">Academic lifecycle</div>
-            <h2 className="mt-1 text-xl font-black">Controlled term & session progression</h2>
-            <p className="mt-1 max-w-3xl text-sm leading-6 text-white/65">The system now advances in order: prepare → close term → prepare successor → open on its start date. At the end of Third Term, close the session, then open the next academic session.</p>
+        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
+          <div className="font-black text-amber-950">How this works</div>
+          <p className="mt-1 max-w-4xl text-sm leading-6 text-amber-900">
+            The admin only needs to maintain this page. Saving updates the official academic year and term records, links evaluation windows to their terms, refreshes the current-term status, and processes any evaluation windows whose dates have arrived. Teachers, finance and other modules read the same term records.
+          </p>
+          <div className="mt-3 text-xs font-semibold text-amber-800">
+            Existing database records loaded: {savedTerms.length} terms · {events.length} calendar events.
           </div>
-          {cycle?.session && <span className="rounded-full bg-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-wide text-emerald-200">{cycle.session.name} · {cycle.session.status}</span>}
-        </div>
-      </div>
+        </section>
 
-      <div className="grid gap-4 p-5 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-2xl border bg-slate-50 p-4">
-          <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Current stage</div>
-          {cycle?.current_term ? (
-            <>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <div className="text-lg font-black text-slate-900">{cycle.session?.name} · {cycle.current_term.name}</div>
-                <span className="rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black uppercase text-emerald-700">{cycle.current_term.status}</span>
-              </div>
-              <div className="mt-1 text-xs text-slate-500">{cycle.current_term.starts_on} → {cycle.current_term.ends_on}</div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {cycle.current_term.status === 'historical_baseline' && (
-                  <span className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900">Protected historical baseline — use the verification/start control below.</span>
-                )}
-                {cycle.can_close_current_term && (
-                  <button className="btn bg-amber-600 text-white hover:bg-amber-700" disabled={busy} onClick={() => {
-                    if (confirm(`Close ${cycle.current_term.name}? This finalizes the term record and report-card snapshots. The next term will not open automatically.`)) runLifecycle('closeTerm');
-                  }}>{busy ? 'Processing…' : 'Close Current Term'}</button>
-                )}
-                {!cycle.can_close_current_term && cycle.current_term.status === 'digital_active' && (
-                  <span className="rounded-xl bg-white px-3 py-2 text-xs font-bold text-slate-600 border">Not ready to close · {cycle.missing_current_evaluations || 0} students missing approved evaluations</span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="mt-1 text-lg font-black text-slate-900">No term currently open</div>
-              <div className="mt-1 text-xs text-slate-500">The session is between terms or awaiting a new session opening.</div>
-            </>
-          )}
-        </div>
-
-        <div className="rounded-2xl border bg-white p-4">
-          <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Next controlled action</div>
-          {cycle?.next_term ? (
-            <>
-              <div className="mt-1 text-lg font-black text-slate-900">{cycle.next_term.name}</div>
-              <div className="mt-1 text-xs text-slate-500">{cycle.next_term.starts_on} → {cycle.next_term.ends_on} · {cycle.next_term.status}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {cycle.current_term?.status === 'digital_closed' || cycle.current_term?.status === 'historical_closed' ? (
-                  <button className="btn bg-slate-900 text-white" disabled={busy} onClick={() => runLifecycle('prepareNext')}>Prepare Next Term</button>
-                ) : null}
-                {cycle.can_open_next_term && (
-                  <button className="btn bg-emerald-700 text-white hover:bg-emerald-800" disabled={busy} onClick={() => {
-                    if (confirm(`Open ${cycle.next_term.name}? Student placement and teacher assignment checks will run before activation.`)) runLifecycle('openNext');
-                  }}>{busy ? 'Processing…' : 'Open Next Term'}</button>
-                )}
-                {cycle.next_term.status === 'prepared' && !cycle.can_open_next_term && (
-                  <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 border">Prepared · opens on {cycle.next_term.starts_on}</span>
-                )}
-              </div>
-            </>
-          ) : cycle?.next_session ? (
-            <>
-              <div className="mt-1 text-lg font-black text-slate-900">Next session · {cycle.next_session.name}</div>
-              <div className="mt-1 text-xs text-slate-500">{cycle.next_session.starts_on} → {cycle.next_session.ends_on} · {cycle.next_session.status}</div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {cycle.can_open_next_session && (
-                  <button className="btn bg-emerald-700 text-white hover:bg-emerald-800" disabled={busy} onClick={() => {
-                    if (confirm(`Open academic session ${cycle.next_session.name}? Returning Year 1 students will advance to Year 2 and new-session placements will be prepared.`)) runLifecycle('openSession');
-                  }}>{busy ? 'Processing…' : 'Open New Session'}</button>
-                )}
-                {!cycle.can_open_next_session && <span className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-bold text-slate-600 border">Scheduled · opens on {cycle.next_session.starts_on}</span>}
-              </div>
-            </>
-          ) : (
-            <div className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">No successor is configured yet. Use the Academic Year Planner above to create the next session and its three terms.</div>
-          )}
-        </div>
-      </div>
-
-      {cycle?.session?.id && cycle.can_close_session && (
-        <div className="border-t bg-amber-50 p-5">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="text-sm font-black text-amber-950">Session closure is ready</div>
-              <p className="mt-1 text-xs leading-5 text-amber-900/75">All configured terms in {cycle.session.name} are closed and there is no active term. Closing the session freezes its lifecycle and clears the current-cycle pointer.</p>
-            </div>
-            <button className="btn bg-amber-700 text-white hover:bg-amber-800" disabled={busy} onClick={() => {
-              if (confirm(`Close academic session ${cycle.session.name}? This is the final administrative close for the session.`)) runLifecycle('closeSession');
-            }}>{busy ? 'Processing…' : 'Close Academic Session'}</button>
-          </div>
-        </div>
-      )}
-
-      <div className="border-t p-5">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-sm font-black text-slate-900">Placement checkpoint</div>
-            <p className="mt-1 text-xs text-slate-500">A new term/session will not become active until every active student has an enrollment, a class in the correct academic session, and a teacher assigned to that class.</p>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-slate-400">Last saved dates are loaded automatically whenever this page opens.</div>
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600">Next-term placement pending: {cycle?.next_term_placement_pending ?? '—'}</span>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-black uppercase text-slate-600">Next-session placement pending: {cycle?.next_session_placement_pending ?? '—'}</span>
-            {cycle?.current_term && !cycle.can_close_current_term && cycle.current_term.status === 'digital_active' && <span className="rounded-full bg-amber-100 px-3 py-1.5 text-[10px] font-black uppercase text-amber-800">Evaluation completion required before close</span>}
+            <button className="btn bg-slate-100 text-slate-800" disabled={busy} onClick={()=>refresh().catch(e=>setError(e?.message||'Refresh failed.'))}>↻ Reload saved dates</button>
+            <button className="btn bg-amber-100 text-amber-900" disabled={busy} onClick={repair}>Repair &amp; sync calendar</button>
+            <button className="btn btn-primary px-7 py-3" disabled={busy} onClick={save}>{busy?'Saving…':'Save calendar'}</button>
           </div>
         </div>
       </div>
-    </section>}
-
-    {/* Historical import / digital-start controls */}
-    {terms.length > 0 && current?.term?.term_number === 1 && current?.term?.lifecycle_status === 'historical_baseline' && <section className="card p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-black">First-Term historical baseline</h2>
-          <p className="mt-1 text-sm text-slate-500">The imported First Term remains protected. Verify the baseline, then start Second Term through the controlled digital launch.</p>
-          <div className="mt-2 text-xs font-bold text-slate-600">Baseline: {baseline?.baseline_rows ?? 0}/{baseline?.active_students ?? 0} students · {baseline?.missing_baseline ?? '—'} missing · {baseline?.missing_quran_position ?? '—'} missing Qur’an positions</div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {!historicalVerified && <button className="btn bg-slate-900 text-white" disabled={busy} onClick={async()=>{setBusy(true);try{await captureHistoricalBaseline();await saveCMSSetting('amqm_historical_import_verified',true);setHistoricalVerified(true);setBaseline(await loadHistoricalBaselineReadiness());setMessage('Historical baseline captured and verified. No historical records were deleted.');await refresh()}catch(e:any){setMessage(e?.message||'Baseline verification failed')}finally{setBusy(false)}}}>Verify & Capture Baseline</button>}
-          {historicalVerified && baseline?.ready && <button className="btn bg-emerald-700 text-white" disabled={busy} onClick={async()=>{if(!confirm('This will archive First Term and make Second Term the first fully digital operational term. No historical evaluations will be deleted. Continue?'))return;setBusy(true);try{const r=await closeHistoricalFirstTermStartSecond('Historical First Term imported baseline closed; Second Term digital operations started.');setMessage(r?.message||'Second Term digital operations started.');await refresh()}catch(e:any){setMessage(e?.message||'Digital school transition failed')}finally{setBusy(false)}}}>Start Digital Second Term</button>}
-          {historicalVerified && <span className="pill bg-emerald-100 text-emerald-800">✓ Historical baseline verified</span>}
-        </div>
-      </div>
-    </section>}
-
-
-    {/* Timeline */}
-    {(terms.length > 0 || events.length > 0) && <section className="card overflow-hidden">
-      <div className="border-b p-5"><h2 className="text-lg font-black">Configured calendar</h2></div>
-      <div className="divide-y">
-
-        {/* Operational terms */}
-        {terms.length > 0 && <div className="p-5">
-          <div className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">Operational terms</div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {[...terms].sort((a,b)=>(a.starts_on||'').localeCompare(b.starts_on||'')).map(t => <div key={t.id} className={`rounded-2xl p-4 border ${current?.term_id === t.id ? 'border-emerald-500 bg-emerald-50' : 'bg-slate-50'}`}>
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-black uppercase tracking-wide text-slate-500">{academicYearName(t.academic_years)}</div>
-                {current?.term_id === t.id && <span className="pill bg-emerald-600 text-white text-[10px]">Active</span>}
-              </div>
-              <div className="mt-1 font-black">{t.name}</div>
-              <div className="mt-1 text-xs text-slate-500">{t.starts_on} → {t.ends_on}</div>
-            </div>)}
-          </div>
-        </div>}
-
-        {/* Session events */}
-        {sessionEvents.length > 0 && <div className="p-5">
-          <div className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">Session events</div>
-          <div className="space-y-2">
-            {sessionEvents.map(e => <EventRow key={e.id} event={e} onDelete={async () => { await deleteSchoolCalendarEvent(e.id); await refresh(); }} />)}
-          </div>
-        </div>}
-
-        {/* Evaluation windows */}
-        {evalEvents.length > 0 && <div className="p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <div className="text-xs font-black uppercase tracking-wide text-slate-400">Evaluation windows</div>
-            <span className="pill bg-emerald-50 text-emerald-700 text-[10px]">Calendar controlled</span>
-          </div>
-          <div className="space-y-2">
-            {evalEvents.map(e => <EventRow key={e.id} event={e} onDelete={async () => { await deleteSchoolCalendarEvent(e.id); await refresh(); }} />)}
-          </div>
-        </div>}
-
-        {/* Other events */}
-        {otherEvents.length > 0 && <div className="p-5">
-          <div className="mb-3 text-xs font-black uppercase tracking-wide text-slate-400">Other events</div>
-          <div className="space-y-2">
-            {otherEvents.map(e => <EventRow key={e.id} event={e} onDelete={async () => { await deleteSchoolCalendarEvent(e.id); await refresh(); }} />)}
-          </div>
-        </div>}
-
-        {terms.length === 0 && events.length === 0 && <div className="p-10 text-center text-sm text-slate-400">No academic year has been configured yet. Fill in the planner above and click Save.</div>}
-      </div>
-    </section>}
-
-  </div></AdminShell>;
-}
-
-function EventRow({ event, onDelete }: { event: any; onDelete: () => void }) {
-  const typeColors: Record<string, string> = {
-    school_opening: 'bg-emerald-50 text-emerald-700', school_closing: 'bg-rose-50 text-rose-700',
-    evaluation_1: 'bg-amber-50 text-amber-700', evaluation_2: 'bg-amber-50 text-amber-700', evaluation_3: 'bg-amber-50 text-amber-700', holiday: 'bg-blue-50 text-blue-700',
-  };
-  const cls = typeColors[event.event_type] || 'bg-slate-50 text-slate-600';
-  const start = event.starts_at ? new Date(event.starts_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : event.starts_on;
-  const end = event.ends_at ? new Date(event.ends_at).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : event.ends_on;
-  return <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 p-3">
-    <div className="flex flex-wrap items-center gap-2">
-      <span className={`pill ${cls}`}>{event.event_type.replaceAll('_', ' ')}</span>
-      <span className="font-semibold text-sm">{event.title}</span>
-      <span className="text-xs text-slate-400">{start}{end && end !== start ? ` → ${end}` : ''}</span>
-    </div>
-    <button className="shrink-0 rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-600 hover:bg-rose-100" onClick={onDelete}>Delete</button>
-  </div>;
+    </AdminShell>
+  );
 }
