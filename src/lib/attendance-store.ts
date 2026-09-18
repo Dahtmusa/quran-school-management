@@ -228,9 +228,48 @@ export async function loadChildAttendance(studentId: string, limit = 60): Promis
 }
 
 
-export async function recordTeacherBoardingAttendance(studentId:string,statusCode:string='present',period:string='morning',note?:string){
-  const {data,error}=await supabase().rpc('teacher_record_boarding_attendance',{p_student_id:studentId,p_status_code:statusCode,p_period:period,p_note:note||null});
-  if(error) throw error; return data as string;
+export async function recordTeacherBoardingAttendance(
+  studentId:string,
+  statusCode:string='present',
+  period:string='morning',
+  note?:string,
+  attendanceDate?:string
+){
+  const {data,error}=await supabase().rpc('teacher_record_boarding_attendance',{
+    p_student_id:studentId,
+    p_status_code:statusCode,
+    p_period:period,
+    p_note:note||null,
+    p_attendance_date:attendanceDate || new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'}),
+  });
+  if(error) throw error;
+  return data as string;
+}
+
+export type TeacherBoardingAttendanceHistoryRow = TeacherBoardingAttendanceRow & {
+  attendanceDate:string;
+  reviewStatus:string;
+  recordedAt:string;
+};
+
+export async function loadTeacherBoardingAttendanceHistory(fromDate:string,toDate:string,period:string='morning'):Promise<TeacherBoardingAttendanceHistoryRow[]>{
+  const {data,error}=await supabase().rpc('teacher_boarding_attendance_history',{
+    p_from_date:fromDate,
+    p_to_date:toDate,
+  });
+  if(error) throw error;
+  return (data||[]).filter((row:any)=>!period || true).map((row:any)=>({
+    studentId:row.student_id,
+    fullName:row.full_name,
+    admissionNo:row.admission_no??null,
+    className:row.class_name??null,
+    statusCode:row.status_code??null,
+    statusLabel:row.status_label??null,
+    statusColor:row.status_color??null,
+    attendanceDate:row.attendance_date,
+    reviewStatus:row.review_status,
+    recordedAt:row.recorded_at,
+  }));
 }
 
 
