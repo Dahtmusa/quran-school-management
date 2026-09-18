@@ -22,6 +22,10 @@ function clearDraft(evalId: string) {
   try { localStorage.removeItem(`eval_${evalId}`); } catch {}
 }
 
+function teacherHonorific(profile:any): string {
+  return String(profile?.gender || '').toLowerCase() === 'female' ? 'Malama' : 'Malam';
+}
+
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
@@ -167,9 +171,9 @@ export default function TeacherDashboard() {
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-[11px] font-bold uppercase tracking-[.24em] text-amber-300">Teacher workspace</div>
-          {me?.full_name && <h2 className="mt-1 text-3xl font-black md:text-4xl">As-salāmu ʿalaykum, {me.full_name.split(' ')[0]}.</h2>}
+          {me?.full_name && <h2 className="mt-1 text-3xl font-black md:text-4xl">As-salāmu ʿalaykum, {teacherHonorific(me)} {me.full_name.split(' ')[0]}.</h2>}
           {!me?.full_name && <h2 className="mt-1 text-3xl font-black md:text-4xl">Your students. Your impact.</h2>}
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">Evaluate all students in your class before submitting. Progress saves automatically so you can continue where you left off.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">{teacherHonorific(me)} {me?.full_name || 'Teacher'} · Manage your assigned students, boarding attendance and Quran evaluations from one workspace.</p>
         </div>
         <button onClick={() => setProfileOpen(true)} className="flex items-center gap-3 rounded-2xl bg-white/10 p-2 pr-4 text-left backdrop-blur hover:bg-white/20 transition-colors">
           <div className="h-12 w-12 overflow-hidden rounded-full bg-white/15">{me?.avatar_url ? <img src={me.avatar_url} className="h-full w-full object-cover" alt="Profile" /> : <div className="grid h-full place-items-center text-lg font-black">{me?.full_name?.charAt(0)||'T'}</div>}</div>
