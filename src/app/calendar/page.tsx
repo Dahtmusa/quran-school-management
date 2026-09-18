@@ -138,8 +138,9 @@ export default function CalendarAdmin() {
         if (!cycle?.current_term?.id) throw new Error('There is no current digital term to close.');
         result = await closeCurrentTerm(cycle.current_term.id);
       } else if (action === 'prepareNext') {
-        if (!cycle?.current_term?.id) throw new Error('The current term is already closed.');
-        result = await prepareNextTerm(cycle.current_term.id);
+        const sourceTermId = cycle?.current_term?.id || cycle?.last_closed_term?.id;
+        if (!sourceTermId) throw new Error('No closed term is available to prepare a successor.');
+        result = await prepareNextTerm(sourceTermId);
       } else if (action === 'openNext') {
         if (!cycle?.next_term?.id) throw new Error('There is no next configured term.');
         result = await openAcademicTerm(cycle.next_term.id);
@@ -403,7 +404,6 @@ export default function CalendarAdmin() {
       </div>
     </section>}
 
-    <!-- intentionally no manual term selector; lifecycle actions are sequential -->
 
     {/* Timeline */}
     {(terms.length > 0 || events.length > 0) && <section className="card overflow-hidden">
