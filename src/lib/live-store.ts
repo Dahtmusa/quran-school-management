@@ -295,22 +295,23 @@ export async function updateStudentClass(studentId: string, classId: string | nu
       teacherId = teacher?.teacher_id ?? null;
     }
 
-    const { error: enrollmentError } = await client
-      .from('student_enrollments')
-      .update({ class_id: classId || null, teacher_id: teacherId })
-      .eq('student_id', studentId)
-      .eq('status', 'active')
-      .in(
-        'term_id',
-        (await client
-          .from('terms')
-          .select('id')
-          .eq('academic_year_id', cycle.current_academic_year_id)
-          .in('lifecycle_status', ['scheduled', 'prepared', 'digital_active']))
-          .data?.map((row: any) => row.id) || []
-      );
+    const { data: operationalTerms } = await client
+      .from('terms')
+      .select('id')
+      .eq('academic_year_id', cycle.current_academic_year_id)
+      .in('lifecycle_status', ['scheduled', 'prepared', 'digital_active']);
 
-    if (enrollmentError) throw enrollmentError;
+    const termIds = (operationalTerms || []).map((row: any) => row.id);
+    if (termIds.length) {
+      const { error: enrollmentError } = await client
+        .from('student_enrollments')
+        .update({ class_id: classId || null, teacher_id: teacherId })
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+        .in('term_id', termIds);
+
+      if (enrollmentError) throw enrollmentError;
+    }
   }
 }
 export async function createStudent(input: {
