@@ -232,3 +232,31 @@ export async function recordTeacherBoardingAttendance(studentId:string,statusCod
   const {data,error}=await supabase().rpc('teacher_record_boarding_attendance',{p_student_id:studentId,p_status_code:statusCode,p_period:period,p_note:note||null});
   if(error) throw error; return data as string;
 }
+
+
+export type TeacherBoardingAttendanceRow = {
+  studentId: string;
+  fullName: string;
+  admissionNo: string | null;
+  className: string | null;
+  statusCode: string | null;
+  statusLabel: string | null;
+  statusColor: string | null;
+};
+
+export async function loadTeacherBoardingAttendanceToday(date?: string, period: string = 'morning'): Promise<TeacherBoardingAttendanceRow[]> {
+  const { data, error } = await supabase().rpc('teacher_boarding_attendance_snapshot', {
+    p_attendance_date: date || new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
+    p_period: period,
+  });
+  if (error) throw error;
+  return (data || []).map((row: any) => ({
+    studentId: row.student_id,
+    fullName: row.full_name,
+    admissionNo: row.admission_no ?? null,
+    className: row.class_name ?? null,
+    statusCode: row.status_code ?? null,
+    statusLabel: row.status_label ?? null,
+    statusColor: row.status_color ?? null,
+  }));
+}
