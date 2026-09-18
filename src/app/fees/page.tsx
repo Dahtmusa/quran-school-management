@@ -753,7 +753,7 @@ export default function Fees() {
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-emerald-300">{v.paidThisTerm > 0 ? `${currency} ${v.paidThisTerm.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-blue-300">{v.payable > 0 ? `${currency} ${v.payable.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-rose-400">{bal > 0 ? `${currency} ${bal.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${st==='full'?'bg-emerald-500/15 text-emerald-300':st==='partial'?'bg-amber-500/15 text-amber-300':st==='unpaid'?'bg-rose-500/15 text-rose-300':'bg-slate-800 text-slate-500'}`}>{pillLabel(st)}</span></td>
+                    <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${st==='full'?'bg-emerald-500/15 text-emerald-300':st==='partial'?'bg-amber-500/15 text-amber-300':st==='unpaid'?'bg-rose-500/15 text-rose-300':st==='exempted'?'bg-violet-500/15 text-violet-300':'bg-slate-800 text-slate-500'}`}>{pillLabel(st)}</span></td>
                     <td className="w-[430px] whitespace-nowrap px-4 py-3">
                       <div className="flex min-w-max justify-end gap-1.5">
                         {st === 'exempted' ? (
