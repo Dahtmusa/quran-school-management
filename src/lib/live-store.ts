@@ -589,6 +589,57 @@ export async function setCurrentAcademicTerm(termId:string){
   if(error) throw error; return data;
 }
 
+export async function loadAcademicCycleSnapshot() {
+  const { data, error } = await supabase().rpc('amqm_cycle_snapshot');
+  if (error) throw error;
+  return data as any;
+}
+
+export async function prepareNextTerm(termId: string, notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_prepare_next_term', {
+    p_term_id: termId,
+    p_notes: notes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function closeCurrentTerm(termId: string, notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_close_current_term', {
+    p_term_id: termId,
+    p_notes: notes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function openAcademicTerm(termId: string, notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_open_term', {
+    p_term_id: termId,
+    p_notes: notes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function closeAcademicSession(academicYearId: string, notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_close_session', {
+    p_academic_year_id: academicYearId,
+    p_notes: notes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
+export async function openAcademicSession(academicYearId: string, notes?: string) {
+  const { data, error } = await supabase().rpc('amqm_open_session', {
+    p_academic_year_id: academicYearId,
+    p_notes: notes || null,
+  });
+  if (error) throw error;
+  return data as any;
+}
+
 export async function loadStudentExtended(studentId:string){
   const {data,error}=await supabase().from('students').select('blood_group,genotype,home_address,nationality,state_of_origin,local_government,parent_name,parent_phone,parent_email,guardian_name,guardian_phone,guardian_email,guardian_relationship,emergency_contact_name,emergency_contact_phone,date_of_birth,gender').eq('id',studentId).maybeSingle();
   if(error||!data) return null; return data;
