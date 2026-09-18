@@ -6,7 +6,7 @@ import { loadAdminTeam, saveTeamProfile, deleteTeamProfile, loadCMSSettings } fr
 import { printAcademicIdCard } from '@/lib/id-card';
 import { useEffect, useState, useMemo } from 'react';
 
-type StaffProfile={id:string;full_name:string;role:string;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
+type StaffProfile={id:string;full_name:string;role:string;gender:string|null;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
 
 const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principal','Vice Principal','Head of Academics','Administrative Officer','Other'];
@@ -72,7 +72,7 @@ export default function StaffPage(){
    try{
      let avatar_url=editT.avatar_url;
      if(photoFile){avatar_url=await uploadProfileImage(photoFile,'staff');}
-     await updateStaffProfile(editT.id,{full_name:editT.full_name,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null,preferred_email:editT.preferred_email?.trim().toLowerCase()||null});
+     await updateStaffProfile(editT.id,{full_name:editT.full_name,gender:editT.gender,phone:editT.phone,job_title:editT.job_title,department:editT.department,employment_status:editT.employment_status,avatar_url,bio:editT.bio,show_on_website:editT.show_on_website,username:editT.username?.trim().toLowerCase()||null,qualifications:editT.qualifications||null,experience:editT.experience||null,subjects:editT.subjects||null,preferred_email:editT.preferred_email?.trim().toLowerCase()||null});
      const newEmail=(editT.email||'').trim().toLowerCase();
      const emailChanged=newEmail&&newEmail!==editTOrigEmail;
      const pwChanged=newPassword.trim().length>=8;
@@ -388,6 +388,7 @@ export default function StaffPage(){
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Profile</div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold sm:col-span-2">Full name<input className="input mt-1 w-full" value={editT.full_name} onChange={e=>setEditT({...editT,full_name:e.target.value})}/></label>
+         <label className="text-xs font-bold">Gender<select className="input mt-1 w-full" value={editT.gender||''} onChange={e=>setEditT({...editT,gender:e.target.value||null})}><option value="">Not set</option><option value="male">Male</option><option value="female">Female</option></select></label>
          <label className="text-xs font-bold">Phone<input className="input mt-1 w-full" value={editT.phone||''} onChange={e=>setEditT({...editT,phone:e.target.value||null})}/></label>
          <label className="text-xs font-bold">Employment status<select className="input mt-1 w-full" value={editT.employment_status} onChange={e=>setEditT({...editT,employment_status:e.target.value})}>{STATUS_OPTS.map(s=><option key={s} value={s}>{s}</option>)}</select></label>
          <label className="text-xs font-bold">Job title<input className="input mt-1 w-full" value={editT.job_title||''} onChange={e=>setEditT({...editT,job_title:e.target.value||null})}/></label>
