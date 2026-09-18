@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Student } from '@/lib/data';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadCMSSettings, saveCMSSetting } from '@/lib/cms-live-store';
+import FinanceExemptionPortal from '@/components/FinanceExemptionPortal';
 
 const tLabel = (t: any) => t?.term_number === 1 ? 'First Term' : t?.term_number === 2 ? 'Second Term' : t?.term_number === 3 ? 'Third Term' : t?.name || 'Term';
 
