@@ -168,14 +168,91 @@ export default function TeacherAttendancePage(){
         </div>
       </section>}
 
-      {(tab==='history'||tab==='progress')&&<section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 lg:flex-row lg:items-end lg:justify-between">
-          <div><div className="text-xs font-black uppercase tracking-wide text-slate-500">Date range</div><div className="mt-1 text-lg font-black text-slate-900">Boarding attendance record</div><p className="mt-1 text-xs text-slate-500">History is read-only. Teachers can never create a future attendance record.</p></div>
-          <div className="flex flex-wrap gap-2"><label className="text-xs font-bold text-slate-500">From<input type="date" value={fromDate} max={today} onChange={e=>setFromDate(e.target.value)} className="input mt-1 h-10"/></label><label className="text-xs font-bold text-slate-500">To<input type="date" value={toDate} max={today} onChange={e=>setToDate(e.target.value)} className="input mt-1 h-10"/></label><button onClick={refreshHistory} className="self-end rounded-xl border px-4 py-2 text-sm font-black hover:bg-white">Refresh</button></div>
-        </div>
-        {tab==='history'?(<div className="overflow-x-auto">{historyLoading?<div className="p-10 text-center text-sm text-slate-400">Loading history…</div>:<table className="w-full min-w-[900px] text-left text-sm"><thead className="text-[10px] uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Date</th><th>Student</th><th>Class</th><th>Status</th><th>Review</th><th>Recorded</th></tr></thead><tbody>{history.map(h=><tr key={`${h.studentId}-${h.attendanceDate}-${h.recordedAt}`} className="border-t"><td className="px-5 py-3 font-semibold text-slate-600">{fmtDate(h.attendanceDate)}</td><td className="font-black">{h.fullName}<div className="text-xs font-normal text-slate-400">{h.admissionNo||'—'}</div></td><td className="text-xs text-slate-500">{h.className||'—'}</td><td><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase">{h.statusLabel||h.statusCode}</span></td><td className="text-xs capitalize text-slate-500">{h.reviewStatus}</td><td className="text-xs text-slate-400">{new Date(h.recordedAt).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'})}</td></tr>)}{!history.length&&<tr><td colSpan={6} className="p-10 text-center text-sm text-slate-400">No boarding attendance records in this range.</td></tr>}</tbody></table>}</div>):(<div className="overflow-x-auto">{historyLoading?<div className="p-10 text-center text-sm text-slate-400">Calculating progress…</div>:<table className="w-full min-w-[900px] text-left text-sm"><thead className="text-[10px] uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Student</th><th>Recorded days</th><th>Present</th><th>Late</th><th>Absent</th><th>Excused</th><th>Coverage</th><th>Presence rate*</th></tr></thead><tbody>{progress.map(p=>{const rate=p.possible?Math.round(((p.present+p.late)/p.possible)*100):0;const cov=p.possible?Math.round((p.recorded/p.possible)*100):0;return <tr key={p.row.studentId} className="border-t"><td className="px-5 py-3 font-black">{p.row.fullName}<div className="text-xs font-normal text-slate-400">{p.row.className||'—'}</div></td><td>{p.recorded}/{p.possible}</td><td className="font-bold text-emerald-700">{p.present}</td><td className="font-bold text-amber-700">{p.late}</td><td className="font-bold text-rose-700">{p.absent}</td><td className="font-bold text-blue-700">{p.excused}</td><td>{cov}%</td><td className="font-black text-slate-700">{rate}%</td></tr>);})}</tbody></table>}
-          <div className="border-t p-4 text-[11px] text-slate-400">* Presence rate counts Present + Late as attended and uses calendar days in the selected range as the denominator.</div></div>)}
-      </section>}
+      {(tab === 'history' || tab === 'progress') && (
+        <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <div className="text-xs font-black uppercase tracking-wide text-slate-500">Date range</div>
+              <div className="mt-1 text-lg font-black text-slate-900">Boarding attendance record</div>
+              <p className="mt-1 text-xs text-slate-500">History is read-only. Teachers cannot create future attendance records.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <label className="text-xs font-bold text-slate-500">
+                From
+                <input type="date" value={fromDate} max={today} onChange={e => setFromDate(e.target.value)} className="input mt-1 h-10" />
+              </label>
+              <label className="text-xs font-bold text-slate-500">
+                To
+                <input type="date" value={toDate} max={today} onChange={e => setToDate(e.target.value)} className="input mt-1 h-10" />
+              </label>
+              <button onClick={refreshHistory} className="self-end rounded-xl border px-4 py-2 text-sm font-black hover:bg-white">Refresh</button>
+            </div>
+          </div>
+
+          {tab === 'history' ? (
+            <div className="overflow-x-auto">
+              {historyLoading ? (
+                <div className="p-10 text-center text-sm text-slate-400">Loading history…</div>
+              ) : (
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
+                    <tr>
+                      <th className="px-5 py-3">Date</th><th>Student</th><th>Class</th><th>Status</th><th>Review</th><th>Recorded</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map(h => (
+                      <tr key={`${h.studentId}-${h.attendanceDate}-${h.recordedAt}`} className="border-t">
+                        <td className="px-5 py-3 font-semibold text-slate-600">{fmtDate(h.attendanceDate)}</td>
+                        <td className="font-black">{h.fullName}<div className="text-xs font-normal text-slate-400">{h.admissionNo || '—'}</div></td>
+                        <td className="text-xs text-slate-500">{h.className || '—'}</td>
+                        <td><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase">{h.statusLabel || h.statusCode}</span></td>
+                        <td className="text-xs capitalize text-slate-500">{h.reviewStatus}</td>
+                        <td className="text-xs text-slate-400">{new Date(h.recordedAt).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit'})}</td>
+                      </tr>
+                    ))}
+                    {!history.length && <tr><td colSpan={6} className="p-10 text-center text-sm text-slate-400">No boarding attendance records in this range.</td></tr>}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              {historyLoading ? (
+                <div className="p-10 text-center text-sm text-slate-400">Calculating progress…</div>
+              ) : (
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
+                    <tr>
+                      <th className="px-5 py-3">Student</th><th>Recorded days</th><th>Present</th><th>Late</th><th>Absent</th><th>Excused</th><th>Coverage</th><th>Presence rate*</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {progress.map(p => {
+                      const rate = p.possible ? Math.round(((p.present + p.late) / p.possible) * 100) : 0;
+                      const cov = p.possible ? Math.round((p.recorded / p.possible) * 100) : 0;
+                      return (
+                        <tr key={p.row.studentId} className="border-t">
+                          <td className="px-5 py-3 font-black">{p.row.fullName}<div className="text-xs font-normal text-slate-400">{p.row.className || '—'}</div></td>
+                          <td>{p.recorded}/{p.possible}</td>
+                          <td className="font-bold text-emerald-700">{p.present}</td>
+                          <td className="font-bold text-amber-700">{p.late}</td>
+                          <td className="font-bold text-rose-700">{p.absent}</td>
+                          <td className="font-bold text-blue-700">{p.excused}</td>
+                          <td>{cov}%</td>
+                          <td className="font-black text-slate-700">{rate}%</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+              <div className="border-t p-4 text-[11px] text-slate-400">* Presence rate counts Present + Late as attended and uses calendar days in the selected range as the denominator.</div>
+            </div>
+          )}
+        </section>
+      )}
+
     </div>
   </AdminShell>;
 }
