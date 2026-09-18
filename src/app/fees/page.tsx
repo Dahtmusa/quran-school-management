@@ -712,8 +712,22 @@ export default function Fees() {
           </div>
 
           {/* Status filter strip */}
-          <div className="grid gap-3 md:grid-cols-4">
-            {[['all','All Students',byClass.length,'bg-emerald-500/10 text-emerald-300'],['full','Paid in Full',counts.full,'bg-emerald-500/10 text-emerald-300'],['partial','Partial Payments',counts.partial,'bg-amber-500/10 text-amber-300'],['unpaid','Not Paid',counts.unpaid,'bg-rose-500/10 text-rose-300']].map(([key,label,count,cls]) => <button key={key as string} onClick={() => setStatusFilter(key as any)} className={`rounded-2xl border border-slate-800 p-4 text-left transition hover:border-slate-700 ${statusFilter === key ? 'ring-2 ring-emerald-400/40' : ''} ${cls}`}><div className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{label as string}</div><div className="mt-1 text-2xl font-black">{count as number}</div></button>)}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            {(
+              [
+                ['all','All Students',byClass.length,'bg-emerald-500/10 text-emerald-300'],
+                ['full','Paid in Full',counts.full,'bg-emerald-500/10 text-emerald-300'],
+                ['partial','Partial Payments',counts.partial,'bg-amber-500/10 text-amber-300'],
+                ['unpaid','Not Paid',counts.unpaid,'bg-rose-500/10 text-rose-300'],
+                ['exempted','Exempted',counts.exempted,'bg-violet-500/10 text-violet-300'],
+              ] as const
+            ).map(([key,label,count,cls]) => (
+              <button key={key} onClick={() => setStatusFilter(key)} className={`rounded-2xl border border-slate-800 p-4 text-left transition hover:border-slate-700 ${statusFilter === key ? 'ring-2 ring-violet-400/50' : ''} ${cls}`}>
+                <div className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{label}</div>
+                <div className="mt-1 text-2xl font-black">{count}</div>
+                {key === 'exempted' && <div className="mt-1 text-[10px] opacity-70">No payment required</div>}
+              </button>
+            ))}
           </div>
 
           {/* Student ledger */}
@@ -740,7 +754,25 @@ export default function Fees() {
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-blue-300">{v.payable > 0 ? `${currency} ${v.payable.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3 text-right font-mono text-xs font-bold text-rose-400">{bal > 0 ? `${currency} ${bal.toLocaleString()}` : '—'}</td>
                     <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${st==='full'?'bg-emerald-500/15 text-emerald-300':st==='partial'?'bg-amber-500/15 text-amber-300':st==='unpaid'?'bg-rose-500/15 text-rose-300':'bg-slate-800 text-slate-500'}`}>{pillLabel(st)}</span></td>
-                    <td className="w-[330px] whitespace-nowrap px-4 py-3"><div className="flex min-w-max justify-end gap-1.5"><button onClick={() => openPay(s)} className="rounded-lg bg-blue-500 px-3 py-2.5 text-[11px] font-black text-white hover:bg-blue-400">Pay</button>{hasPaid(s)&&<button onClick={() => printReceipt(s, termPayments.find((p:any)=>p.student_id===s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-black text-emerald-300">Receipt</button>}<button onClick={() => setHistoryTarget(s)} className="rounded-lg bg-slate-800 px-3 py-2.5 text-[11px] font-black text-slate-300">History</button>{nextTerm&&<button title={`Print ${tLabel(nextTerm)} invoice with previous outstanding balances carried forward`} onClick={() => printInvoice(s,nextTerm,structures,bank,currency,schoolName,logoUrl,schoolAddress,summary.fees,terms)} className="shrink-0 whitespace-nowrap rounded-lg bg-amber-400 px-3 py-2.5 text-[11px] font-black text-slate-950">Next Term Invoice</button>}</div></td>
+                    <td className="w-[430px] whitespace-nowrap px-4 py-3">
+                      <div className="flex min-w-max justify-end gap-1.5">
+                        {st === 'exempted' ? (
+                          <button disabled className="cursor-not-allowed rounded-lg bg-violet-500/15 px-3 py-2.5 text-[11px] font-black text-violet-300" title={feeExemptions.get(s.id)?.reason || 'Exempted from school fees'}>Exempted</button>
+                        ) : (
+                          <button onClick={() => openPay(s)} className="rounded-lg bg-blue-500 px-3 py-2.5 text-[11px] font-black text-white hover:bg-blue-400">Pay</button>
+                        )}
+                        {feeExemptions.has(s.id) ? null : hasPaid(s) && <button onClick={() => printReceipt(s, termPayments.find((p:any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-black text-emerald-300">Receipt</button>}
+                        <button onClick={() => setHistoryTarget(s)} className="rounded-lg bg-slate-800 px-3 py-2.5 text-[11px] font-black text-slate-300">History</button>
+                        {nextTerm && !feeExemptions.has(s.id) && <button title={'Print ' + tLabel(nextTerm) + ' invoice with previous outstanding balances carried forward'} onClick={() => printInvoice(s,nextTerm,structures,bank,currency,schoolName,logoUrl,schoolAddress,summary.fees,terms)} className="shrink-0 whitespace-nowrap rounded-lg bg-amber-400 px-3 py-2.5 text-[11px] font-black text-slate-950">Next Term Invoice</button>}
+                        <button
+                          disabled={exemptionBusy === s.id}
+                          onClick={() => toggleFeeExemption(s)}
+                          className={feeExemptions.has(s.id) ? 'rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5 text-[11px] font-black text-amber-300 hover:bg-amber-400/15 disabled:opacity-50' : 'rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 text-[11px] font-black text-violet-300 hover:bg-violet-500/15 disabled:opacity-50'}
+                          title={feeExemptions.has(s.id) ? 'Remove this term exemption' : 'Exempt this student from this term fees'}>
+                          {exemptionBusy === s.id ? 'Saving…' : feeExemptions.has(s.id) ? 'Unexempt' : 'Exempt'}
+                        </button>
+                      </div>
+                    </td>
                   </tr> })}
                   {!ledgerStudents.length && <tr><td colSpan={10} className="p-12 text-center text-sm text-slate-500">No students match this selection.</td></tr>}
                 </tbody>
