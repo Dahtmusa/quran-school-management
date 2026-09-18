@@ -256,6 +256,7 @@ export async function loadTeacherBoardingAttendanceHistory(fromDate:string,toDat
   const {data,error}=await supabase().rpc('teacher_boarding_attendance_history',{
     p_from_date:fromDate,
     p_to_date:toDate,
+    p_period:period,
   });
   if(error) throw error;
   return (data||[]).filter((row:any)=>!period || true).map((row:any)=>({
