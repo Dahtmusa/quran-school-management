@@ -36,7 +36,9 @@ async function sendSmartSMS(apiKey:string,senderId:string,to:string,message:stri
  if(json.code!=='1000') throw new Error(String(json.description||json.message||'SmartSMS error')); return json;
 }
 async function sendTwilio(accountSid:string,authToken:string,from:string,to:string,message:string,apiKeySid?:string,apiKeySecret?:string){
- const res=await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,{method:'POST',headers:{Authorization:`Basic ${Buffer.from(`${apiKeySid||accountSid}:${apiKeySecret||authToken}`).toString('base64')`,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({To:to,From:from,Body:message})});
+ const url='https://api.twilio.com/2010-04-01/Accounts/'+accountSid+'/Messages.json';
+ const credentials=Buffer.from((apiKeySid||accountSid)+':'+(apiKeySecret||authToken)).toString('base64');
+ const res=await fetch(url,{method:'POST',headers:{Authorization:'Basic '+credentials,'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({To:to,From:from,Body:message})});
  const json=await res.json(); if(!res.ok) throw new Error(json?.message||json?.code||'Twilio error'); return json;
 }
 
