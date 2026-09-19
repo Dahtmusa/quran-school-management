@@ -24,6 +24,18 @@ jobs:
           cat build.log
           echo "BUILD_EXIT_CODE=$code" >> build.log
           exit $code
+      - name: Lint
+        run: npm run lint
+      - name: ID card Arabic QA
+        run: npm run qa:id-card
+      - name: Static QA
+        run: npm run qa:static
+      - name: Lifecycle QA
+        run: npm run qa:lifecycle
+      - name: Operational QA
+        run: npm run qa:operational
+      - name: Production audit QA
+        run: npm run qa:production-audit
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
