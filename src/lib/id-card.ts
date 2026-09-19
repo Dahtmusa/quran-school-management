@@ -3,7 +3,7 @@ import JsBarcode from 'jsbarcode';
 import { createClient } from '@/lib/supabase/client';
 
 function esc(v:any){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
-const ARABIC_SCHOOL_NAME='${ARABIC_SCHOOL_NAME}';
+const ARABIC_SCHOOL_NAME='مركز علي وميمونة لتحفيظ القرآن الكريم';
 
 function barcodeSvg(value:string){const el=document.createElementNS('http://www.w3.org/2000/svg','svg'); JsBarcode(el,value,{format:'CODE128',displayValue:false,height:34,width:1.15,margin:0}); return new XMLSerializer().serializeToString(el);}
 
