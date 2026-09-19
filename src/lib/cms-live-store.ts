@@ -41,7 +41,10 @@ export async function saveCMSSection(section: Pick<CMSSection, 'id'|'section_key
 }
 
 export async function saveCMSSetting(key: string, value: any) {
-  const { error } = await db().from('site_settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  const { error } = await db().rpc('admin_upsert_site_setting', {
+    p_key: key,
+    p_value: value,
+  });
   if (error) throw error;
 }
 
