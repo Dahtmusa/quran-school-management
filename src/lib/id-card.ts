@@ -58,13 +58,13 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF';name:str
  @media screen and (min-width:720px){.sheet{zoom:1.3}} @media print{.sheet{zoom:1!important}}
  </style></head><body><div class="sheet">
  <div class="card front">
-  <div class="band">${logoMarkup}<div class="brand-badge"><strong>AMQM</strong><small>Aliyu &amp; Maimuna Center for Qur\u2019anic Memorization</small><div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div></div><div class="band-tag">${input.type==='STUDENT'?'Student<br/>ID':'Staff<br/>ID'}</div></div>
+  <div class="band">${logoMarkup}<div class="brand-badge"><strong>AMQM</strong><small>Aliyu &amp; Maimuna Center for Qur\u2019anic Memorization</small><div class="arabic">مركز علي وميمونة لتحفيظ القرآن الكريم</div></div><div class="band-tag">${input.type==='STUDENT'?'Student<br/>ID':'Staff<br/>ID'}</div></div>
   <div class="frontName"><div class="topLine"><div class="eyebrow">Official Identification</div><div class="tag">${input.type==='STUDENT'?'Student':'Staff'}</div></div><div class="name" id="fname">${esc(input.name)}</div></div>
   <div class="frontMain">${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt=""/>`:'<div class="photo"></div>'}<div class="info"><div class="facts">${factsRows.map(f=>`<div class="fact${f[2]?' wide':''}"><span>${f[0]}</span><b>${f[1]}</b></div>`).join('')}</div></div><div class="qrBox"><img class="qr" src="${qr}" alt=""/><div class="scan">Scan to<br/>verify</div></div></div>
   <div class="bottomBar"><div class="barcode">${barcode}</div><div class="idChip"><span>ID No.</span><b>${esc(displayId)}</b></div></div>
  </div>
  <div class="card back">
-  <div class="band">${logoMarkup}<div class="brand-badge"><strong>AMQM</strong><small>Aliyu &amp; Maimuna Center for Qur\u2019anic Memorization</small><div class="arabic">مركز عليو ومايمونا لتحفيظ القرآن</div></div><div class="band-qr"><img src="${qr}" alt=""/></div></div>
+  <div class="band">${logoMarkup}<div class="brand-badge"><strong>AMQM</strong><small>Aliyu &amp; Maimuna Center for Qur\u2019anic Memorization</small><div class="arabic">مركز علي وميمونة لتحفيظ القرآن الكريم</div></div><div class="band-qr"><img src="${qr}" alt=""/></div></div>
   <div class="backBody"><div class="backKicker">AMQM · Official Academic Identification</div><h2>This card belongs to ${esc(input.name)}</h2><p>This card is the property of AMQM and must be presented on request. It is issued for student/staff identity verification, attendance scanning, school access and approved academic services within the school premises. Any misuse or unauthorised duplication will attract disciplinary action.</p>
    <div class="backGrid"><div><span>Valid until</span><b>${esc(input.expiry||'—')}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
    <div class="signRow">${directorMarkup}<div class="terms"><b>If found</b><p>Please return this card to the school office or drop it in the collection box at the main gate. Thanks for your honesty.</p></div></div>
