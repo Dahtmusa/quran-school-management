@@ -23,8 +23,18 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { personId, personType, period = 'morning', scanPointId, isOfflineScan = false, clientScannedAt } = body;
 
-  if (!personId || !personType) {
-    return NextResponse.json({ error: 'personId and personType required' }, { status: 400 });
+  if (!personId || !personType || !['student','staff'].includes(personType)) {
+    return NextResponse.json({ error: 'personId and a valid personType (student or staff) are required' }, { status: 400 });
+  }
+
+  // Never trust the QR payload's personType. Verify that the ID belongs to the
+  // requested entity before recording attendance.
+  if (personType === 'staff') {
+    const { data: staffRecord } = await supabase.from('profiles').select('id').eq('id', personId).not('role','is',null).maybeSingle();
+    if (!staffRecord) return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
+  } else {
+    const { data: studentRecord } = await supabase.from('students').select('id,status').eq('id', personId).maybeSingle();
+    if (!studentRecord || studentRecord.status !== 'active') return NextResponse.json({ error: 'Active student record not found' }, { status: 404 });
   }
 
   // Server-side timestamp — client cannot manipulate this
