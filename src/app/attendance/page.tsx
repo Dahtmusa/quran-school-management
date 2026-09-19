@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import AdminShell from '@/components/AdminShell';
+import StaffAttendancePanel from '@/components/StaffAttendancePanel';
 import {
   loadAttendanceSummary, loadTodayRecords, loadPendingRecords,
   AttendanceRecord, AttendanceSummary,
@@ -225,7 +226,7 @@ function RecordRow({ record, onReview }: { record: AttendanceRecord; onReview: (
   );
 }
 
-type Tab = 'overview' | 'pending' | 'today' | 'reports' | 'settings';
+type Tab = 'overview' | 'pending' | 'today' | 'staff' | 'reports' | 'settings';
 
 /* ── SMS Settings panel ── */
 function SmsSettings() {
@@ -343,6 +344,34 @@ function SmsSettings() {
 
         <button onClick={save} disabled={saving} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
           {saving ? 'Saving…' : 'Save Timing'}
+        </button>
+      </div>
+
+      {/* ── Staff lateness policy ── */}
+      <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '22px 26px' }} className="space-y-4">
+        <div>
+          <div style={{ fontWeight: 900, fontSize: 15, color: '#062d2a' }}>Staff Lateness, Warnings & Fines</div>
+          <p style={{ fontSize: 12, color: '#9ca3af', marginTop: 4 }}>Staff use the same gate scanner as students. These rules apply automatically to staff QR scans.</p>
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(180px,1fr))', gap:12 }}>
+          <div><label style={LS}>Warning after late scans</label><input type="number" min="1" value={settings.staff_late_warning_threshold || '2'} onChange={e=>set('staff_late_warning_threshold',e.target.value)} style={IS}/></div>
+          <div><label style={LS}>Repeat warning every</label><input type="number" min="1" value={settings.staff_late_warning_repeat || '2'} onChange={e=>set('staff_late_warning_repeat',e.target.value)} style={IS}/></div>
+          <div><label style={LS}>Count window (days)</label><input type="number" min="1" value={settings.staff_late_count_window_days || '30'} onChange={e=>set('staff_late_count_window_days',e.target.value)} style={IS}/></div>
+          <div><label style={LS}>Fine after late scans</label><input type="number" min="1" value={settings.staff_late_fine_threshold || '2'} onChange={e=>set('staff_late_fine_threshold',e.target.value)} style={IS}/></div>
+          <div><label style={LS}>Fine amount (₦)</label><input type="number" min="0" value={settings.staff_late_fine_amount || '0'} onChange={e=>set('staff_late_fine_amount',e.target.value)} style={IS}/></div>
+        </div>
+        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+          <button onClick={()=>set('staff_late_warning_enabled',settings.staff_late_warning_enabled==='true'?'false':'true')} style={{padding:'9px 14px',borderRadius:10,border:'1px solid #e5e7eb',background:settings.staff_late_warning_enabled==='true'?'#ecfdf5':'#fff',color:settings.staff_late_warning_enabled==='true'?'#047857':'#6b7280',fontWeight:800,fontSize:12}}>
+            SMS warnings: {settings.staff_late_warning_enabled==='true'?'ON':'OFF'}
+          </button>
+          <button onClick={()=>set('staff_late_fine_enabled',settings.staff_late_fine_enabled==='true'?'false':'true')} style={{padding:'9px 14px',borderRadius:10,border:'1px solid #e5e7eb',background:settings.staff_late_fine_enabled==='true'?'#fff7ed':'#fff',color:settings.staff_late_fine_enabled==='true'?'#c2410c':'#6b7280',fontWeight:800,fontSize:12}}>
+            Automatic fines: {settings.staff_late_fine_enabled==='true'?'ON':'OFF'}
+          </button>
+        </div>
+        <div><label style={LS}>Staff warning SMS template</label><textarea value={settings.staff_late_warning_template || ''} onChange={e=>set('staff_late_warning_template',e.target.value)} rows={3} style={{...IS,resize:'vertical'}} placeholder="Dear {staff_name}, you have been recorded late {late_count} times in the last {window_days} days. Please report on time. - AMQM"/></div>
+        <div style={{fontSize:11,color:'#6b7280'}}>Available placeholders: <code>{'{staff_name}'}</code>, <code>{'{late_count}'}</code>, <code>{'{window_days}'}</code>, <code>{'{date}'}</code>.</div>
+        <button onClick={save} disabled={saving} style={{ padding: '9px 22px', borderRadius: 10, border: 'none', background: '#062d2a', color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+          {saving ? 'Saving…' : 'Save Staff Policy'}
         </button>
       </div>
 
@@ -554,6 +583,7 @@ export default function AttendanceDashboard() {
     { key: 'overview',  label: 'Overview' },
     { key: 'pending',   label: 'Pending Review', badge: pendingRecords.length },
     { key: 'today',     label: 'All Records' },
+    { key: 'staff',     label: 'Staff & Fines' },
     { key: 'reports',   label: 'Reports' },
     { key: 'settings',  label: 'SMS Settings' },
   ];
@@ -634,6 +664,11 @@ export default function AttendanceDashboard() {
         </div>
 
         {loading && <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</div>}
+
+        {/* Staff attendance & fines */}
+        {!loading && tab === 'staff' && (
+          <StaffAttendancePanel />
+        )}
 
         {/* Overview tab */}
         {!loading && tab === 'overview' && (
