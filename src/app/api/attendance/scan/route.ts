@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
       const warningEnabled = stripAttendanceSetting(policy.staff_late_warning_enabled) !== 'false';
       const warningDue = warningEnabled && lateCount >= threshold && ((lateCount - threshold) % repeat === 0);
       const fineEnabled = stripAttendanceSetting(policy.staff_late_fine_enabled) === 'true';
-      const fineThreshold = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_fine_threshold) || threshold);
+      const fineThreshold = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_fine_threshold) || threshold));
       const fineAmount = Number(stripAttendanceSetting(policy.staff_late_fine_amount) || 0);
 
       if (fineEnabled && fineAmount > 0 && lateCount >= fineThreshold) {
