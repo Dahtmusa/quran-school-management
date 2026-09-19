@@ -573,7 +573,7 @@ export default function AttendanceDashboard() {
   };
 
   const filteredToday = todayRecords.filter(r => {
-    if (filterSection !== 'all' && r.personType !== filterSection && r.personType !== 'student') return false;
+    if (filterSection !== 'all' && r.personType !== filterSection) return false;
     if (searchQ) {
       const q = searchQ.toLowerCase();
       if (!r.personName.toLowerCase().includes(q) && !(r.personAdmissionNo || '').toLowerCase().includes(q)) return false;
