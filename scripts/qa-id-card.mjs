@@ -3,7 +3,7 @@ import fs from 'node:fs';
 const file='src/lib/id-card.ts';
 const source=fs.readFileSync(file,'utf8');
 const exact='مركز علي وميمونة لتحفيظ القرآن الكريم';
-const legacy=['مركز علي وميمونة لتحفيظ القرآن','مركز علي وميمونة لتحفيظ القران الكريم'];
+const legacy=['مركز علي وميمونة لتحفيظ القران الكريم','علي وميمونة لتحفيظ القرآن الكريم'];
 
 const checks=[
   ['exact Arabic school name is defined', source.includes(`const ARABIC_SCHOOL_NAME='${exact}';`)],
