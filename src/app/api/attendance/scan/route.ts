@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { dispatchAttendanceSms, stripAttendanceSetting } from '@/lib/attendance-sms';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -103,6 +105,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  // Staff late policy: count recent late gate scans, create an optional fine,
+  // and send an automatic warning SMS on the configured threshold.
+  let staffLateWarning: { sent: boolean; lateCount?: number; error?: string } | null = null;
+  if (personType === 'staff' && statusCode === 'late') {
+    try {
+      const admin = createAdminClient();
+      const { data: staff } = await admin.from('profiles').select('id,full_name,phone').eq('id', personId).single();
+      const settingRows = (await admin.from('attendance_settings').select('key,value')).data || [];
+      const policy: Record<string, unknown> = {};
+      for (const row of settingRows) policy[row.key] = row.value;
+      const windowDays = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_count_window_days) || 30));
+      const threshold = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_warning_threshold) || 2));
+      const repeat = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_warning_repeat) || threshold));
+      const windowStart = new Date(Date.now() - (windowDays - 1) * 86400000).toISOString().slice(0,10);
+      const { count } = await admin.from('attendance_records')
+        .select('id',{count:'exact',head:true})
+        .eq('person_id',personId).eq('person_type','staff').eq('status_code','late')
+        .gte('attendance_date',windowStart).lte('attendance_date',attendanceDate);
+      const lateCount = Number(count || 0);
+      const warningEnabled = stripAttendanceSetting(policy.staff_late_warning_enabled) !== 'false';
+      const warningDue = warningEnabled && lateCount >= threshold && ((lateCount - threshold) % repeat === 0);
+      const fineEnabled = stripAttendanceSetting(policy.staff_late_fine_enabled) === 'true';
+      const fineThreshold = Math.max(1, Number(stripAttendanceSetting(policy.staff_late_fine_threshold) || threshold);
+      const fineAmount = Number(stripAttendanceSetting(policy.staff_late_fine_amount) || 0);
+
+      if (fineEnabled && fineAmount > 0 && lateCount >= fineThreshold) {
+        await admin.from('staff_attendance_fines').upsert({
+          staff_id: personId, attendance_record_id: record.id, amount: fineAmount,
+          reason: `Late gate arrival #${lateCount} within ${windowDays} days`
+        }, { onConflict: 'attendance_record_id', ignoreDuplicates: true });
+      }
+
+      if (warningDue && staff?.phone && stripAttendanceSetting(policy.sms_enabled) !== 'false') {
+        const template = stripAttendanceSetting(policy.staff_late_warning_template) ||
+          'Dear {staff_name}, you have been recorded late {late_count} times in the last {window_days} days. Please report on time. - AMQM';
+        const message = template
+          .replace(/{staff_name}/g, staff.full_name || 'Staff member')
+          .replace(/{late_count}/g, String(lateCount))
+          .replace(/{window_days}/g, String(windowDays))
+          .replace(/{date}/g, attendanceDate);
+        try {
+          const to = await dispatchAttendanceSms(policy, staff.phone, message);
+          await admin.from('attendance_notifications').insert({
+            record_id: record.id, recipient_type: 'staff', phone_number: to,
+            message, status: 'sent', sent_at: new Date().toISOString()
+          });
+          staffLateWarning = { sent: true, lateCount };
+        } catch (smsError: unknown) {
+          const errorMessage = smsError instanceof Error ? smsError.message : 'SMS failed';
+          await admin.from('attendance_notifications').insert({
+            record_id: record.id, recipient_type: 'staff', phone_number: staff.phone,
+            message, status: 'failed', error_message: errorMessage
+          });
+          staffLateWarning = { sent: false, lateCount, error: errorMessage };
+        }
+      } else {
+        staffLateWarning = { sent: false, lateCount };
+      }
+    } catch (policyError: unknown) {
+      staffLateWarning = { sent: false, error: policyError instanceof Error ? policyError.message : 'Staff late policy failed' };
+    }
+  }
+
   // Audit log
   await supabase.from('attendance_audit_logs').insert({
     record_id: record.id,
@@ -117,5 +182,6 @@ export async function POST(req: NextRequest) {
     recordId: record.id,
     scannedAt: record.scanned_at,
     statusCode: record.status_code,
+    staffLateWarning,
   });
 }
