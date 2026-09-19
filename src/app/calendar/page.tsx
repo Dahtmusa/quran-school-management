@@ -241,10 +241,16 @@ export default function CalendarAdmin() {
                   <div className="mt-1 text-xl font-black">{readiness?.baseline_rows??0}/{readiness?.active_students??0}</div>
                   <div className="text-xs text-slate-500">{Number(readiness?.missing_baseline??1)===0?'Complete':'Missing student baseline rows'}</div>
                 </div>
-                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_enrollments??0)>=Number(readiness?.active_students??0) ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term enrolment</div>
+                <div className={`rounded-2xl border p-4 ${Number(readiness?.missing_second_term_placements??0)===0 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term roster</div>
                   <div className="mt-1 text-xl font-black">{readiness?.second_term_enrollments??0}/{readiness?.active_students??0}</div>
-                  <div className="text-xs text-slate-500">{Number(readiness?.missing_second_term_enrollments??1)===0?'Complete':'Missing active student enrolments'}</div>
+                  <div className="text-xs text-slate-500">
+                    {Number(readiness?.missing_second_term_placements??0)>0
+                      ? `${readiness.missing_second_term_placements} student(s) need class/teacher placement`
+                      : Number(readiness?.missing_second_term_enrollments??0)>0
+                        ? `${readiness.missing_second_term_enrollments} roster row(s) will be repaired during transition`
+                        : 'Roster ready'}
+                  </div>
                 </div>
                 <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_fee_structures??0)>=2 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
                   <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term fees</div>
