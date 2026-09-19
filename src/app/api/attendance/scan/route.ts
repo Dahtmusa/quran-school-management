@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   // Never trust the QR payload's personType. Verify that the ID belongs to the
   // requested entity before recording attendance.
   if (personType === 'staff') {
-    const { data: staffRecord } = await supabase.from('profiles').select('id').eq('id', personId).not('role','is',null).maybeSingle();
+    const { data: staffRecord } = await supabase.from('profiles').select('id').eq('id', personId).in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).maybeSingle();
     if (!staffRecord) return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
   } else {
     const { data: studentRecord } = await supabase.from('students').select('id,status').eq('id', personId).maybeSingle();
