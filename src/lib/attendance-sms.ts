@@ -52,6 +52,6 @@ export async function dispatchAttendanceSms(settings:Record<string,unknown>,rawT
  else if(provider==='bestbulksms') await sendBestBulkSMS(apiKey,senderId,to,message,stripAttendanceSetting(settings.sms_route)||'dnd');
  else if(provider==='smartsms') await sendSmartSMS(apiKey,senderId,to,message);
  else if(provider==='twilio') await sendTwilio(stripAttendanceSetting(settings.sms_account_sid),stripAttendanceSetting(settings.sms_auth_token),senderId,to,message,stripAttendanceSetting(settings.sms_api_key_sid)||undefined,stripAttendanceSetting(settings.sms_api_key_secret)||undefined);
- else throw new Error(`Unknown SMS provider: ${provider}`);
+ else throw new Error('Unknown SMS provider: ' + provider);
  return to;
 }
