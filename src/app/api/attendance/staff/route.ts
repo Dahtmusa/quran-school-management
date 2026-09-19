@@ -18,7 +18,7 @@ export async function GET(req:NextRequest){
  const [{data:fines,error:fineError},{data:records,error:recordError},{data:staff,error:staffError}]=await Promise.all([
   supabase.from('staff_attendance_fines').select('id,staff_id,attendance_record_id,amount,reason,status,created_at,paid_at,notes').order('created_at',{ascending:false}).limit(500),
   supabase.from('attendance_records').select('id,person_id,scanned_at,attendance_date,status_code,period,review_status').eq('person_type','staff').gte('attendance_date',from).lte('attendance_date',to).order('scanned_at',{ascending:false}).limit(2000),
-  supabase.from('profiles').select('id,full_name,phone,role,employment_status,staff_number').not('role','is',null).order('full_name')
+  supabase.from('profiles').select('id,full_name,phone,role,employment_status,staff_id').not('role','is',null).order('full_name')
  ]);
  if(fineError||recordError||staffError) return NextResponse.json({error:fineError?.message||recordError?.message||staffError?.message},{status:500});
  return NextResponse.json({fines:fines||[],records:records||[],staff:staff||[],from,to});
