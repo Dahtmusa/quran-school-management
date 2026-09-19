@@ -8,6 +8,8 @@ import {
   saveSimpleAcademicCalendar,
   syncAcademicCalendarState,
   runCalendarAutomation,
+  closeHistoricalFirstTermStartSecond,
+  loadDigitalLaunchReadiness,
 } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -61,11 +63,18 @@ export default function CalendarAdmin() {
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
+  const [readiness,setReadiness]=useState<any>(null);
+  const [transitionBusy,setTransitionBusy]=useState(false);
 
   const refresh=async()=>{
     setError('');
-    const [cfg,cur]=await Promise.all([loadSchoolCalendarConfig(),loadCurrentAcademicTerm()]);
+    const [cfg,cur,launchReadiness]=await Promise.all([
+      loadSchoolCalendarConfig(),
+      loadCurrentAcademicTerm(),
+      loadDigitalLaunchReadiness().catch(()=>null),
+    ]);
     setCurrent(cur);
+    setReadiness(launchReadiness);
     setSavedTerms(cfg.terms);
     setEvents(cfg.events);
     const year=cfg.years.find((y:any)=>y.is_current) || cfg.years[0];
@@ -206,6 +215,83 @@ export default function CalendarAdmin() {
           </div>
         </section>
 
+
+        {current?.term?.term_number===1 && current?.term?.lifecycle_status==='historical_baseline' && nextTerm && (
+          <section className="overflow-hidden rounded-3xl border-2 border-emerald-200 bg-white shadow-sm">
+            <div className="border-b bg-emerald-50 p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">Digital launch control</div>
+                  <h2 className="mt-1 text-xl font-black text-emerald-950">First Term → Second Term</h2>
+                  <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-900/75">
+                    One protected action closes the historical First Term and opens the next term when its scheduled start date and launch checks are satisfied.
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-white px-4 py-3 text-right shadow-sm">
+                  <div className="text-[10px] font-black uppercase tracking-[.14em] text-slate-400">Next term</div>
+                  <div className="mt-1 text-lg font-black text-slate-900">{nextTerm.name}</div>
+                  <div className="text-xs font-semibold text-slate-500">Starts {displayDate(nextTerm.start)}</div>
+                </div>
+              </div>
+            </div>
+            <div className="p-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={`rounded-2xl border p-4 ${Number(readiness?.missing_baseline??1)===0 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">First-Term baseline</div>
+                  <div className="mt-1 text-xl font-black">{readiness?.baseline_rows??0}/{readiness?.active_students??0}</div>
+                  <div className="text-xs text-slate-500">{Number(readiness?.missing_baseline??1)===0?'Complete':'Missing student baseline rows'}</div>
+                </div>
+                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_enrollments??0)>=Number(readiness?.active_students??0) ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term enrolment</div>
+                  <div className="mt-1 text-xl font-black">{readiness?.second_term_enrollments??0}/{readiness?.active_students??0}</div>
+                  <div className="text-xs text-slate-500">{Number(readiness?.missing_second_term_enrollments??1)===0?'Complete':'Missing active student enrolments'}</div>
+                </div>
+                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_fee_structures??0)>=2 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term fees</div>
+                  <div className="mt-1 text-xl font-black">{readiness?.second_term_fee_structures??0}</div>
+                  <div className="text-xs text-slate-500">Requires day + boarding fee structures</div>
+                </div>
+                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_evaluation_windows??0)===3 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Evaluation windows</div>
+                  <div className="mt-1 text-xl font-black">{readiness?.second_term_evaluation_windows??0}/3</div>
+                  <div className="text-xs text-slate-500">All three must be configured</div>
+                </div>
+              </div>
+              {Number(readiness?.students_without_parent_link??0)>0 && (
+                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900">
+                  Parent links missing for {readiness.students_without_parent_link} active student(s). This is a warning and does not block academic/finance launch.
+                </div>
+              )}
+              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm">
+                  {readiness?.ready
+                    ? (new Date(nextTerm.start) <= new Date() ? <span className="font-black text-emerald-700">All launch checks passed. The transition can run now.</span> : <span className="font-semibold text-slate-600">Launch checks passed; the button unlocks on {displayDate(nextTerm.start)}.</span>)
+                    : <span className="font-semibold text-rose-700">Transition is blocked until every required launch check is complete.</span>}
+                </div>
+                <button
+                  className="btn btn-primary px-6 py-3 font-black"
+                  disabled={transitionBusy || !readiness?.ready || new Date(nextTerm.start) > new Date()}
+                  onClick={async()=>{
+                    if(!window.confirm('Close First Term and open Second Term now? This is the single protected term-transition action and will change the active term for the whole school.')) return;
+                    setTransitionBusy(true); setError(''); setMessage('');
+                    try{
+                      const result=await closeHistoricalFirstTermStartSecond('Unified First Term → Second Term launch');
+                      await refresh();
+                      setMessage(result?.message || 'First Term closed and Second Term opened successfully.');
+                    }catch(e:any){
+                      setError(e?.message || 'The term transition could not be completed. No partial transition was applied.');
+                    }finally{setTransitionBusy(false);}
+                  }}
+                >
+                  {transitionBusy?'Transitioning…':'Close First Term & Open Second Term'}
+                </button>
+              </div>
+              <div className="mt-3 text-[11px] leading-5 text-slate-500">
+                The action is atomic: it captures the historical baseline, carries forward student enrolments and teacher assignments, opens each student&apos;s Second-Term Quran progress from the verified First-Term closing position, synchronises term fees/invoices, closes the First-Term enrolment layer, updates the official current term, and records an audit event. If any required check fails, the database rolls the entire action back.
+              </div>
+            </div>
+          </section>
+        )}
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b bg-slate-50 p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
