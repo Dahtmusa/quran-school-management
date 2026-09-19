@@ -244,6 +244,10 @@ function SmsSettings() {
     sms_sender_id: 'AMQM', sms_channel: 'generic', sms_route: 'dnd',
     sms_account_sid: '', sms_auth_token: '', sms_username: '', sms_api_key_sid: '', sms_api_key_secret: '',
     morning_cutoff_time: '09:00',
+    staff_late_warning_enabled: 'true', staff_late_warning_threshold: '2', staff_late_warning_repeat: '2',
+    staff_late_fine_enabled: 'false', staff_late_fine_amount: '0', staff_late_fine_threshold: '2',
+    staff_late_count_window_days: '30',
+    staff_late_warning_template: 'Dear {staff_name}, you have been recorded late {late_count} times in the last {window_days} days. Please report on time. - AMQM',
   });
   const [sendOn, setSendOn] = useState<string[]>(['absent','late']);
   const [templates, setTemplates] = useState<{code:string;name:string;template:string;channel:string}[]>([]);
