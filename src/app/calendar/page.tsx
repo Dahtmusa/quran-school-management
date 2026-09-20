@@ -216,7 +216,7 @@ export default function CalendarAdmin() {
         <section className="rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-950 to-slate-900 p-6 text-white shadow-xl md:p-8">
           <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">Academic setup</div>
           <h2 className="mt-2 text-3xl font-black md:text-4xl">Set the school dates once.</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">The Hifz structure is built into AMQM: two years, three terms each, three evaluations per term. Admin only maintains the dates.</p>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">The school calendar continues year after year: 2025/26 → 2026/27 → 2027/28 → … Each school year has three terms and three evaluations per term. A student's Quran journey continues independently.</p>
         </section>
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
@@ -226,7 +226,7 @@ export default function CalendarAdmin() {
           {[
             ['School year',plan.yearName||'Not set',`${displayDate(plan.yearStart)} → ${displayDate(plan.yearEnd)}`],
             ['Current term',current?.term?.name||'Not active',`${current?.term?.starts_on||'—'} → ${current?.term?.ends_on||'—'}`],
-            ['Hifz programme','2 years','3 terms · 3 evaluations per term'],
+            ['Quran journey','Continuous','Three terms · three evaluations per term'],
             ['Next term',nextTerm?.name||'—',nextTerm?.start?displayDate(nextTerm.start):'No future date set'],
           ].map(([title,value,sub])=>(
             <div key={title} className="rounded-2xl border bg-white p-4 shadow-sm">
