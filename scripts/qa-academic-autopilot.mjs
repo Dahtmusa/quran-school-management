@@ -13,11 +13,12 @@ const simpleLifecycle = fs.readFileSync(path.join(root, 'supabase/migrations/202
 const nextYear = fs.readFileSync(path.join(root, 'supabase/migrations/20260920130000_simplified_school_year_creation.sql'), 'utf8');
 const evalSql = fs.readFileSync(path.join(root, 'supabase/migrations/002_quran_progress_workflow.sql'), 'utf8');
 const gradSql = fs.readFileSync(path.join(root, 'supabase/migrations/005_alumni_lifecycle_and_cms_staff.sql'), 'utf8');
+const continuous = fs.readFileSync(path.join(root, 'supabase/migrations/20260920150000_continuous_journey_admissions_screening.sql'), 'utf8');
 
 expect(!nav.includes("'/program-setup', 'Program & Terms'"), 'Program & Terms must not be in admin navigation');
 expect(nav.includes("'/calendar', 'School Calendar'"), 'School Calendar must remain in admin navigation');
 expect(setup.includes("redirect('/calendar')"), 'Old Program & Terms route must redirect to the single calendar setup');
-expect(calendar.includes('Hifz structure is built into AMQM'), 'Calendar must explain that Hifz structure is built in');
+expect(calendar.includes('school calendar continues year after year'), 'Calendar must explain that school years continue indefinitely');
 expect(calendar.includes('Create next school year'), 'Calendar must provide a simple next-year action');
 expect(liveStore.includes('export async function createNextSchoolYear'), 'Client store must expose next-year creation');
 expect(nextYear.includes('student_progress_unchanged'), 'Next-year creation must explicitly preserve student progress');
@@ -31,7 +32,16 @@ expect(!simpleLifecycle.includes('delete from public.teacher_students'), 'Simple
 expect(!simpleLifecycle.includes('quran_closing'), 'Simple school-year opening must not rewrite Quran position from historical session data');
 expect(evalSql.includes("status='approved'"), 'Evaluation workflow must retain approval guard');
 expect(evalSql.includes('Evaluation must start from the student current official memorization position.'), 'Evaluation start-position continuity must remain enforced');
-expect(gradSql.includes('final_global = final_required'), 'Graduation must require full Quran completion');
+expect(continuous.includes('finalize_quran_completion'), 'Continuous completion trigger must exist');
+expect(continuous.includes("set status='alumni'"), '100% completion must move the student to Alumni');
+expect(continuous.includes('student_program_completions'), 'Completion must preserve a permanent completion snapshot');
+expect(continuous.includes('alumni_profiles'), 'Completion must create an alumni profile');
+expect(continuous.includes('graduation_certificates'), 'Completion must issue a certificate record');
+expect(continuous.includes("lower(trim(coalesce(a.state,'')))='adamawa'"), 'Screening mode must distinguish Adamawa applicants');
+expect(continuous.includes("'virtual'"), 'Outside-Adamawa screening must support a virtual mode');
+expect(continuous.includes('amqm_get_admission_screening'), 'Virtual screening must have a unique-link lookup');
+expect(continuous.includes('screening_token'), 'Virtual screening links must use a unique token');
+expect(continuous.includes('student_promotion'), 'School-year lifecycle must record that student promotion is disabled');
 
 if (failures.length) {
   console.error('Academic autopilot QA FAILED');
