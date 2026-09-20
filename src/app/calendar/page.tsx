@@ -8,7 +8,6 @@ import {
   saveSimpleAcademicCalendar,
   syncAcademicCalendarState,
   runCalendarAutomation,
-  closeHistoricalFirstTermStartSecond,
   loadDigitalLaunchReadiness,
 } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
@@ -55,6 +54,18 @@ function displayDate(value?: string|null) {
   return d.toLocaleDateString('en-NG',{day:'2-digit',month:'short',year:'numeric'});
 }
 
+function nextAcademicYearName(value: string) {
+  const match = value.trim().match(/^(\d{4})(?:[/-])(\d{2,4})$/);
+  if (!match) return '';
+  const start = Number(match[1]);
+  const end = Number(match[2]);
+  const endYear = end < 100 ? Math.floor(start / 100) * 100 + end : end;
+  const nextStart = start + 1;
+  const nextEnd = endYear + 1;
+  const suffix = String(nextEnd).slice(-2);
+  return `${nextStart}/${suffix}`;
+}
+
 export default function CalendarAdmin() {
   const [plan,setPlan]=useState<YearPlan>(blankPlan());
   const [current,setCurrent]=useState<any>(null);
@@ -64,7 +75,6 @@ export default function CalendarAdmin() {
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
   const [readiness,setReadiness]=useState<any>(null);
-  const [transitionBusy,setTransitionBusy]=useState(false);
 
   const refresh=async()=>{
     setError('');
@@ -109,6 +119,9 @@ export default function CalendarAdmin() {
     return plan.terms.find(t=>t.start && t.start>today) || null;
   },[plan.terms]);
 
+  const activeYear = (plan.yearName || current?.academic_year?.name || '').trim();
+  const suggestedNextYear = nextAcademicYearName(activeYear);
+
   const updateTerm=(i:number,field:'start'|'end',value:string)=>{
     setPlan(p=>{const terms=[...p.terms];terms[i]={...terms[i],[field]:value};return {...p,terms};});
   };
@@ -147,7 +160,7 @@ export default function CalendarAdmin() {
     return null;
   }
 
-  async function save(){
+  async function saveCurrentYear(){
     const validation=validate();
     if(validation){setError(validation);setMessage('');return;}
     setBusy(true);setError('');setMessage('');
@@ -167,7 +180,7 @@ export default function CalendarAdmin() {
         terms:payload,
       });
       await refresh();
-      setMessage(`Calendar saved. ${result?.terms_saved||0} term(s) and ${result?.evaluation_windows_saved||0} evaluation window(s) are connected to the school system.`);
+      setMessage(`Academic calendar saved. ${result?.terms_saved||0} term(s) and ${result?.evaluation_windows_saved||0} evaluation window(s) are now driving the school.`);
     }catch(e:any){setError(e?.message||'Calendar could not be saved.');}
     finally{setBusy(false);}
   }
@@ -178,8 +191,31 @@ export default function CalendarAdmin() {
       await syncAcademicCalendarState();
       await runCalendarAutomation();
       await refresh();
-      setMessage('Calendar repaired and synchronised. Current-term status and due evaluation windows have been refreshed.');
+      setMessage('Calendar synchronised. The school schedule and due evaluation windows have been refreshed.');
     }catch(e:any){setError(e?.message||'Calendar synchronisation failed.');}
+    finally{setBusy(false);}
+  }
+
+  async function prepareNextYear(){
+    if(!suggestedNextYear){setError('Set the current academic year in the calendar first.');return;}
+    if(!window.confirm(`Create ${suggestedNextYear} as the next school year? Existing students and their Quran progress stay untouched.`)) return;
+    setBusy(true);setError('');setMessage('');
+    try{
+      const currentEnd = plan.yearEnd;
+      const nextStart = currentEnd ? new Date(new Date(currentEnd+'T00:00:00').getTime()+24*60*60*1000).toISOString().slice(0,10) : '';
+      const result = await saveSimpleAcademicCalendar({
+        yearName:suggestedNextYear,
+        yearStart:nextStart,
+        yearEnd:'',
+        terms:[
+          {term_number:1,start:'',end:'',evaluations:[{number:1,open:'',close:''},{number:2,open:'',close:''},{number:3,open:'',close:''}]},
+          {term_number:2,start:'',end:'',evaluations:[{number:1,open:'',close:''},{number:2,open:'',close:''},{number:3,open:'',close:''}]},
+          {term_number:3,start:'',end:'',evaluations:[{number:1,open:'',close:''},{number:2,open:'',close:''},{number:3,open:'',close:''}]},
+        ],
+      });
+      await refresh();
+      setMessage(`${suggestedNextYear} was created as the next school year. Existing students continue on their own Quran journey; nothing was moved or reset. ${result?.terms_saved||0} term(s) were prepared.`);
+    }catch(e:any){setError(e?.message||'The next academic year could not be created.');}
     finally{setBusy(false);}
   }
 
@@ -187,19 +223,19 @@ export default function CalendarAdmin() {
     <AdminShell title="School Calendar">
       <div className="space-y-6">
         <section className="rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-950 to-slate-900 p-6 text-white shadow-xl md:p-8">
-          <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">School calendar</div>
-          <h2 className="mt-2 text-3xl font-black md:text-4xl">Set the dates once. Let the school run from them.</h2>
+          <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">Academic setup</div>
+          <h2 className="mt-2 text-3xl font-black md:text-4xl">Set the school dates once.</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/80">
-            Enter the session, three term dates and optional evaluation windows. The same calendar then drives the current-term status and evaluation schedule.
+            The school already knows the Hifz programme is two years with three terms and three evaluations per term. Here you only maintain the dates. Student Quran progress continues independently until completion.
           </p>
         </section>
 
         {error && <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-900">{error}</div>}
         {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{message}</div>}
 
-        <section className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl border bg-white p-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Academic session</div>
+        <section className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border bg-white p-4 shadow-sm md:col-span-1">
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">School year</div>
             <div className="mt-1 text-xl font-black">{plan.yearName || 'Not set'}</div>
             <div className="mt-1 text-xs text-slate-500">{displayDate(plan.yearStart)} → {displayDate(plan.yearEnd)}</div>
           </div>
@@ -209,114 +245,34 @@ export default function CalendarAdmin() {
             <div className="mt-1 text-xs text-slate-500">{current?.term?.starts_on || '—'} → {current?.term?.ends_on || '—'}</div>
           </div>
           <div className="rounded-2xl border bg-white p-4 shadow-sm">
-            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Next configured term</div>
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Hifz programme</div>
+            <div className="mt-1 text-xl font-black">2 years</div>
+            <div className="mt-1 text-xs text-slate-500">3 terms · 3 evaluations per term</div>
+          </div>
+          <div className="rounded-2xl border bg-white p-4 shadow-sm">
+            <div className="text-[10px] font-black uppercase tracking-[.16em] text-slate-400">Next term</div>
             <div className="mt-1 text-xl font-black">{nextTerm?.name || '—'}</div>
-            <div className="mt-1 text-xs text-slate-500">{nextTerm?.start ? displayDate(nextTerm.start) : 'No future term configured'}</div>
+            <div className="mt-1 text-xs text-slate-500">{nextTerm?.start ? displayDate(nextTerm.start) : 'No future date set'}</div>
           </div>
         </section>
 
-
-        {current?.term?.term_number===1 && current?.term?.lifecycle_status==='historical_baseline' && nextTerm && (
-          <section className="overflow-hidden rounded-3xl border-2 border-emerald-200 bg-white shadow-sm">
-            <div className="border-b bg-emerald-50 p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">Digital launch control</div>
-                  <h2 className="mt-1 text-xl font-black text-emerald-950">First Term → Second Term</h2>
-                  <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-900/75">
-                    One protected action closes the historical First Term and opens the next term when its scheduled start date and launch checks are satisfied.
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white px-4 py-3 text-right shadow-sm">
-                  <div className="text-[10px] font-black uppercase tracking-[.14em] text-slate-400">Next term</div>
-                  <div className="mt-1 text-lg font-black text-slate-900">{nextTerm.name}</div>
-                  <div className="text-xs font-semibold text-slate-500">Starts {displayDate(nextTerm.start)}</div>
-                </div>
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className={`rounded-2xl border p-4 ${Number(readiness?.missing_baseline??1)===0 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">First-Term baseline</div>
-                  <div className="mt-1 text-xl font-black">{readiness?.baseline_rows??0}/{readiness?.active_students??0}</div>
-                  <div className="text-xs text-slate-500">{Number(readiness?.missing_baseline??1)===0?'Complete':'Missing student baseline rows'}</div>
-                </div>
-                <div className={`rounded-2xl border p-4 ${Number(readiness?.missing_second_term_placements??0)===0 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term roster</div>
-                  <div className="mt-1 text-xl font-black">{readiness?.second_term_enrollments??0}/{readiness?.active_students??0}</div>
-                  <div className="text-xs text-slate-500">
-                    {Number(readiness?.missing_second_term_placements??0)>0
-                      ? `${readiness.missing_second_term_placements} student(s) need class/teacher placement`
-                      : Number(readiness?.missing_second_term_enrollments??0)>0
-                        ? `${readiness.missing_second_term_enrollments} roster row(s) will be repaired during transition`
-                        : 'Roster ready'}
-                  </div>
-                </div>
-                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_fee_structures??0)>=2 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Second-Term fees</div>
-                  <div className="mt-1 text-xl font-black">{readiness?.second_term_fee_structures??0}</div>
-                  <div className="text-xs text-slate-500">Requires day + boarding fee structures</div>
-                </div>
-                <div className={`rounded-2xl border p-4 ${Number(readiness?.second_term_evaluation_windows??0)===3 ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}>
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Evaluation windows</div>
-                  <div className="mt-1 text-xl font-black">{readiness?.second_term_evaluation_windows??0}/3</div>
-                  <div className="text-xs text-slate-500">All three must be configured</div>
-                </div>
-              </div>
-              {Number(readiness?.students_without_parent_link??0)>0 && (
-                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold text-amber-900">
-                  Parent links missing for {readiness.students_without_parent_link} active student(s). This is a warning and does not block academic/finance launch.
-                </div>
-              )}
-              <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm">
-                  {readiness?.ready
-                    ? (new Date(nextTerm.start) <= new Date() ? <span className="font-black text-emerald-700">All launch checks passed. The transition can run now.</span> : <span className="font-semibold text-slate-600">Launch checks passed; the button unlocks on {displayDate(nextTerm.start)}.</span>)
-                    : <span className="font-semibold text-rose-700">Transition is blocked until every required launch check is complete.</span>}
-                </div>
-                <button
-                  className="btn btn-primary px-6 py-3 font-black"
-                  disabled={transitionBusy || !readiness?.ready || new Date(nextTerm.start) > new Date()}
-                  onClick={async()=>{
-                    if(!window.confirm('Close First Term and open Second Term now? This is the single protected term-transition action and will change the active term for the whole school.')) return;
-                    setTransitionBusy(true); setError(''); setMessage('');
-                    try{
-                      const result=await closeHistoricalFirstTermStartSecond('Unified First Term → Second Term launch');
-                      await refresh();
-                      setMessage(result?.message || 'First Term closed and Second Term opened successfully.');
-                    }catch(e:any){
-                      setError(e?.message || 'The term transition could not be completed. No partial transition was applied.');
-                    }finally{setTransitionBusy(false);}
-                  }}
-                >
-                  {transitionBusy?'Transitioning…':'Close First Term & Open Second Term'}
-                </button>
-              </div>
-              <div className="mt-3 text-[11px] leading-5 text-slate-500">
-                The action is atomic: it captures the historical baseline, carries forward student enrolments and teacher assignments, opens each student&apos;s Second-Term Quran progress from the verified First-Term closing position, synchronises term fees/invoices, closes the First-Term enrolment layer, updates the official current term, and records an audit event. If any required check fails, the database rolls the entire action back.
-              </div>
-            </div>
-          </section>
-        )}
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
-          <div className="border-b bg-slate-50 p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">One simple setup screen</div>
-                <h2 className="mt-1 text-xl font-black text-slate-900">Academic session</h2>
-                <p className="mt-1 text-sm text-slate-500">The form loads the dates already saved in the database, so the admin does not have to re-enter them.</p>
-              </div>
-              <SectionBadge section="day" />
+          <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">One place for dates</div>
+              <h2 className="mt-1 text-xl font-black text-slate-900">School year</h2>
+              <p className="mt-1 text-sm text-slate-500">Do not create or edit programme structures here. The Hifz structure is already built in.</p>
             </div>
+            <button className="btn btn-primary px-5 py-3" disabled={busy} onClick={saveCurrentYear}>{busy?'Saving…':'Save dates'}</button>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-3">
-            <label className="text-xs font-black text-slate-600">Session name
+            <label className="text-xs font-black text-slate-600">School year
               <input className="input mt-1 w-full" value={plan.yearName} onChange={e=>setPlan(p=>({...p,yearName:e.target.value}))} placeholder="2026/27" />
             </label>
-            <label className="text-xs font-black text-slate-600">Session opens
+            <label className="text-xs font-black text-slate-600">School opens
               <input className="input mt-1 w-full" type="date" value={plan.yearStart} onChange={e=>setPlan(p=>({...p,yearStart:e.target.value}))} />
             </label>
-            <label className="text-xs font-black text-slate-600">Session closes
+            <label className="text-xs font-black text-slate-600">School closes
               <input className="input mt-1 w-full" type="date" value={plan.yearEnd} onChange={e=>setPlan(p=>({...p,yearEnd:e.target.value}))} />
             </label>
           </div>
@@ -350,8 +306,8 @@ export default function CalendarAdmin() {
 
                   <div>
                     <div className="mb-3">
-                      <div className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Evaluation windows</div>
-                      <div className="mt-1 text-xs text-slate-400">Optional. Each window must sit inside this term.</div>
+                      <div className="text-xs font-black uppercase tracking-[.14em] text-slate-500">Evaluation dates</div>
+                      <div className="mt-1 text-xs text-slate-400">The admin only chooses the dates. Teachers receive the work automatically when a window opens.</div>
                     </div>
                     <div className="grid gap-3 lg:grid-cols-3">
                       {term.evals.map((ev,ei)=>(
@@ -376,22 +332,43 @@ export default function CalendarAdmin() {
           })}
         </div>
 
-        <section className="rounded-3xl border border-amber-200 bg-amber-50 p-5">
-          <div className="font-black text-amber-950">How this works</div>
-          <p className="mt-1 max-w-4xl text-sm leading-6 text-amber-900">
-            The admin only needs to maintain this page. Saving updates the official academic year and term records, links evaluation windows to their terms, refreshes the current-term status, and processes any evaluation windows whose dates have arrived. Teachers, finance and other modules read the same term records.
+        <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+          <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">New school year</div>
+          <h2 className="mt-1 text-xl font-black text-emerald-950">Start the next year without touching existing students.</h2>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-900/75">
+            When this school year ends, create the next school year here. Existing students keep their current Quran progress and continue until they finish; new admissions join the new year.
           </p>
-          <div className="mt-3 text-xs font-semibold text-amber-800">
-            Existing database records loaded: {savedTerms.length} terms · {events.length} calendar events.
+          <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-xs font-black uppercase tracking-wide text-slate-500">Suggested next school year</div>
+              <div className="mt-1 text-xl font-black text-slate-900">{suggestedNextYear || 'Set the current school year first'}</div>
+            </div>
+            <button className="btn bg-emerald-800 px-5 py-3 font-black text-white" disabled={busy || !suggestedNextYear} onClick={prepareNextYear}>+ Create next school year</button>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="font-black text-slate-900">What the system handles automatically</div>
+          <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              ['Student Quran journey','Continues from the latest approved evaluation.'],
+              ['Terms','Always 3 terms per school year.'],
+              ['Evaluations','Always 3 per term, in sequence.'],
+              ['Completion','100% Quran completion triggers the completion workflow and preserves the full history.'],
+            ].map(([title,text])=>(
+              <div key={title} className="rounded-2xl bg-slate-50 p-4">
+                <div className="font-black text-emerald-950">{title}</div>
+                <div className="mt-1 text-xs leading-5 text-slate-500">{text}</div>
+              </div>
+            ))}
           </div>
         </section>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs text-slate-400">Last saved dates are loaded automatically whenever this page opens.</div>
+          <div className="text-xs text-slate-400">Existing database records loaded: {savedTerms.length} terms · {events.length} calendar events.</div>
           <div className="flex flex-wrap gap-2">
-            <button className="btn bg-slate-100 text-slate-800" disabled={busy} onClick={()=>refresh().catch(e=>setError(e?.message||'Refresh failed.'))}>↻ Reload saved dates</button>
-            <button className="btn bg-amber-100 text-amber-900" disabled={busy} onClick={repair}>Repair &amp; sync calendar</button>
-            <button className="btn btn-primary px-7 py-3" disabled={busy} onClick={save}>{busy?'Saving…':'Save calendar'}</button>
+            <button className="btn bg-slate-100 text-slate-800" disabled={busy} onClick={()=>refresh().catch(e=>setError(e?.message||'Refresh failed.'))}>↻ Reload</button>
+            <button className="btn bg-amber-100 text-amber-900" disabled={busy} onClick={repair}>Repair &amp; sync</button>
           </div>
         </div>
       </div>
