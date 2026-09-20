@@ -102,12 +102,6 @@ returns table(
   gender text,
   state text,
   lga text,
-  address text,
-  parent_name text,
-  parent_phone text,
-  guardian_name text,
-  guardian_phone text,
-  guardian_email text,
   quran_level text,
   starting_surah smallint,
   starting_ayah smallint,
@@ -121,8 +115,7 @@ security definer
 set search_path=public
 as $$
   select
-    a.id,a.application_no,a.applicant_name,a.date_of_birth,a.gender,a.state,a.lga,a.address,
-    a.parent_name,a.parent_phone,a.guardian_name,a.guardian_phone,a.guardian_email,
+    a.id,a.application_no,a.applicant_name,a.date_of_birth,a.gender,a.state,a.lga,
     a.quran_level,a.starting_surah,a.starting_ayah,a.screening_mode,a.screening_scheduled_at,
     a.screening_outcome,a.status
   from public.admissions a
