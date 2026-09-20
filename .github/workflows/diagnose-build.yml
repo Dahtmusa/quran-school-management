@@ -37,6 +37,8 @@ jobs:
         run: npm run qa:operational
       - name: Production audit QA
         run: npm run qa:production-audit
+      - name: Academic autopilot QA
+        run: npm run qa:academic-autopilot
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
