@@ -166,6 +166,36 @@ export async function resetStaffPassword(userId:string,newPassword:string){const
 export async function updateStaffCredentials(userId:string,{email,password}:{email?:string;password?:string}){if(!email&&!password)return;const{data,error}=await supabase().functions.invoke('reset-user-password',{body:{user_id:userId,new_email:email||undefined,new_password:password||undefined}});if(error)throw error;if(data?.error)throw new Error(data.error);}
 export async function loadSurahs(){const {data,error}=await supabase().from('quran_surahs').select('id,name,ayah_count').order('id');return error||!data?[]:data;}
 export async function loadTeacherDirectory(){const {data,error}=await supabase().rpc('get_school_student_directory');if(error||!data){console.error('Teacher directory load failed:',error);return [];}return (data as any[]).map((r:any)=>({id:r.student_id??r.id,admissionNo:r.admission_no,name:r.full_name,dateOfBirth:r.date_of_birth,gender:r.gender,section:r.section==='boarding'?'Boarding':'Day',year:r.program_year==='year_2'?'Year 2':'Year 1',status:r.status,photoUrl:r.photo_url??null,start:{surah:r.start_surah??114,ayah:r.start_ayah??1},current:{surah:r.current_surah??r.start_surah??114,ayah:r.current_ayah??1,page:r.current_page,hizb:r.current_hizb},direction:r.memorization_direction==='nas_to_baqarah'?'Nas-to-Baqarah':'Baqarah-to-Nas',className:r.class_name??null,classId:r.class_id??null,progressPercent:Number(r.progress_percent??0),parent:{name:r.parent_name,phone:r.parent_phone,relationship:r.parent_relationship}}));}
+
+export async function getUnassignedStudents() {
+  const { data, error } = await supabase().rpc('get_unassigned_students');
+  if (error || !data) return [];
+  return data as { student_id: string; full_name: string; admission_no: string; section: string; program_year: string }[];
+}
+
+export async function teacherAssignStudentToClass(studentId: string) {
+  const { error } = await supabase().rpc('teacher_assign_student_to_class', {
+    p_student_id: studentId,
+  });
+  if (error) throw error;
+}
+
+export async function teacherSetStudentStatus(studentId: string, status: string) {
+  const { error } = await supabase().rpc('teacher_set_student_status', {
+    p_student_id: studentId,
+    p_status: status,
+  });
+  if (error) throw error;
+}
+
+export async function teacherUpdateStudentSection(studentId: string, section: 'day' | 'boarding') {
+  const { error } = await supabase().rpc('teacher_update_student_section', {
+    p_student_id: studentId,
+    p_section: section,
+  });
+  if (error) throw error;
+}
+
 export async function teacherUpdateStudentQuranProfile(studentId:string,input:{direction:'nas_to_baqarah'|'baqarah_to_nas';startSurah:number;startAyah:number;currentSurah:number;currentAyah:number}){const {error}=await supabase().rpc('staff_update_student_quran_profile',{p_student_id:studentId,p_direction:input.direction,p_start_surah:input.startSurah,p_start_ayah:input.startAyah,p_current_surah:input.currentSurah,p_current_ayah:input.currentAyah});if(error)throw error;}
 
 export async function loadTeacherEvaluations(){const {data,error}=await supabase().rpc('amqm_teacher_operational_evaluations');if(error||!data)return [];return data;}
