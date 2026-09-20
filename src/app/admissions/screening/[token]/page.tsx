@@ -148,7 +148,7 @@ export default function ScreeningRoom(){
       supabase.removeChannel(ch);
       pc.current=null;channel.current=null;
     };
-  },[screening,params.token,role,started]);
+  },[screening,params.token,role]);
 
   const toggleMute=()=>{
     const tracks=localStream.current?.getAudioTracks()||[];
