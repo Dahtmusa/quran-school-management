@@ -196,8 +196,6 @@ export default function ScreeningRoom(){
               ['Date of birth',screening.date_of_birth||'—'],
               ['Gender',screening.gender||'—'],
               ['State / LGA',(screening.state||'—')+' / '+(screening.lga||'—')],
-              ['Parent',screening.parent_name||'—'],
-              ['Phone',screening.parent_phone||screening.guardian_phone||'—'],
               ['Quran level',screening.quran_level||'—'],
               ['Starting point',screening.starting_surah?'Surah '+screening.starting_surah+' : Ayah '+(screening.starting_ayah||1):'Not assigned yet'],
             ].map(([k,v])=><div key={k}><div className="text-[11px] text-slate-400">{k}</div><div className="break-words font-bold text-slate-900">{v}</div></div>)}
