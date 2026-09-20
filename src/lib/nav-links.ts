@@ -12,7 +12,6 @@ export const adminLinks: NavLink[] = [
   ['/evaluations', 'Quran Evaluations', '☾'],
   ['/fees', 'Finance & Fees', '₦'],
   ['/fees/bulk-documents', 'Invoices & Receipts', '▤'],
-  ['/program-setup', 'Program & Terms', '❖'],
   ['/calendar', 'School Calendar', '◷'],
   ['/reports', 'Report Cards', '▤'],
   ['/alumni', 'Alumni', '★'],
