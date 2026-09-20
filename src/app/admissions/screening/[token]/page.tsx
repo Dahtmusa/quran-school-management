@@ -25,6 +25,7 @@ export default function ScreeningRoom(){
   const peerId=useRef(crypto.randomUUID());
   const channel=useRef<any>(null);
   const disposed=useRef(false);
+  const pendingIce=useRef<RTCIceCandidateInit[]>([]);
 
   useEffect(()=>{
     let alive=true;
@@ -118,6 +119,7 @@ export default function ScreeningRoom(){
           const connection=pc.current;
           if(!connection)return;
           await connection.setRemoteDescription(payload.description);
+          for(const candidate of pendingIce.current.splice(0)){await connection.addIceCandidate(candidate).catch(()=>{});}
           const answer=await connection.createAnswer();
           await connection.setLocalDescription(answer);
           await send({kind:'answer',description:answer});
@@ -129,7 +131,8 @@ export default function ScreeningRoom(){
           return;
         }
         if(payload.kind==='ice' && pc.current){
-          await pc.current.addIceCandidate(payload.candidate).catch(()=>{});
+          if(pc.current.remoteDescription) await pc.current.addIceCandidate(payload.candidate).catch(()=>{});
+          else pendingIce.current.push(payload.candidate);
         }
       }catch(e){console.error('screening signal error',e);}
     }).subscribe(async state=>{
