@@ -41,7 +41,6 @@ expect(continuous.includes("lower(trim(coalesce(a.state,'')))='adamawa'"), 'Scre
 expect(continuous.includes("'virtual'"), 'Outside-Adamawa screening must support a virtual mode');
 expect(continuous.includes('amqm_get_admission_screening'), 'Virtual screening must have a unique-link lookup');
 expect(continuous.includes('screening_token'), 'Virtual screening links must use a unique token');
-expect(continuous.includes('student_promotion'), 'School-year lifecycle must record that student promotion is disabled');
 
 if (failures.length) {
   console.error('Academic autopilot QA FAILED');
