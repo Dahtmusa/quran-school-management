@@ -2,33 +2,685 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { loadCMSSections, loadCMSSettings, loadPublicNewsPosts, loadPublicHomepageMedia, loadPublicTeam, loadPublicTeachers, type CMSSection } from '@/lib/cms-live-store';
-import { SocialLinks } from '@/components/SocialLinks';
+import {
+  loadCMSSections,
+  loadCMSSettings,
+  loadPublicHomepageMedia,
+  loadPublicNewsPosts,
+  loadPublicTeam,
+  loadPublicTeachers,
+  type CMSSection,
+} from '@/lib/cms-live-store';
 
-const navFallback=[{label:'Home',href:'/'},{label:'About Us',href:'/about'},{label:'Programs',href:'/programs'},{label:'Admissions',href:'/admissions'},{label:'Campus Life',href:'/campus-life'},{label:'News & Events',href:'/news'},{label:'Contact Us',href:'#contact'}];
-const iconMap:Record<string,string>={book:'◈',people:'♧',teacher:'◇',star:'✦',chart:'▥',shield:'⬡',mosque:'⌂',heart:'♡'};
-function sectionMap(items:CMSSection[]){return Object.fromEntries(items.map(x=>[x.section_key,x])) as Record<string,CMSSection>}
-function ext(value?:string){if(!value)return '';return /^https?:\/\//i.test(value)?value:`https://${value}`}
+const fallbackNav = [
+  { label: 'Home', href: '/' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Programs', href: '/programs' },
+  { label: 'Admissions', href: '/admissions' },
+  { label: 'Campus Life', href: '/campus-life' },
+  { label: 'News & Events', href: '/news' },
+  { label: 'Contact Us', href: '#contact' },
+];
 
-export default function PublicHomepageSchool(){
- const [sections,setSections]=useState<CMSSection[]>([]); const [settings,setSettings]=useState<any>({}); const [team,setTeam]=useState<any[]>([]); const [teachers,setTeachers]=useState<any[]>([]); const [media,setMedia]=useState<any[]>([]); const [news,setNews]=useState<any[]>([]); const [menu,setMenu]=useState(false); const [loading,setLoading]=useState(true);
- useEffect(()=>{let live=true;Promise.all([loadCMSSections(),loadCMSSettings(),loadPublicTeam(),loadPublicTeachers(),loadPublicHomepageMedia(),loadPublicNewsPosts(6)]).then(([s,st,t,tc,m,n])=>{if(!live)return;setSections(s);setSettings(st);setTeam(t);setTeachers(tc);setMedia(m);setNews(n);setLoading(false)}).catch(()=>live&&setLoading(false));return()=>{live=false}},[]);
- const m=useMemo(()=>sectionMap(sections),[sections]); const hero=m.hero?.content||{}; const about=m.about?.content||{}; const mission=m.mission_vision?.content||{}; const stats=m.stats?.content?.items||[]; const features=m.features?.content?.items||[]; const programme=m.programme?.content||{}; const campuses=m.campuses?.content?.items||[]; const testimonials=m.testimonials?.content||{}; const testimonialItems=testimonials.items||[]; const footer=m.footer?.content||{}; const nav=settings.nav?.links?.length?settings.nav.links:navFallback; const contact=settings.contact||{}; const social=settings.social_links||{}; const portal=settings.admission_portal||{}; const schoolName=settings.school_name?.value||"ALIYU AND MAIMUNA CENTER FOR QU'ANIC MEMORIZATION"; const shortName=settings.short_name?.value||'AMQM'; const logo=settings.logo_url?.value||''; const today=new Date().toISOString().slice(0,10); const admissionOpen=portal.enabled===true&&(!portal.opening_date||today>=portal.opening_date)&&(!portal.closing_date||today<=portal.closing_date); const photos=media.filter(x=>x.media_type!=='video').slice(0,4); const leadTeam=[...team,...teachers].slice(0,6);
- if(loading)return <main className="min-h-screen bg-[#f6f8f3]"><div className="h-8 bg-[#06372f]"/><div className="h-20 bg-white border-b"/><div className="hero-skeleton"/></main>;
- return <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">
-  <div className="bg-[#06372f] text-white"><div className="mx-auto flex min-h-9 max-w-6xl items-center justify-between px-5 text-[11px]"><span className="hidden sm:block">In the name of Allah, the Most Gracious, the Most Merciful</span><span className="sm:hidden">Bismillah · {shortName}</span><span className="font-bold text-amber-200">{admissionOpen?'Admissions Open':'Admissions Closed'}</span></div></div>
-  <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur"><div className="mx-auto flex min-h-[76px] max-w-6xl items-center justify-between gap-5 px-5"><Link href="/" className="flex min-w-0 items-center gap-3"><div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-emerald-100 bg-white shadow-sm">{logo?<img src={logo} alt={`${shortName} logo`} className="h-full w-full object-contain"/>:<span className="grid h-full place-items-center font-serif font-black text-emerald-900">AM</span>}</div><div className="min-w-0"><div className="font-serif text-xl font-black text-emerald-950">{shortName}</div><div className="hidden truncate text-[10px] font-bold uppercase tracking-[.09em] text-slate-500 sm:block">{schoolName}</div></div></Link><nav className="hidden items-center gap-6 xl:flex">{nav.map((x:any)=><Link key={x.label} href={x.href} className="nav-link">{x.label}</Link>)}</nav><div className="flex items-center gap-2"><Link href="/auth/login" className="btn rounded-xl bg-[#06372f] px-4 py-2.5 text-white">Login</Link>{admissionOpen&&<Link href="/admissions" className="btn hidden rounded-xl bg-[#d9a11e] px-4 py-2.5 text-slate-950 sm:inline-flex">Apply Now →</Link>}<button className="mobile-menu-button xl:hidden" aria-label="Open navigation" onClick={()=>setMenu(true)}>☰</button></div></div></header>
-  {menu&&<div className="fixed inset-0 z-[90] xl:hidden"><button className="absolute inset-0 bg-slate-950/60" aria-label="Close navigation" onClick={()=>setMenu(false)}/><aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-white p-5 shadow-2xl"><div className="flex justify-between border-b pb-5"><span className="font-black text-emerald-950">{shortName}</span><button className="mobile-close" onClick={()=>setMenu(false)} aria-label="Close navigation">×</button></div><nav className="mt-6 flex-1 space-y-2 overflow-y-auto">{nav.map((x:any)=><Link key={x.label} href={x.href} onClick={()=>setMenu(false)} className="mobile-nav-link"><span>{x.label}</span><span>→</span></Link>)}</nav><Link href="/auth/login" onClick={()=>setMenu(false)} className="mt-5 block rounded-2xl bg-[#06372f] px-4 py-3.5 text-center text-sm font-black text-white">Login</Link>{admissionOpen&&<Link href="/admissions" onClick={()=>setMenu(false)} className="mt-2 block rounded-2xl bg-[#d9a11e] px-4 py-3.5 text-center text-sm font-black text-slate-950">Apply Now</Link>}</aside></div>}
-  <section className="relative isolate overflow-hidden bg-[#073a32] text-white"><div className="absolute inset-0">{hero.hero_video?<video src={hero.hero_video} autoPlay muted loop playsInline poster={hero.hero_image||undefined} className="h-full w-full object-cover opacity-55"/>:hero.hero_image?<img src={hero.hero_image} alt="" className="h-full w-full object-cover"/>:<div className="hero-art h-full w-full"/>}</div><div className="absolute inset-0 bg-gradient-to-r from-[#052a25]/95 via-[#06372f]/75 to-transparent"/><div className="relative mx-auto grid min-h-[560px] max-w-6xl items-center px-5 py-16 sm:px-7 lg:min-h-[600px] lg:grid-cols-[1.08fr_.92fr]"><div className="max-w-3xl"><div className="eyebrow">{hero.eyebrow||'A two-year journey with the Book of Allah'}</div><h1 className="mt-5 whitespace-pre-line font-serif text-4xl font-black leading-[1.04] sm:text-5xl lg:text-6xl">{hero.title||'Memorizing the Book of Allah\nBuilding a Better Ummah'}</h1><p className="mt-6 max-w-2xl text-base leading-7 text-white/80 sm:text-lg">{hero.subtitle||"A structured Qur'an memorization programme that nurtures hearts, strengthens faith and builds character."}</p><div className="mt-8 flex flex-wrap gap-3">{admissionOpen&&<Link href={hero.primary_href||'/admissions'} className="btn rounded-xl bg-[#d9a11e] px-5 py-3 text-slate-950">{hero.primary_cta||'Apply for Admission'} →</Link>}<Link href={hero.secondary_href||'/about'} className="btn rounded-xl border border-white/20 bg-white/10 px-5 py-3 text-white backdrop-blur">{hero.secondary_cta||'Learn More'} →</Link></div></div><div className="hidden lg:flex justify-end"><div className="max-w-xs rounded-[2rem] border border-white/15 bg-black/15 p-7 text-right backdrop-blur"><div className="font-serif text-6xl text-[#f3bf43]">الله</div><p className="mt-5 font-serif text-lg font-bold leading-8">"{hero.quote||'Indeed, it is We who sent down the Qur\'an and indeed, We will be its guardian.'}"</p><div className="mt-4 text-sm font-semibold text-[#f3bf43]">— {hero.quote_source||'Al-Hijr (15:9)'}</div></div></div></div></section>
-  {stats.length>0&&<section className="border-b border-amber-500/20 bg-amber-400"><div className="mx-auto grid max-w-6xl grid-cols-2 px-5 sm:grid-cols-4">{stats.slice(0,4).map((s:any,i:number)=><div key={i} className="px-4 py-6 text-center"><div className="text-2xl font-black text-emerald-950 sm:text-3xl">{s.value}</div><div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-emerald-900/70">{s.label}</div></div>)}</div></section>}
-  <section id="about" className="mx-auto max-w-6xl px-5 py-16 sm:px-7 lg:py-20"><div className="grid gap-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center"><div><div className="eyebrow-light">About {shortName}</div><h2 className="mt-2 section-title">{about.title||'Nurturing Huffaz. Building character.'}</h2><p className="mt-5 max-w-2xl text-[15px] leading-8 text-slate-600">{about.text||"We combine Qur'an memorization, Islamic education, discipline and pastoral care in a safe, supportive environment."}</p><div className="mt-7 grid max-w-xl grid-cols-2 gap-3">{features.slice(0,4).map((f:any,i:number)=><div key={i} className="rounded-2xl border border-slate-200 bg-slate-50 p-4"><div className="text-xl text-emerald-700">{iconMap[f.icon]||'✦'}</div><div className="mt-2 text-sm font-black text-emerald-950">{f.title}</div><div className="mt-1 text-xs leading-5 text-slate-500">{f.excerpt||f.text}</div></div>)}</div></div><div className="relative min-h-[360px] overflow-hidden rounded-[2rem] bg-emerald-950">{photos[0]?<img src={photos[0].public_url} alt={photos[0].alt_text||photos[0].title||'AMQM campus'} className="h-full w-full object-cover"/>:<div className="absolute inset-0 hero-art"/>}<div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"/><div className="absolute bottom-6 left-6 text-white"><div className="text-[10px] font-black uppercase tracking-[.2em] text-amber-200">{shortName}</div><div className="mt-1 font-serif text-2xl font-black">A place to learn and grow</div></div></div></div></section>
-  {(mission.mission||mission.vision)&&<section className="bg-[#f4f6f1] py-16 lg:py-20"><div className="mx-auto max-w-6xl px-5 sm:px-7"><div className="mx-auto max-w-2xl text-center"><div className="eyebrow-light">Our purpose</div><h2 className="section-title mx-auto">Mission & Vision</h2></div><div className="mt-10 grid gap-5 md:grid-cols-2"><article className="rounded-[1.75rem] bg-[#06372f] p-7 text-white lg:p-9"><div className="text-amber-300">◈</div><h3 className="mt-4 font-serif text-2xl font-black">{mission.mission_title||'Our Mission'}</h3><p className="mt-3 text-sm leading-7 text-emerald-50/75">{mission.mission}</p></article><article className="rounded-[1.75rem] border border-amber-300/40 bg-white p-7 lg:p-9"><div className="text-amber-500">✦</div><h3 className="mt-4 font-serif text-2xl font-black text-emerald-950">{mission.vision_title||'Our Vision'}</h3><p className="mt-3 text-sm leading-7 text-slate-600">{mission.vision}</p></article></div></div></section>}
-  <section id="programmes" className="mx-auto max-w-6xl px-5 py-16 sm:px-7 lg:py-20"><div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><div className="eyebrow-light">Academic pathway</div><h2 className="section-title">{programme.title||"Qur'an Memorization Programme"}</h2><p className="section-copy">{programme.text||'Structured memorization, revision and regular evaluation.'}</p></div><Link href="/programs" className="text-sm font-black text-emerald-800">Explore programmes →</Link></div><div className="mt-9 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{(programme.items?.length?programme.items:[{title:'Daily Memorization',text:'Structured daily sessions with revision.'},{title:'Qualified Teachers',text:'Experienced teachers and pastoral care.'},{title:'Regular Evaluations',text:'Progress measured throughout the term.'},{title:'Graduation',text:'A clear pathway toward completion.'}]).slice(0,4).map((p:any,i:number)=><article key={i} className="card p-6"><div className="homepage-icon">{iconMap[p.icon]||['◈','◇','▥','✦'][i]}</div><h3 className="mt-4 font-black text-emerald-950">{p.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{p.excerpt||p.text}</p></article>)}</div></section>
-  {leadTeam.length>0&&<section className="bg-[#f4f6f1] py-16 lg:py-20"><div className="mx-auto max-w-6xl px-5 sm:px-7"><div className="text-center"><div className="eyebrow-light">Our people</div><h2 className="section-title mx-auto">Teachers & leadership</h2><p className="section-copy mx-auto">Meet some of the people who support learning, memorization and student development at {shortName}.</p></div><div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{leadTeam.map((p:any,i:number)=><article key={p.id||i} className="card overflow-hidden"><div className="h-64 bg-emerald-950">{(p.photo_url||p.avatar_url)?<img src={p.photo_url||p.avatar_url} alt={p.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center font-serif text-5xl text-amber-300">{p.full_name?.charAt(0)||'A'}</div>}</div><div className="p-5"><h3 className="font-black text-emerald-950">{p.full_name}</h3><div className="mt-1 text-xs font-bold uppercase tracking-wide text-emerald-700">{p.role_title||p.job_title||p.department||'School Staff'}</div></div></article>)}</div></div></section>}
-  {campuses.length>0&&<section className="mx-auto max-w-6xl px-5 py-16 sm:px-7 lg:py-20"><div className="flex items-end justify-between"><div><div className="eyebrow-light">Campus life</div><h2 className="section-title">A safe place to learn, worship and grow.</h2></div><Link href="/campus-life" className="hidden text-sm font-black text-emerald-800 sm:block">Explore campus life →</Link></div><div className="mt-9 grid gap-5 md:grid-cols-3">{campuses.slice(0,3).map((c:any,i:number)=><article key={i} className="overflow-hidden rounded-[1.5rem] border bg-white shadow-sm"><div className="h-52 bg-emerald-950">{c.image_url?<img src={c.image_url} alt={c.image_url_alt||c.title} className="h-full w-full object-cover"/>:<div className="h-full hero-art"/>}</div><div className="p-5"><h3 className="font-black text-emerald-950">{c.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{c.excerpt||c.text}</p></div></article>)}</div></section>}
-  {testimonialItems.length>0&&<section className="bg-[#06372f] py-16 text-white lg:py-20"><div className="mx-auto max-w-6xl px-5 sm:px-7"><div className="text-center"><div className="text-[11px] font-black uppercase tracking-[.25em] text-amber-300">What parents say</div><h2 className="mt-2 font-serif text-3xl font-black sm:text-4xl">Trusted by families who choose {shortName}.</h2><p className="mx-auto mt-3 max-w-2xl text-sm leading-6 text-emerald-50/70">Real reflections from families in our school community.</p></div><div className="mt-10 grid gap-5 md:grid-cols-3">{testimonialItems.slice(0,3).map((t:any,i:number)=><article key={i} className="rounded-[1.5rem] border border-white/10 bg-white/5 p-6 backdrop-blur"><div className="text-amber-300">★★★★★</div><p className="mt-4 text-sm leading-7 text-white/85">“{t.quote||t.text||t.excerpt}”</p><div className="mt-6 border-t border-white/10 pt-4"><div className="font-black">{t.name||t.author||'Parent'}</div><div className="mt-1 text-xs text-emerald-100/60">{t.role||t.relation||'Parent'}</div></div></article>)}</div></div></section>}
-  {news.length>0&&<section className="mx-auto max-w-6xl px-5 py-16 sm:px-7 lg:py-20"><div className="flex items-end justify-between"><div><div className="eyebrow-light">News & events</div><h2 className="section-title">Latest from {shortName}</h2></div><Link href="/news" className="text-sm font-black text-emerald-800">View all →</Link></div><div className="mt-9 grid gap-5 md:grid-cols-3">{news.slice(0,3).map((n:any)=><article key={n.id} className="overflow-hidden rounded-[1.5rem] border bg-white"><div className="h-48 bg-emerald-950">{n.image_url?<img src={n.image_url} alt={n.title} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-4xl text-amber-300">✦</div>}</div><div className="p-5"><div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{n.published_on}</div><h3 className="mt-2 font-black text-emerald-950">{n.title}</h3><p className="mt-2 text-sm leading-6 text-slate-600">{n.excerpt}</p></div></article>)}</div></section>}
-  <section className="bg-[#d9a11e] py-12"><div className="mx-auto flex max-w-6xl flex-col gap-5 px-5 text-center sm:px-7 md:flex-row md:items-center md:justify-between md:text-left"><div><div className="text-xs font-black uppercase tracking-[.2em] text-emerald-950">Begin the journey</div><h2 className="mt-2 font-serif text-3xl font-black text-emerald-950">Give your child a life with the Qur'an.</h2></div><div className="flex flex-wrap justify-center gap-3 md:justify-end"><Link href="/programs" className="btn bg-white text-emerald-950">Explore Programmes</Link>{admissionOpen&&<Link href="/admissions" className="btn bg-[#06372f] text-white">Apply Now →</Link>}</div></div></section>
-  <footer id="contact" className="bg-[#03251f] text-white"><div className="mx-auto max-w-6xl px-5 py-10 sm:px-7"><div className="grid gap-8 lg:grid-cols-[1.2fr_.8fr_.8fr]"><div><div className="font-serif text-2xl font-black">{schoolName}</div><p className="mt-3 max-w-md text-sm leading-6 text-emerald-50/60">{footer.tagline||settings.tagline?.value||"Qur'anic memorization, education, character and excellence."}</p><div className="mt-5 text-sm text-emerald-50/60">{contact.address}</div></div><div><div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Quick links</div><div className="mt-4 grid gap-2 text-sm text-emerald-50/60">{nav.map((x:any)=><Link key={x.label} href={x.href} className="hover:text-white">{x.label}</Link>)}</div></div><div><div className="text-xs font-black uppercase tracking-[.18em] text-amber-300">Contact</div><div className="mt-4 space-y-2 text-sm text-emerald-50/60"><div>{contact.phone}</div><div>{contact.email}</div><div>{contact.address}</div></div></div></div><div className="mt-10"><SocialLinks links={social}/></div></div><div className="border-t border-white/10 py-5 text-center text-xs text-emerald-50/40">© {new Date().getFullYear()} {schoolName}. All rights reserved.</div></footer>
- </main>;
+const iconMap: Record<string, string> = {
+  book: '◈',
+  people: '♧',
+  teacher: '◇',
+  star: '✦',
+  chart: '▥',
+  shield: '⬡',
+  mosque: '⌂',
+  heart: '♡',
+};
+
+function sectionMap(items: CMSSection[]) {
+  return Object.fromEntries(items.map((item) => [item.section_key, item])) as Record<string, CMSSection>;
+}
+
+function normalizeUrl(value?: string) {
+  if (!value) return '';
+  return /^https?:\/\//i.test(value) ? value : `https://${value}`;
+}
+
+function initials(name?: string) {
+  return (name || 'AMQM')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+export default function PublicHomepageSchool() {
+  const [sections, setSections] = useState<CMSSection[]>([]);
+  const [settings, setSettings] = useState<Record<string, any>>({});
+  const [team, setTeam] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [media, setMedia] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
+  const [menu, setMenu] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    Promise.all([
+      loadCMSSections(),
+      loadCMSSettings(),
+      loadPublicTeam(),
+      loadPublicTeachers(),
+      loadPublicHomepageMedia(),
+      loadPublicNewsPosts(6),
+    ])
+      .then(([cmsSections, cmsSettings, publicTeam, publicTeachers, publicMedia, publicNews]) => {
+        if (!active) return;
+        setSections(cmsSections);
+        setSettings(cmsSettings);
+        setTeam(publicTeam);
+        setTeachers(publicTeachers);
+        setMedia(publicMedia);
+        setNews(publicNews);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const content = useMemo(() => sectionMap(sections), [sections]);
+  const hero = content.hero?.content || {};
+  const about = content.about?.content || {};
+  const mission = content.mission_vision?.content || {};
+  const programme = content.programme?.content || {};
+  const stats = content.stats?.content?.items || [];
+  const features = content.features?.content?.items || [];
+  const testimonials = content.testimonials?.content?.items || [];
+  const campuses = content.campuses?.content?.items || [];
+
+  const schoolName = settings.school_name?.value || "Aliyu & Maimuna Center for Qur'anic Memorization";
+  const shortName = settings.short_name?.value || 'AMQM';
+  const logo = settings.logo_url?.value || '';
+  const tagline = settings.tagline?.value || "Qur'an memorization, knowledge, character and excellence.";
+  const contact = settings.contact || {};
+  const social = settings.social_links || {};
+  const portal = settings.admission_portal || {};
+  const nav = settings.nav?.links?.length ? settings.nav.links : fallbackNav;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const admissionOpen =
+    portal.enabled === true &&
+    (!portal.opening_date || today >= portal.opening_date) &&
+    (!portal.closing_date || today <= portal.closing_date);
+
+  const imageMedia = media.filter((item) => item.media_type === 'image' && item.public_url);
+  const heroImage = hero.hero_image || imageMedia[0]?.public_url;
+  const aboutImage = imageMedia.find((item) => item.public_url !== heroImage)?.public_url || imageMedia[1]?.public_url;
+
+  const leadership = team.filter((person) => {
+    const category = String(person.category || '').toLowerCase();
+    const role = String(person.role_title || '').toLowerCase();
+    return category.includes('lead') || /director|supervisor|principal|head|management/.test(role);
+  });
+  const otherTeam = team.filter((person) => !leadership.includes(person));
+  const teacherList = [...otherTeam, ...teachers.filter((teacher) => !otherTeam.some((person) => person.full_name === teacher.full_name))];
+
+  const fallbackTestimonials = [
+    {
+      quote: 'AMQM gives children structure, discipline and a genuine love for the Qur’an. We have seen a beautiful change in our child.',
+      name: 'AMQM Parent',
+      role: 'Parent',
+    },
+    {
+      quote: 'The teachers are patient and attentive. The combination of memorisation, character and education gives us confidence as parents.',
+      name: 'AMQM Parent',
+      role: 'Parent',
+    },
+    {
+      quote: 'We appreciate the care given to every student and the clear way progress is followed throughout the journey.',
+      name: 'AMQM Parent',
+      role: 'Parent',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-[#f7f5ef]">
+        <div className="h-1 bg-[#caa24a]" />
+        <div className="h-20 border-b border-[#e7e2d8] bg-[#fbfaf6]" />
+        <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 lg:px-10">
+          <div className="h-[560px] animate-pulse rounded-[2rem] bg-[#dfe8e3]" />
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="min-h-screen overflow-x-hidden bg-[#f8f6f0] text-[#143d35]">
+      <div className="h-1 bg-[#c9a34b]" />
+
+      <div className="hidden border-b border-[#0e4239] bg-[#062d28] text-[11px] text-white/80 md:block">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-8 py-2">
+          <span>{contact.address || 'Yola, Adamawa State, Nigeria'}</span>
+          <div className="flex items-center gap-5">
+            {contact.phone && <span>{contact.phone}</span>}
+            {admissionOpen && <span className="font-bold text-[#f2cf78]">Admissions Open</span>}
+          </div>
+        </div>
+      </div>
+
+      <header className="sticky top-0 z-50 border-b border-[#e7e2d8]/90 bg-[#fbfaf6]/95 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[78px] max-w-7xl items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
+          <Link href="/" className="flex min-w-0 items-center gap-3.5">
+            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-full border border-[#d9cfb9] bg-white shadow-sm">
+              {logo ? (
+                <img src={logo} alt={`${shortName} logo`} className="h-full w-full object-contain" />
+              ) : (
+                <span className="font-serif text-lg font-black text-[#075848]">AM</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="font-serif text-xl font-black tracking-tight text-[#073b32]">{shortName}</div>
+              <div className="hidden max-w-[340px] truncate text-[9px] font-bold uppercase tracking-[.13em] text-slate-500 sm:block">
+                {schoolName}
+              </div>
+            </div>
+          </Link>
+
+          <nav className="hidden items-center gap-7 lg:flex">
+            {nav.slice(0, 7).map((item: any) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="text-[13px] font-bold text-slate-600 transition-colors hover:text-[#075848]"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/auth/login"
+              className="hidden rounded-full px-3 py-2 text-[13px] font-bold text-slate-600 hover:text-[#075848] sm:inline-flex"
+            >
+              Portal
+            </Link>
+            {admissionOpen && (
+              <Link
+                href="/admissions"
+                className="rounded-full bg-[#075848] px-5 py-2.5 text-[13px] font-black text-white shadow-sm transition hover:bg-[#06473b] hover:shadow-md"
+              >
+                Apply Now
+              </Link>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenu(true)}
+              className="grid h-10 w-10 place-items-center rounded-full bg-[#edf2ee] text-[#075848] lg:hidden"
+              aria-label="Open navigation"
+            >
+              ☰
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {menu && (
+        <div className="fixed inset-0 z-[100] lg:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            onClick={() => setMenu(false)}
+            className="absolute inset-0 bg-[#062d28]/60"
+          />
+          <aside className="absolute right-0 top-0 flex h-full w-[88vw] max-w-sm flex-col bg-[#fbfaf6] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[#e5dfd3] pb-5">
+              <span className="font-serif text-xl font-black text-[#073b32]">{shortName}</span>
+              <button
+                type="button"
+                onClick={() => setMenu(false)}
+                className="grid h-10 w-10 place-items-center rounded-full bg-[#edf2ee] text-2xl text-[#075848]"
+                aria-label="Close navigation"
+              >
+                ×
+              </button>
+            </div>
+            <nav className="mt-6 grid gap-2">
+              {nav.map((item: any) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setMenu(false)}
+                  className="flex items-center justify-between rounded-2xl bg-white px-4 py-3.5 text-sm font-bold text-[#173f38] shadow-sm ring-1 ring-[#e8e2d8]"
+                >
+                  <span>{item.label}</span>
+                  <span>→</span>
+                </Link>
+              ))}
+            </nav>
+            <Link
+              href="/auth/login"
+              onClick={() => setMenu(false)}
+              className="mt-auto rounded-2xl bg-[#075848] px-4 py-3.5 text-center text-sm font-black text-white"
+            >
+              Student & Parent Portal
+            </Link>
+          </aside>
+        </div>
+      )}
+
+      <section className="mx-auto max-w-7xl px-4 pt-4 sm:px-6 lg:px-8 lg:pt-6">
+        <div className="relative isolate min-h-[610px] overflow-hidden rounded-[2rem] bg-[#06342d] shadow-[0_24px_70px_rgba(7,58,50,.14)] sm:min-h-[650px]">
+          {heroImage ? (
+            <img
+              src={heroImage}
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-center"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_78%_20%,rgba(202,163,75,.34),transparent_23%),linear-gradient(125deg,#052a24,#086250)]" />
+          )}
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(3,35,30,.97)_0%,rgba(4,54,46,.88)_48%,rgba(4,54,46,.32)_100%)]" />
+          <div className="absolute inset-y-0 right-0 hidden w-[42%] bg-[radial-gradient(circle_at_55%_48%,rgba(202,163,75,.16),transparent_48%)] lg:block" />
+
+          <div className="relative flex min-h-[610px] items-end sm:min-h-[650px]">
+            <div className="max-w-3xl px-7 pb-12 pt-24 sm:px-12 sm:pb-16 lg:px-16 lg:pb-20">
+              <div className="inline-flex rounded-full border border-[#e6c978]/30 bg-white/5 px-4 py-2 text-[10px] font-black uppercase tracking-[.22em] text-[#f1d47e]">
+                {hero.eyebrow || schoolName}
+              </div>
+              <h1 className="mt-7 max-w-3xl whitespace-pre-line font-serif text-5xl font-black leading-[.98] tracking-[-.035em] text-white sm:text-6xl lg:text-[76px]">
+                {hero.title || "Memorising the Qur’an.\nBuilding character.\nServing the Ummah."}
+              </h1>
+              <p className="mt-7 max-w-2xl text-base leading-7 text-white/75 sm:text-lg">
+                {hero.subtitle || tagline}
+              </p>
+              <div className="mt-9 flex flex-wrap gap-3">
+                {admissionOpen && (
+                  <Link
+                    href={hero.primary_href || '/admissions'}
+                    className="rounded-full bg-[#d3ad55] px-6 py-3.5 text-sm font-black text-[#082f29] shadow-lg transition hover:-translate-y-0.5 hover:bg-[#e1be68]"
+                  >
+                    {hero.primary_cta || 'Begin an application'} →
+                  </Link>
+                )}
+                <Link
+                  href={hero.secondary_href || '/about'}
+                  className="rounded-full border border-white/20 bg-white/10 px-6 py-3.5 text-sm font-black text-white backdrop-blur transition hover:bg-white/15"
+                >
+                  {hero.secondary_cta || 'Discover AMQM'}
+                </Link>
+              </div>
+            </div>
+
+            <div className="absolute bottom-7 right-7 hidden max-w-[250px] rounded-3xl border border-white/15 bg-[#052d27]/70 p-5 text-white backdrop-blur-md lg:block">
+              <div className="text-[10px] font-black uppercase tracking-[.2em] text-[#e9c86f]">Our promise</div>
+              <p className="mt-3 font-serif text-xl font-bold leading-7">
+                {hero.card_title || 'A caring environment for Qur’an, knowledge and character.'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {stats.length > 0 && (
+        <section className="mx-auto max-w-7xl px-5 py-5 sm:px-8 lg:px-10">
+          <div className="grid overflow-hidden rounded-2xl border border-[#dfd7c6] bg-[#fffdf8] shadow-sm sm:grid-cols-4">
+            {stats.slice(0, 4).map((stat: any, index: number) => (
+              <div
+                key={index}
+                className="border-b border-[#e9e2d5] px-5 py-5 text-center last:border-0 sm:border-b-0 sm:border-r"
+              >
+                <div className="font-serif text-2xl font-black text-[#075848]">{stat.value}</div>
+                <div className="mt-1 text-[10px] font-black uppercase tracking-[.15em] text-slate-500">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section id="about" className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
+        <div className="grid items-center gap-12 lg:grid-cols-[.88fr_1.12fr] lg:gap-20">
+          <div className="relative">
+            <div className="absolute -left-3 -top-3 h-24 w-24 rounded-full border border-[#d8bd70]/50" />
+            <div className="relative overflow-hidden rounded-[2rem] bg-[#e5ece7] shadow-[0_24px_60px_rgba(7,58,50,.12)]">
+              {aboutImage ? (
+                <img
+                  src={aboutImage}
+                  alt={about.title || 'AMQM students'}
+                  className="aspect-[4/5] w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-[4/5] items-center justify-center bg-[#0a5949] font-serif text-7xl font-black text-[#e7c86e]">AM</div>
+              )}
+              <div className="absolute bottom-5 left-5 right-5 rounded-2xl border border-white/20 bg-[#06342d]/90 p-5 text-white backdrop-blur">
+                <div className="text-[10px] font-black uppercase tracking-[.18em] text-[#edcd72]">At the heart of AMQM</div>
+                <div className="mt-2 font-serif text-2xl font-black">Faith that shapes a life.</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">About AMQM</div>
+            <h2 className="mt-4 max-w-3xl font-serif text-4xl font-black leading-[1.08] tracking-tight text-[#073b32] sm:text-5xl">
+              {about.title || 'Nurturing hearts with the Qur’an, building lives with knowledge.'}
+            </h2>
+            <p className="mt-6 max-w-2xl text-[15px] leading-8 text-slate-600">
+              {about.text ||
+                "AMQM combines Qur’an memorisation, Islamic education, discipline and pastoral care in a safe, supportive environment where students can grow in knowledge, confidence and character."}
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {features.slice(0, 4).map((feature: any, index: number) => (
+                <div key={index} className="rounded-2xl border border-[#e2ddd2] bg-white p-5 shadow-sm">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f0] text-lg text-[#08735c]">
+                    {iconMap[feature.icon] || ['◈', '◇', '▥', '✦'][index]}
+                  </div>
+                  <h3 className="mt-4 text-sm font-black text-[#073b32]">{feature.title}</h3>
+                  <p className="mt-1.5 text-xs leading-5 text-slate-500">{feature.excerpt || feature.text}</p>
+                </div>
+              ))}
+            </div>
+            <Link
+              href="/about"
+              className="mt-8 inline-flex rounded-full bg-[#075848] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#06483c]"
+            >
+              Learn more about AMQM →
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {(mission.mission || mission.vision) && (
+        <section className="border-y border-[#e5dfd2] bg-[#f0f3ed]">
+          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+            <div className="max-w-2xl">
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">Our direction</div>
+              <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">Purpose with a clear path.</h2>
+            </div>
+            <div className="mt-10 grid gap-5 lg:grid-cols-2">
+              <article className="rounded-[1.75rem] bg-[#06342d] p-8 text-white shadow-xl lg:p-10">
+                <div className="text-sm font-black text-[#e8c76c]">01</div>
+                <h3 className="mt-6 font-serif text-3xl font-black">{mission.mission_title || 'Our Mission'}</h3>
+                <p className="mt-4 text-sm leading-7 text-emerald-50/75">{mission.mission}</p>
+              </article>
+              <article className="rounded-[1.75rem] border border-[#dfd6c5] bg-white p-8 shadow-sm lg:p-10">
+                <div className="text-sm font-black text-[#b3882b]">02</div>
+                <h3 className="mt-6 font-serif text-3xl font-black text-[#073b32]">{mission.vision_title || 'Our Vision'}</h3>
+                <p className="mt-4 text-sm leading-7 text-slate-600">{mission.vision}</p>
+              </article>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-28">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">The Qur’anic journey</div>
+            <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">
+              {programme.title || 'A structured journey, one step at a time.'}
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+              {programme.text ||
+                'Students begin from an assigned starting point and continue through memorisation, revision and regular assessment. Their journey continues across school years until completion.'}
+            </p>
+          </div>
+          <Link href="/programs" className="shrink-0 text-sm font-black text-[#075848]">
+            Explore the programme →
+          </Link>
+        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {(programme.items?.length
+            ? programme.items
+            : [
+                { title: 'Begin', text: 'Each student receives an official starting point.' },
+                { title: 'Memorise', text: 'Daily learning and revision build lasting retention.' },
+                { title: 'Evaluate', text: 'Progress is reviewed through regular assessments.' },
+                { title: 'Complete', text: 'The full journey is recognised and preserved.' },
+              ]
+          )
+            .slice(0, 4)
+            .map((item: any, index: number) => (
+              <article key={index} className="rounded-[1.5rem] border border-[#e1dcd1] bg-white p-6 shadow-sm">
+                <div className="font-serif text-4xl font-black text-[#c39b3e]">0{index + 1}</div>
+                <h3 className="mt-5 text-base font-black text-[#073b32]">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500">{item.excerpt || item.text}</p>
+              </article>
+            ))}
+        </div>
+      </section>
+
+      {leadership.length > 0 && (
+        <section className="bg-[#06342d] text-white">
+          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e7c66c]">Leadership</div>
+                <h2 className="mt-3 font-serif text-4xl font-black sm:text-5xl">People who guide the school.</h2>
+                <p className="mt-4 max-w-2xl text-sm leading-7 text-emerald-50/65">
+                  Experienced people committed to Qur’an, learning, discipline and the wellbeing of every student.
+                </p>
+              </div>
+              <Link href="/about" className="text-sm font-black text-[#e7c66c]">Meet the full team →</Link>
+            </div>
+            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {leadership.slice(0, 3).map((person: any, index: number) => (
+                <article key={person.id || index} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.06]">
+                  <div className="aspect-[4/4.4] bg-[#0a4a3e]">
+                    {person.photo_url ? (
+                      <img src={person.photo_url} alt={person.full_name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="grid h-full place-items-center font-serif text-6xl font-black text-[#e6c76d]">{initials(person.full_name)}</div>
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-serif text-xl font-black">{person.full_name}</h3>
+                    <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-[#e6c76d]">
+                      {person.role_title || 'School Leadership'}
+                    </p>
+                    {person.brief_bio && <p className="mt-4 line-clamp-3 text-sm leading-6 text-emerald-50/65">{person.brief_bio}</p>}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {teacherList.length > 0 && (
+        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">Our teachers</div>
+              <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">A team students can learn from.</h2>
+            </div>
+            <Link href="/about" className="text-sm font-black text-[#075848]">Meet the team →</Link>
+          </div>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {teacherList.slice(0, 4).map((person: any, index: number) => (
+              <article key={person.id || index} className="overflow-hidden rounded-[1.5rem] border border-[#e1dcd1] bg-white shadow-sm">
+                <div className="aspect-[4/4.2] bg-[#e8eee9]">
+                  {person.photo_url || person.avatar_url ? (
+                    <img
+                      src={person.photo_url || person.avatar_url}
+                      alt={person.full_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full place-items-center font-serif text-5xl font-black text-[#0a6a57]">{initials(person.full_name)}</div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <h3 className="font-serif text-lg font-black text-[#073b32]">{person.full_name}</h3>
+                  <p className="mt-1 text-[10px] font-black uppercase tracking-[.14em] text-[#0a755f]">
+                    {person.role_title || person.job_title || person.department || 'Teacher'}
+                  </p>
+                  {(person.subjects || person.experience) && (
+                    <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
+                      {person.subjects || person.experience}
+                    </p>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {campuses.length > 0 && (
+        <section className="border-y border-[#e5dfd2] bg-[#f0f3ed]">
+          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+            <div className="flex items-end justify-between gap-5">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">Campus life</div>
+                <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">A place to learn and grow.</h2>
+              </div>
+              <Link href="/campus-life" className="hidden text-sm font-black text-[#075848] sm:block">Explore campus life →</Link>
+            </div>
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {campuses.slice(0, 3).map((campus: any, index: number) => (
+                <article key={index} className="group overflow-hidden rounded-[1.5rem] bg-white shadow-sm ring-1 ring-[#e2ddd3]">
+                  <div className="aspect-[16/10] overflow-hidden bg-[#0a4a3e]">
+                    {campus.image_url ? (
+                      <img src={campus.image_url} alt={campus.image_url_alt || campus.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                    ) : (
+                      <div className="h-full bg-[radial-gradient(circle_at_50%_25%,rgba(202,163,75,.3),transparent_25%),linear-gradient(135deg,#06342d,#0a6553)]" />
+                    )}
+                  </div>
+                  <div className="p-6">
+                    <h3 className="font-serif text-xl font-black text-[#073b32]">{campus.title}</h3>
+                    <p className="mt-2 text-sm leading-6 text-slate-500">{campus.excerpt || campus.text}</p>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
+        <div className="rounded-[2rem] bg-[#06342d] px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-16">
+          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e7c66c]">Parents & families</div>
+              <h2 className="mt-3 font-serif text-4xl font-black leading-tight sm:text-5xl">A school journey families can trust.</h2>
+              <p className="mt-5 max-w-md text-sm leading-7 text-emerald-50/65">
+                {testimonials.length ? 'A few reflections from families in our school community.' : 'We value partnership with parents throughout every student’s Qur’anic journey.'}
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 3).map((item: any, index: number) => (
+                <article key={index} className="rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
+                  <div className="text-3xl leading-none text-[#e7c66c]">“</div>
+                  <p className="mt-2 text-sm leading-6 text-white/80">{item.quote || item.text || item.excerpt}</p>
+                  <div className="mt-5 border-t border-white/10 pt-4">
+                    <div className="text-sm font-black">{item.name || 'AMQM Parent'}</div>
+                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#e7c66c]">
+                      {item.role || item.relation || 'Parent'}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {news.length > 0 && (
+        <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10 lg:pb-28">
+          <div className="flex items-end justify-between gap-5">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">From the school</div>
+              <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">Latest news & events.</h2>
+            </div>
+            <Link href="/news" className="text-sm font-black text-[#075848]">View all news →</Link>
+          </div>
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {news.slice(0, 3).map((item: any) => (
+              <Link
+                href="/news"
+                key={item.id}
+                className="group overflow-hidden rounded-[1.5rem] border border-[#e1dcd1] bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="aspect-[16/9] overflow-hidden bg-[#e4ebe6]">
+                  {item.image_url ? (
+                    <img src={item.image_url} alt={item.title} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                  ) : (
+                    <div className="grid h-full place-items-center font-serif text-4xl font-black text-[#0a6a57]">AMQM</div>
+                  )}
+                </div>
+                <div className="p-6">
+                  <div className="text-[10px] font-black uppercase tracking-[.13em] text-slate-400">{item.category || 'School News'} · {item.published_on}</div>
+                  <h3 className="mt-3 font-serif text-xl font-black text-[#073b32]">{item.title}</h3>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-500">{item.excerpt}</p>
+                  <div className="mt-5 text-sm font-black text-[#075848]">Read story →</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mx-auto max-w-7xl px-5 pb-8 sm:px-8 lg:px-10">
+        <div className="relative overflow-hidden rounded-[2rem] bg-[#d3ad55] px-7 py-12 sm:px-10 lg:px-14 lg:py-14">
+          <div className="relative z-10 max-w-3xl">
+            <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#173f38]">Admissions</div>
+            <h2 className="mt-3 font-serif text-4xl font-black leading-tight text-[#073b32] sm:text-5xl">
+              Begin a meaningful Qur’anic journey.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-[#173f38]/75">
+              Learn about AMQM, explore the programme and discover how to begin the admissions process.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3">
+              {admissionOpen && (
+                <Link href="/admissions" className="rounded-full bg-[#06342d] px-6 py-3.5 text-sm font-black text-white">
+                  Apply for admission →
+                </Link>
+              )}
+              <Link href="/contact" className="rounded-full bg-white px-6 py-3.5 text-sm font-black text-[#073b32]">
+                Contact the school
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer id="contact" className="mt-12 bg-[#03251f] text-white">
+        <div className="mx-auto max-w-7xl px-5 py-14 sm:px-8 lg:px-10">
+          <div className="grid gap-10 md:grid-cols-[1.35fr_.65fr_.8fr]">
+            <div>
+              <div className="font-serif text-2xl font-black">{schoolName}</div>
+              <p className="mt-3 max-w-lg text-sm leading-7 text-emerald-50/60">{tagline}</p>
+              {contact.address && <p className="mt-5 text-sm text-emerald-50/60">{contact.address}</p>}
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.18em] text-[#e7c66c]">Explore</div>
+              <div className="mt-4 grid gap-2.5 text-sm text-emerald-50/60">
+                {nav.slice(0, 6).map((item: any) => (
+                  <Link key={item.label} href={item.href} className="hover:text-white">{item.label}</Link>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.18em] text-[#e7c66c]">Contact</div>
+              <div className="mt-4 grid gap-2 text-sm text-emerald-50/60">
+                {contact.phone && <span>{contact.phone}</span>}
+                {contact.email && <span>{contact.email}</span>}
+                {Object.entries(social).filter(([, value]) => value).slice(0, 4).map(([key, value]) => (
+                  <a key={key} href={normalizeUrl(String(value))} target="_blank" rel="noreferrer" className="capitalize hover:text-white">
+                    {key}
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-10 border-t border-white/10 pt-5 text-center text-xs text-emerald-50/35">
+            © {new Date().getFullYear()} {schoolName}. All rights reserved.
+          </div>
+        </div>
+      </footer>
+    </main>
+  );
 }
