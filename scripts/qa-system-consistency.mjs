@@ -15,6 +15,7 @@ const homepage=read('src/components/PublicHomepageSchool.tsx');
 const orbit=read('src/components/OrbitalPeopleSection.tsx');
 const leadership=read('src/components/LeadershipSection.tsx');
 const teaching=read('src/components/TeachingStaffSection.tsx');
+const cms=read('src/app/cms/page.tsx');
 
 expect(!topbar.includes('/program-setup'), 'Topbar has no obsolete Program & Terms link');
 expect(topbar.includes("import { roleLinks } from '@/lib/nav-links'"), 'Topbar uses the shared navigation source');
@@ -40,6 +41,11 @@ expect(orbit.includes('width < 390'), 'Orbital people has a dedicated small-phon
 expect(orbit.includes('ResizeObserver'), 'Orbital people recalculates layout on resize');
 expect(leadership.includes("href: '/leadership/' + leader.id"), 'Leadership keeps existing profile routing');
 expect(teaching.includes("href: '/teachers/' + teacher.id"), 'Teachers keep existing profile routing');
+expect(homepage.includes('item.image_url || item.image'), 'Homepage testimonials support parent photos');
+expect(homepage.includes('item.name ||'), 'Homepage testimonials support parent names');
+expect(cms.includes("key==='testimonials'"), 'CMS has a dedicated parent testimonial editor');
+expect(cms.includes('Upload photo'), 'CMS can upload parent testimonial photos');
+expect(cms.includes('Parent name'), 'CMS can edit parent testimonial names');
 
 const failed=checks.filter(x=>!x[0]);
 if(failed.length){
