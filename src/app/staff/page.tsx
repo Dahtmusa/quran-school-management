@@ -99,7 +99,7 @@ export default function StaffPage(){
    setBusy(true);
    try{
      const r=await createStaffAccount({fullName:editL.full_name,email:lAccEmail,password:lAccPassword,role:lAccRole,phone:'',jobTitle:editL.role_title||'',department:'Leadership',joinedOn:''});
-     if(lAccUsername.trim()&&r?.user_id){await updateStaffProfile(r.user_id,{username:lAccUsername.trim().toLowerCase()});}
+     if(r?.user_id){await updateStaffProfile(r.user_id,{username:lAccUsername.trim().toLowerCase()||undefined,avatar_url:editL.photo_url??undefined,job_title:editL.role_title||undefined,department:'Leadership'});}
      await refresh();
      setLAccEmail('');setLAccPassword('');setLAccUsername('');setLAccRole('admin');
      setMessage(`Account created for ${editL.full_name}. They can now log in with ${lAccRole} access. Staff ID: ${r?.staff_id||'auto-assigned'}.`);
