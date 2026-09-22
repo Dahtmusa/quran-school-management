@@ -53,7 +53,8 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
    : `<div class="directorSign"><div class="signLine"></div><span class="directorSignLabel">${esc(directorName)}</span><small>School Director</small></div>`;
  const logoUrl=esc(input.logoUrl||'https://ziyeasotnfijggecbqwf.supabase.co/storage/v1/object/public/school-public-media/2026/f29b5b2e-eadd-4202-894c-547722ee7c13-87.jpg');
  const logoMarkup=`<img class="logo" src="${logoUrl}" alt="School logo" onerror="this.src='https://ziyeasotnfijggecbqwf.supabase.co/storage/v1/object/public/school-public-media/2026/f29b5b2e-eadd-4202-894c-547722ee7c13-87.jpg'"/>`;
- const watermarkMarkup=`<img class="watermark" src="${logoUrl}" alt="" aria-hidden="true"/>`;
+ const watermarkUrl='/images/branding/amqm-logo-watermark.webp';
+ const watermarkMarkup=`<img class="watermark" src="${watermarkUrl}" alt="" aria-hidden="true"/>`;
 
  const studentDisplayExpiry=input.type==='STUDENT'?addOneMonth(input.programEndDate||input.expiry||calculatedProgramEnd):(input.expiry||null);
  const typeLabel=input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff';
@@ -79,7 +80,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .sheet{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 14px}
  .card{width:420px;border-radius:13px;overflow:hidden;position:relative;background:#fff;box-shadow:0 10px 28px rgba(16,37,31,.28);page-break-after:always}
  .card:last-child{page-break-after:auto}
- .watermark{position:absolute;left:50%;top:52%;width:48mm;height:48mm;transform:translate(-50%,-50%);object-fit:contain;opacity:.24;filter:grayscale(1);z-index:3;pointer-events:none}.band,.frontName,.frontMain,.bottomBar,.backBody,.foot{position:relative;z-index:4}
+ .watermark{position:absolute;left:50%;top:52%;width:48mm;height:48mm;transform:translate(-50%,-50%);object-fit:contain;opacity:.13;filter:grayscale(1);z-index:3;pointer-events:none}.band,.frontName,.frontMain,.bottomBar,.backBody,.foot{position:relative;z-index:4}
  .band{min-height:76px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;padding:8px 14px;background:linear-gradient(120deg,#07523f 0%,#062d2a 70%,#07241f 100%);color:#fff;border-bottom:2px solid #c9a84c;position:relative;z-index:1}
  .logo{width:52px;height:52px;border-radius:50%;background:#fff;object-fit:contain;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
  .brand{text-align:center;min-width:0;padding:0 2px}.brand strong{display:block;font-family:Georgia,'Times New Roman',serif;font-size:12.5px;line-height:1.15;font-weight:900;letter-spacing:.25px;color:#fff}.brand small{display:block;margin-top:4px;font-size:7.4px;line-height:1.25;font-weight:800;letter-spacing:.45px;color:#e4f0eb;text-transform:uppercase;white-space:normal}.arabic{direction:rtl;unicode-bidi:isolate;color:#f0c65d;font-size:10px;line-height:1.25;margin-top:1px;font-weight:700;font-family:Arial,'Noto Naskh Arabic','Amiri',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -146,7 +147,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .card.back .terms p{font-size:1.25mm;line-height:1.18;margin-top:.4mm}
  .card.back .terms .police{font-size:1.45mm!important;line-height:1.12;margin-top:.45mm}
  .card.back .foot{flex:0 0 5.5mm;height:5.5mm;min-height:5.5mm;font-size:1.05mm;padding:1.3mm 2.5mm;line-height:1.05}
- .card.back .watermark{width:44mm;height:44mm;top:52%;opacity:.24}
+ .card.back .watermark{width:44mm;height:44mm;top:52%;opacity:.12}
  @media print{.sheet{padding:0;gap:0}.card{box-shadow:none}.card.front{margin-bottom:4mm}.card.back{margin-bottom:0}.sheet{align-items:center}}
  </style></head><body><div class="sheet">
  <div class="card front">
