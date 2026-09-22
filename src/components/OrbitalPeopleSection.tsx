@@ -85,6 +85,16 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
   const dims = useMemo(() => dimensions(width, count), [width, count]);
   const active = people[activeIndex];
 
+  useEffect(() => {
+    if (count === 0) return;
+    if (activeIndex >= count) {
+      angleRef.current = TOP;
+      targetRef.current = null;
+      lastActiveRef.current = 0;
+      setActiveIndex(0);
+    }
+  }, [activeIndex, count]);
+
   const applyOrbit = useCallback((angle: number, activeIdx: number) => {
     const stage = stageRef.current;
     if (!stage || count === 0) return;
