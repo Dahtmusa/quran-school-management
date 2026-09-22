@@ -79,6 +79,7 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
   const [activeIndex, setActiveIndex] = useState(0);
   const [reduced, setReduced] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [visible, setVisible] = useState(false);
   const [width, setWidth] = useState(900);
 
   const dims = useMemo(() => dimensions(width, count), [width, count]);
@@ -138,6 +139,7 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
     if (!section) return;
     const observer = new IntersectionObserver(([entry]) => {
       visibleRef.current = entry.isIntersecting;
+      setVisible(entry.isIntersecting);
       if (entry.isIntersecting) setEntered(true);
     }, { threshold: 0.08 });
     observer.observe(section);
@@ -145,7 +147,10 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
   }, []);
 
   useEffect(() => {
-    if (count === 0) return;
+    if (count === 0 || reduced || !visible) {
+      applyOrbit(angleRef.current, activeIndex);
+      return;
+    }
     let lastTime = 0;
     const autoSpeed = 0.075;
     const snapSpeed = 2.5;
@@ -182,7 +187,7 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
     };
-  }, [applyOrbit, count]);
+  }, [applyOrbit, count, reduced, visible]);
 
   useEffect(() => {
     applyOrbit(angleRef.current, activeIndex);
