@@ -62,7 +62,7 @@ export default function StaffPage(){
  };
  useEffect(()=>{refresh()},[]);
 
- async function printStaffId(a:StaffProfile){await printAcademicIdCard({type:'STAFF',name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url,jobTitle:a.job_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
+ async function printStaffId(a:StaffProfile){const managementRoles=['admin','super_admin','principal','finance','admissions'];const type=managementRoles.includes(a.role)?'MANAGEMENT':'STAFF';await printAcademicIdCard({type,name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url,jobTitle:a.job_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
 
  const teachers=useMemo(()=>staff.filter(s=>s.role==='teacher'),[staff]);
  const teacherClasses=useMemo(()=>{const m:Record<string,string[]>={};for(const c of classes)for(const t of c.teachers){if(!m[t.id])m[t.id]=[];m[t.id].push(c.name)}return m;},[classes]);
