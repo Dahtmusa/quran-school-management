@@ -496,55 +496,49 @@ export default function PublicHomepageSchool() {
         </section>
       )}
 
-      <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
-        <div className="rounded-[2rem] bg-[#06342d] px-6 py-12 text-white sm:px-10 lg:px-16 lg:py-16">
-          <div className="grid gap-10 lg:grid-cols-[.8fr_1.2fr] lg:items-center">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e7c66c]">Parents & families</div>
-              <h2 className="mt-3 font-serif text-4xl font-black leading-tight sm:text-5xl">A school journey families can trust.</h2>
-              <p className="mt-5 max-w-md text-sm leading-7 text-emerald-50/65">
-                {testimonials.length ? 'A few reflections from families in our school community.' : 'We value partnership with parents throughout every student’s Qur’anic journey.'}
-              </p>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 4).map((item: any, index: number) => {
-                const name = item.name || 'AMQM Parent';
-                const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
-                const spritePosition = ['0%', '33.3333%', '66.6667%', '100%'][index] || '0%';
-                const sprite = item.sprite === true && (item.image_url || item.image);
-                return (
-                  <article key={index} className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="grid h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-[#e7c66c]/70 bg-[#d9e8e2] shadow-lg"
-                        style={sprite ? {
-                          backgroundImage: `url(${item.image_url || item.image})`,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: '400% auto',
-                          backgroundPosition: `${spritePosition} 0%`,
-                        } : undefined}
-                      >
-                        {!sprite && (item.image_url || item.image) ? (
-                          <img src={item.image_url || item.image} alt={name} className="h-full w-full object-cover" />
-                        ) : !sprite ? (
-                          <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_35%_25%,#f0d78e,#a97d2d_42%,#174d43_43%,#062d28)] font-serif text-lg font-black text-white">
-                            {initials}
-                          </div>
-                        ) : null}
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+        <div className="rounded-[2rem] bg-white px-4 py-8 sm:px-8 lg:px-10 lg:py-12">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
+            {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 4).map((item: any, index: number) => {
+              const name = item.name || ['Hajiya Amina Bello', 'Alh. Ibrahim Usman', 'Hajiya Fatima Muhammad', 'Alh. Abdulrahman Sani'][index];
+              const spritePosition = ['0%', '33.3333%', '66.6667%', '100%'][index] || '0%';
+              const image = item.image_url || item.image;
+              const isSprite = item.sprite === true && image;
+              const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
+              return (
+                <article key={index} className="min-w-0 text-center">
+                  <div
+                    className="mx-auto aspect-square w-full max-w-[285px] overflow-hidden rounded-full border-[5px] border-[#f1dfb3] bg-[#e9e3d7] shadow-[0_12px_30px_rgba(6,52,45,.10)]"
+                    style={isSprite ? {
+                      backgroundImage: `url(${image})`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundSize: '400% auto',
+                      backgroundPosition: `${spritePosition} 0%`,
+                    } : undefined}
+                  >
+                    {!isSprite && image ? (
+                      <img src={image} alt={name} className="h-full w-full object-cover" />
+                    ) : !isSprite ? (
+                      <div className="grid h-full w-full place-items-center bg-[#0b4d42] font-serif text-4xl font-black text-white">
+                        {initials}
                       </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-black text-white">{name}</div>
-                        <div className="mt-1 text-[9px] font-black uppercase tracking-[.12em] text-[#e7c66c]">
-                          {item.role || item.relation || 'Parent'}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-5 text-3xl leading-none text-[#e7c66c]">“</div>
-                    <p className="mt-1 text-sm leading-6 text-white/80">{item.quote || item.text || item.excerpt}</p>
-                  </article>
-                );
-              })}
-            </div>
+                    ) : null}
+                  </div>
+
+                  <h3 className="mt-5 font-serif text-[clamp(1.35rem,2.1vw,2rem)] font-black leading-tight tracking-[-.025em] text-[#0a4a40]">
+                    {name}
+                  </h3>
+
+                  <div className="mx-auto mt-3 inline-flex rounded-full border-2 border-[#e8c875] px-6 py-1.5 text-[11px] font-black uppercase tracking-[.16em] text-[#c49a3b]">
+                    {item.role || item.relation || 'Parent'}
+                  </div>
+
+                  <p className="mx-auto mt-4 max-w-[330px] text-[15px] leading-6 text-[#314b47]">
+                    “{item.quote || item.text || item.excerpt}”
+                  </p>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
