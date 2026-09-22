@@ -93,12 +93,14 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  @media screen and (min-width:720px){.sheet{zoom:1.3}} @media print{.sheet{zoom:1!important}}
  </style></head><body><div class="sheet">
  <div class="card front">
+  ${watermarkMarkup}
   <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><small>Official School Identification · Quran Memorization Programme</small><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-tag">${typeLabel}<br/>ID</div></div>
   <div class="frontName"><div class="topLine"><div class="eyebrow">Official Identification</div><div class="tag">${input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff'}</div></div><div class="name" id="fname">${esc(input.name)}</div></div>
   <div class="frontMain">${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt="${esc(typeLabel)} photo"/>`:'<div class="photo"></div>'}<div class="info"><div class="facts">${factsRows.map(f=>`<div class="fact${f[2]?' wide':''}"><span>${f[0]}</span><b>${f[1]}</b></div>`).join('')}</div></div><div class="qrBox"><img class="qr" src="${qr}" alt="QR verification code"/><div class="scan">Scan to<br/>verify</div></div></div>
   <div class="bottomBar"><div class="barcode">${barcode}</div><div class="idChip"><span>ID No.</span><b>${esc(displayId)}</b></div></div>
  </div>
  <div class="card back">
+  ${watermarkMarkup}
   <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><small>Official School Identification · Quran Memorization Programme</small><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-qr"><img src="${qr}" alt="QR verification code"/></div></div>
   <div class="backBody"><div class="backKicker">Official School Identification Card</div><h2>This card belongs to ${esc(input.name)}</h2><p>This card is the property of Aliyu &amp; Maimuna Center for Qur’anic Memorization. It must be presented on request for school identity verification, attendance scanning, school access and approved academic services. It is not transferable.</p>
    <div class="backGrid"><div><span>Valid until</span><b>${formatDate(studentDisplayExpiry)}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
