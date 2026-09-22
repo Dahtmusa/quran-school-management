@@ -53,7 +53,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
    : `<div class="directorSign"><div class="signLine"></div><span class="directorSignLabel">${esc(directorName)}</span><small>School Director</small></div>`;
  const logoUrl=esc(input.logoUrl||'https://ziyeasotnfijggecbqwf.supabase.co/storage/v1/object/public/school-public-media/2026/f29b5b2e-eadd-4202-894c-547722ee7c13-87.jpg');
  const logoMarkup=`<img class="logo" src="${logoUrl}" alt="School logo" onerror="this.src='https://ziyeasotnfijggecbqwf.supabase.co/storage/v1/object/public/school-public-media/2026/f29b5b2e-eadd-4202-894c-547722ee7c13-87.jpg'"/>`;
- const watermarkUrl='/images/branding/amqm-logo-watermark.webp';
+ const watermarkUrl=`${window.location.origin}/images/branding/amqm-logo-watermark.webp`;
  const watermarkMarkup=`<img class="watermark" src="${watermarkUrl}" alt="" aria-hidden="true"/>`;
 
  const studentDisplayExpiry=input.type==='STUDENT'?addOneMonth(input.programEndDate||input.expiry||calculatedProgramEnd):(input.expiry||null);
@@ -105,7 +105,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .backBody{padding:2.7mm 3.5mm 2.4mm}.backKicker{font-size:1.45mm;letter-spacing:.4mm}.backBody h2{font-size:3.7mm;margin-top:.6mm;line-height:1.05}.backBody p{font-size:1.7mm;line-height:1.3;margin-top:1.1mm}.backGrid{gap:1.5mm;margin-top:1.6mm}.backGrid div{border-radius:1.5mm;padding:1.4mm 1.6mm}.backGrid span{font-size:1.1mm;letter-spacing:.25mm}.backGrid b{font-size:2mm;margin-top:.35mm;line-height:1.1}
  .signRow{gap:2.5mm;margin-top:1.2mm;grid-template-columns:1fr 1fr}.directorSign{min-height:15mm;display:flex;flex-direction:column;justify-content:flex-end}.directorSignImage{width:36mm;height:14mm;margin:0 auto .35mm;object-fit:contain;object-position:center bottom;display:block}.directorSignLabel{padding-top:.55mm;font-size:1.45mm;letter-spacing:.16mm}.directorSign small{font-size:1.15mm;letter-spacing:.1mm;margin-top:.25mm;font-weight:800}.signLine{margin-bottom:1.2mm}.terms{border-radius:1.5mm;padding:1.25mm 1.5mm;min-height:15mm;display:flex;flex-direction:column;justify-content:center}.terms b{font-size:1.25mm;letter-spacing:.25mm}.terms p{font-size:1.55mm;line-height:1.3;margin-top:.6mm}.police{margin-top:.65mm;font-size:1.8mm!important;font-weight:900!important}.terms .police strong{font-weight:900;color:#07382f;letter-spacing:.05mm;font-size:1.9mm}
  
- .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:48mm;height:48mm;top:52%;opacity:.24}
+ .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:48mm;height:48mm;top:52%;opacity:.18;mix-blend-mode:multiply}
  @media screen and (min-width:720px){.sheet{zoom:1!important}}
 
 
@@ -147,7 +147,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .card.back .terms p{font-size:1.25mm;line-height:1.18;margin-top:.4mm}
  .card.back .terms .police{font-size:1.45mm!important;line-height:1.12;margin-top:.45mm}
  .card.back .foot{flex:0 0 5.5mm;height:5.5mm;min-height:5.5mm;font-size:1.05mm;padding:1.3mm 2.5mm;line-height:1.05}
- .card.back .watermark{width:44mm;height:44mm;top:52%;opacity:.12}
+ .card.back .watermark{width:44mm;height:44mm;top:52%;opacity:.15;mix-blend-mode:multiply}
  @media print{.sheet{padding:0;gap:0}.card{box-shadow:none}.card.front{margin-bottom:4mm}.card.back{margin-bottom:0}.sheet{align-items:center}}
  </style></head><body><div class="sheet">
  <div class="card front">
