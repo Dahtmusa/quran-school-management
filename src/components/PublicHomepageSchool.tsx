@@ -499,7 +499,7 @@ export default function PublicHomepageSchool() {
             <div className="grid gap-4 md:grid-cols-3">
               {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 3).map((item: any, index: number) => {
                 const name = item.name || 'AMQM Parent';
-                const initials = name.split(/\\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
+                const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
                 return (
                   <article key={index} className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
                     {item.sample && (
