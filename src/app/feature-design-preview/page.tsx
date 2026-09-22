@@ -1,0 +1,30 @@
+'use client';
+import {useEffect,useState} from 'react';
+
+const samples=[
+ ['01 · Emerald Luxury','Deep emerald + ivory + gold','emerald','Qur’an Memorization','Structured memorization with official progress tracking.','✦'],
+ ['02 · Gold Orbit','Warm sand + gold + teal','orbit','Day & Boarding','A flexible learning environment for day scholars and boarding students.','◇'],
+ ['03 · Living Cards','Clean white + animated graphics','living','Qualified Teachers','Dedicated Huffaz and educators guiding students with care.','◆'],
+ ['04 · Islamic Geometry','Teal + geometric pattern + gold','geometry','3 Evaluations Per Term','Regular assessment, feedback and measurable improvement.','✧'],
+ ['05 · Night Academy','Deep forest + luminous gold','night','Qur’anic Journey','A continuous journey of memorization, revision and character.','☾'],
+];
+
+export default function FeatureDesignPreview(){
+ const [active,setActive]=useState(0);
+ useEffect(()=>{const t=window.setInterval(()=>setActive(v=>(v+1)%5),4500);return()=>window.clearInterval(t)},[]);
+ const s=samples[active];
+ return <main className="page">
+  <div className="head"><p>AMQM DESIGN STUDIO</p><h1>Five animated directions</h1><span>Select a visual language for the homepage feature section.</span></div>
+  <div className="tabs">{samples.map((x,i)=><button key={x[0]} onClick={()=>setActive(i)} className={active===i?'on':''}>{x[0]}</button>)}</div>
+  <section className={'stage '+s[2]}>
+   <header><b>{s[0]}</b><small>{s[1]}</small></header>
+   <div className="grid">{samples.map((x,i)=><article key={x[0]} className={'card c'+i}>
+    <div className="glow"/><div className="icon">{x[5]}</div><em>0{i+1}</em><i/><h2>{x[3]}</h2><p>{x[4]}</p><div className="ring"/>
+   </article>)}</div>
+  </section>
+  <p className="hint">The stage changes colour, background and motion when you select a sample. Tell me the number you want and I’ll apply that direction to the real homepage.</p>
+  <style jsx>{`
+   .page{min-height:100vh;background:#f6f3eb;padding:52px 20px;color:#073b32;font-family:Inter,system-ui,sans-serif}.head{max-width:1100px;margin:auto}.head p{font-size:10px;font-weight:900;letter-spacing:.24em;color:#a27b25}.head h1{font:900 48px Georgia,serif;margin:8px 0}.head span{color:#64756f}.tabs{max-width:1100px;margin:28px auto 18px;display:flex;flex-wrap:wrap;gap:8px}.tabs button{border:1px solid #d8d0c0;background:#fff;border-radius:99px;padding:9px 14px;font-weight:900;color:#365950;cursor:pointer}.tabs button.on{background:#075848;color:#fff;border-color:#075848}.stage{max-width:1100px;margin:auto;min-height:520px;border-radius:32px;padding:76px 28px 30px;position:relative;overflow:hidden;transition:background .7s,color .7s}.stage header{position:absolute;top:25px;left:30px;color:#fff}.stage header b{display:block;font:900 19px Georgia,serif}.stage header small{display:block;margin-top:4px;font-size:10px;text-transform:uppercase;letter-spacing:.12em;opacity:.72}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;position:relative;z-index:2}.card{min-height:185px;border-radius:24px;padding:26px;position:relative;overflow:hidden;isolation:isolate;animation:float 4.5s ease-in-out infinite;transition:transform .5s,box-shadow .5s}.card:nth-child(2){animation-delay:-1.1s}.card:nth-child(3){animation-delay:-2.2s}.card:nth-child(4){animation-delay:-3.3s}.card:hover{transform:translateY(-9px) scale(1.02)}.icon{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;font-size:27px;position:relative;z-index:2}.card em{position:absolute;right:22px;top:14px;font:900 45px Georgia,serif;opacity:.12;font-style:normal}.card i{display:block;width:38px;height:3px;border-radius:9px;margin-top:20px;transition:width .5s}.card:hover i{width:72px}.card h2{font:900 19px Georgia,serif;margin:10px 0 5px;position:relative;z-index:2}.card p{font-size:13px;line-height:1.6;max-width:440px;position:relative;z-index:2}.glow{position:absolute;width:150px;height:150px;border-radius:50%;right:-60px;top:-60px;background:#d5b65c22}.ring{position:absolute;width:115px;height:115px;border:1px solid currentColor;border-radius:50%;right:-35px;bottom:-40px;opacity:.12;animation:spin 9s linear infinite}.emerald{background:radial-gradient(circle at 85% 5%,#d4b65b55,transparent 25%),#06342d}.emerald .card{background:#ffffff10;border:1px solid #e6c97844;box-shadow:0 25px 60px #001c1760;color:#fff}.emerald .icon{background:#d8b85f;color:#073b32}.emerald i{background:#d8b85f}.orbit{background:radial-gradient(circle at 12% 88%,#d4b65f55,transparent 25%),#eee7d8}.orbit .card{background:#fffaf0;border:1px solid #d7c18a;box-shadow:0 20px 45px #765a1b20}.orbit .icon{background:#0b5949;color:#e4c46f}.orbit i{background:#b98b2d}.living{background:linear-gradient(135deg,#f8f8f4,#e5efe9)}.living .card{background:#fff;border:1px solid #d7e3dd;box-shadow:0 18px 45px #073b3218}.living .icon{background:#eaf4ef;color:#08735c}.living i{background:#c9a34b}.geometry{background-color:#063d34;background-image:linear-gradient(30deg,#ffffff09 12%,transparent 12.5%,transparent 87%,#ffffff09 87.5%),linear-gradient(150deg,#ffffff09 12%,transparent 12.5%,transparent 87%,#ffffff09 87.5%);background-size:34px 60px}.geometry .card{background:#0b5046dd;border:1px solid #d8bc6840;box-shadow:0 20px 45px #001f1a66;color:#fff}.geometry .icon{background:#e0c267;color:#073b32}.geometry i{background:#e0c267}.night{background:radial-gradient(circle at 70% 0%,#d2aa4d44,transparent 28%),#031f1b}.night .card{background:#0a332ddd;border:1px solid #d4b65d44;box-shadow:0 22px 55px #0009;color:#fff}.night .icon{background:#d8b85f;color:#052e27;box-shadow:0 0 35px #d8b85f33}.night i{background:#d8b85f}@keyframes float{0%,100%{translate:0 0}50%{translate:0 -6px}}@keyframes spin{to{rotate:360deg}}.hint{max-width:1100px;margin:18px auto;color:#66756f;font-size:13px}@media(max-width:700px){.head h1{font-size:36px}.stage{padding:78px 15px 20px;border-radius:24px}.grid{grid-template-columns:1fr}.card{min-height:170px}}@media(prefers-reduced-motion:reduce){.card,.ring{animation:none!important}}
+  `}</style>
+ </main>
+}
