@@ -136,7 +136,7 @@ export default function PublicHomepageSchool() {
     },
     {
       quote: 'The teachers are caring and attentive. We are happy to see our child grow in both knowledge and character.',
-      name: 'Hajiya Fatima Muhammad',
+      name: 'Hajiya Zainab Abdullahi',
       role: 'Parent',
       image_url: '/images/testimonials/parents-composite.jpg',
       sprite: true,
@@ -500,7 +500,7 @@ export default function PublicHomepageSchool() {
         <div className="rounded-[2rem] bg-white px-4 py-8 sm:px-8 lg:px-10 lg:py-12">
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-7">
             {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 4).map((item: any, index: number) => {
-              const name = item.name || ['Hajiya Amina Bello', 'Alh. Ibrahim Usman', 'Hajiya Fatima Muhammad', 'Alh. Abdulrahman Sani'][index];
+              const name = item.name || ['Hajiya Amina Bello', 'Alh. Ibrahim Usman', 'Hajiya Zainab Abdullahi', 'Alh. Abdulrahman Sani'][index];
               const spritePosition = ['0%', '33.3333%', '66.6667%', '100%'][index] || '0%';
               const image = item.image_url || item.image;
               const isSprite = item.sprite === true && image;
@@ -512,7 +512,7 @@ export default function PublicHomepageSchool() {
                     style={isSprite ? {
                       backgroundImage: `url(${image})`,
                       backgroundRepeat: 'no-repeat',
-                      backgroundSize: '400% auto',
+                      backgroundSize: '400% 100%',
                       backgroundPosition: `${spritePosition} 0%`,
                     } : undefined}
                   >
