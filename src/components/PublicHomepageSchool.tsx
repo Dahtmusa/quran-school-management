@@ -384,52 +384,64 @@ export default function PublicHomepageSchool() {
               {about.text ||
                 "AMQM combines Qur’an memorisation, Islamic education, discipline and pastoral care in a safe, supportive environment where students can grow in knowledge, confidence and character."}
             </p>
-            <div className="amqm-feature-grid mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="amqm-geometry-grid mt-8 grid gap-4 sm:grid-cols-2">
               {features.slice(0, 4).map((feature: any, index: number) => {
                 const icons = [
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M24 7 39 16v16L24 41 9 32V16L24 7Z" fill="none" stroke="currentColor" strokeWidth="2.5"/><path d="m17 24 5 5 10-12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M11 31c5-10 21-10 26 0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><circle cx="17" cy="17" r="5" fill="none" stroke="currentColor" strokeWidth="2.5"/><circle cx="31" cy="17" r="5" fill="none" stroke="currentColor" strokeWidth="2.5"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M8 36V14h32v22H8Z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M15 20h18M15 26h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><path d="M19 36v5M29 36v5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="m24 7 4.2 9.4L38 20.5l-9.8 4.1L24 34l-4.2-9.4L10 20.5l9.8-4.1L24 7Z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="m37 30 1.8 4 4.2 1.8-4.2 1.7-1.8 4-1.8-4-4.2-1.7 4.2-1.8L37 30Z" fill="currentColor"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M24 6 40 15v18L24 42 8 33V15L24 6Z" fill="none" stroke="currentColor" strokeWidth="2.2"/><path d="m16 24 6 6 11-13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M9 34h30M12 34V21l12-9 12 9v13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"/><path d="M19 34V25h10v9M17 19h14" fill="none" stroke="currentColor" strokeWidth="2.2"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><circle cx="18" cy="16" r="6" fill="none" stroke="currentColor" strokeWidth="2.2"/><circle cx="32" cy="18" r="5" fill="none" stroke="currentColor" strokeWidth="2.2"/><path d="M7 37c1-8 6-12 11-12s10 4 11 12M27 37c.5-5 3-8 7-8 3.5 0 6 3 7 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M24 5 28.7 18 42 24l-13.3 6L24 43l-4.7-13L6 24l13.3-6L24 5Z" fill="none" stroke="currentColor" strokeWidth="2.1"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg>,
                 ];
                 return (
-                  <article key={index} className="amqm-feature-card group relative overflow-hidden rounded-[1.45rem] border border-[#dce7df] bg-white p-5 shadow-[0_12px_30px_rgba(7,58,50,.07)] transition-all duration-500 hover:-translate-y-2 hover:border-[#c9a34b] hover:shadow-[0_22px_45px_rgba(7,58,50,.14)]">
-                    <div className="amqm-feature-glow" />
-                    <div className="relative flex items-start justify-between gap-4">
-                      <div className="amqm-feature-icon grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#edf6f1] text-[#08735c] shadow-[inset_0_0_0_1px_rgba(7,88,72,.08)]">
-                        <span className="amqm-icon-draw">{icons[index]}</span>
+                  <article key={index} className="amqm-geometry-card group relative overflow-hidden rounded-[1.5rem] border border-[#c9a94f]/45 bg-[#073b32] p-6 text-white shadow-[0_18px_45px_rgba(3,43,36,.18)] transition-all duration-700 hover:-translate-y-2 hover:border-[#e5c968] hover:shadow-[0_25px_60px_rgba(3,43,36,.28)]">
+                    <div className="amqm-geo-pattern" />
+                    <div className="amqm-geo-glow" />
+                    <div className="amqm-geo-corner" />
+                    <div className="relative z-10 flex items-start justify-between gap-4">
+                      <div className="amqm-geo-icon grid h-16 w-16 shrink-0 place-items-center rounded-[1.2rem] border border-[#e3c768]/55 bg-[#e3c768] text-[#063d34] shadow-[0_10px_30px_rgba(0,0,0,.18)]">
+                        <span className="amqm-geo-icon-inner">{icons[index]}</span>
                       </div>
-                      <span className="amqm-feature-number font-serif text-4xl font-black text-[#e8eee9] transition-colors duration-500 group-hover:text-[#d8c27f]">
-                        0{index + 1}
-                      </span>
+                      <span className="font-serif text-4xl font-black text-[#d9bd61]/30 transition-colors duration-500 group-hover:text-[#e8cf7c]/70">0{index + 1}</span>
                     </div>
-                    <div className="relative mt-5">
-                      <div className="mb-2 h-1 w-9 rounded-full bg-[#c9a34b] transition-all duration-500 group-hover:w-16" />
-                      <h3 className="font-serif text-[17px] font-black tracking-tight text-[#073b32]">{feature.title}</h3>
-                      <p className="mt-2 text-[13px] leading-6 text-slate-500">{feature.excerpt || feature.text}</p>
+                    <div className="relative z-10 mt-5">
+                      <div className="mb-3 flex items-center gap-2">
+                        <span className="h-px w-8 bg-[#e3c768] transition-all duration-500 group-hover:w-14" />
+                        <span className="text-[9px] font-black uppercase tracking-[.28em] text-[#e3c768]">AMQM</span>
+                      </div>
+                      <h3 className="font-serif text-[19px] font-black tracking-tight">{feature.title}</h3>
+                      <p className="mt-2 text-[13px] leading-6 text-emerald-50/75">{feature.excerpt || feature.text}</p>
                     </div>
-                    <div className="amqm-feature-ring" />
+                    <div className="amqm-geo-arrow">↗</div>
+                    <div className="amqm-geo-ring amqm-geo-ring-a" />
+                    <div className="amqm-geo-ring amqm-geo-ring-b" />
                   </article>
                 );
               })}
             </div>
             <style jsx>{`
-              .amqm-feature-card{isolation:isolate;animation:amqmFeatureIn .75s cubic-bezier(.2,.75,.25,1) both}
-              .amqm-feature-card:nth-child(1){animation-delay:.08s}.amqm-feature-card:nth-child(2){animation-delay:.18s}
-              .amqm-feature-card:nth-child(3){animation-delay:.28s}.amqm-feature-card:nth-child(4){animation-delay:.38s}
-              .amqm-feature-card:hover .amqm-feature-icon{transform:rotate(-4deg) scale(1.06)}
-              .amqm-feature-icon{transition:transform .5s cubic-bezier(.2,.8,.2,1);position:relative}
-              .amqm-icon-draw{display:grid;place-items:center;animation:amqmIconFloat 3.8s ease-in-out infinite}
-              .amqm-feature-card:nth-child(2) .amqm-icon-draw{animation-delay:-.9s}
-              .amqm-feature-card:nth-child(3) .amqm-icon-draw{animation-delay:-1.8s}
-              .amqm-feature-card:nth-child(4) .amqm-icon-draw{animation-delay:-2.7s}
-              .amqm-feature-glow{position:absolute;right:-35px;top:-45px;width:130px;height:130px;border-radius:999px;background:radial-gradient(circle,rgba(201,163,75,.20),rgba(201,163,75,0) 68%);transition:transform .7s ease}
-              .amqm-feature-card:hover .amqm-feature-glow{transform:scale(1.45)}
-              .amqm-feature-ring{position:absolute;right:-28px;bottom:-35px;width:110px;height:110px;border:1px solid rgba(7,115,92,.12);border-radius:50%;transition:transform .7s ease}
-              .amqm-feature-card:hover .amqm-feature-ring{transform:scale(1.3)}
-              @keyframes amqmFeatureIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-              @keyframes amqmIconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
-              @media (prefers-reduced-motion:reduce){.amqm-feature-card,.amqm-icon-draw{animation:none!important}.amqm-feature-card,.amqm-feature-icon,.amqm-feature-glow,.amqm-feature-ring{transition:none!important}}
+              .amqm-geometry-grid{position:relative}
+              .amqm-geometry-card{isolation:isolate;min-height:205px;animation:amqmGeoIn .8s cubic-bezier(.2,.8,.2,1) both}
+              .amqm-geometry-card:nth-child(1){animation-delay:.05s}.amqm-geometry-card:nth-child(2){animation-delay:.16s}
+              .amqm-geometry-card:nth-child(3){animation-delay:.27s}.amqm-geometry-card:nth-child(4){animation-delay:.38s}
+              .amqm-geo-pattern{position:absolute;inset:0;opacity:.13;background-image:linear-gradient(30deg,rgba(255,255,255,.22) 12%,transparent 12.5%,transparent 87%,rgba(255,255,255,.22) 87.5%),linear-gradient(150deg,rgba(255,255,255,.22) 12%,transparent 12.5%,transparent 87%,rgba(255,255,255,.22) 87.5%);background-size:38px 66px;mask-image:linear-gradient(to bottom,black,transparent 88%);animation:amqmPatternMove 14s linear infinite}
+              .amqm-geo-glow{position:absolute;right:-55px;top:-65px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(225,199,104,.24),transparent 68%);transition:transform .8s ease}
+              .amqm-geometry-card:hover .amqm-geo-glow{transform:scale(1.45)}
+              .amqm-geo-corner{position:absolute;left:-30px;bottom:-45px;width:130px;height:130px;border:1px solid rgba(227,199,104,.2);transform:rotate(45deg);transition:transform .8s ease}
+              .amqm-geometry-card:hover .amqm-geo-corner{transform:rotate(135deg) scale(1.08)}
+              .amqm-geo-icon{transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .6s ease}
+              .amqm-geometry-card:hover .amqm-geo-icon{transform:rotate(5deg) scale(1.08);box-shadow:0 15px 38px rgba(227,199,104,.25)}
+              .amqm-geo-icon-inner{display:grid;place-items:center;animation:amqmGeoFloat 3.8s ease-in-out infinite}
+              .amqm-geometry-card:nth-child(2) .amqm-geo-icon-inner{animation-delay:-.8s}.amqm-geometry-card:nth-child(3) .amqm-geo-icon-inner{animation-delay:-1.6s}.amqm-geometry-card:nth-child(4) .amqm-geo-icon-inner{animation-delay:-2.4s}
+              .amqm-geo-arrow{position:absolute;right:22px;bottom:19px;z-index:10;display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(227,199,104,.6);border-radius:50%;background:#e3c768;color:#063d34;font-size:19px;font-weight:900;transition:transform .5s ease}
+              .amqm-geometry-card:hover .amqm-geo-arrow{transform:rotate(45deg) scale(1.12)}
+              .amqm-geo-ring{position:absolute;border:1px solid rgba(227,199,104,.22);border-radius:50%;pointer-events:none}
+              .amqm-geo-ring-a{width:120px;height:120px;right:-50px;bottom:-48px;animation:amqmGeoSpin 12s linear infinite}
+              .amqm-geo-ring-b{width:72px;height:72px;right:-25px;bottom:-24px;animation:amqmGeoSpin 8s linear infinite reverse}
+              @keyframes amqmGeoIn{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+              @keyframes amqmGeoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+              @keyframes amqmGeoSpin{to{transform:rotate(360deg)}}
+              @keyframes amqmPatternMove{to{background-position:38px 66px}}
+              @media (prefers-reduced-motion:reduce){.amqm-geometry-card,.amqm-geo-icon-inner,.amqm-geo-ring,.amqm-geo-pattern{animation:none!important}.amqm-geometry-card,.amqm-geo-icon,.amqm-geo-glow,.amqm-geo-corner,.amqm-geo-arrow{transition:none!important}}
             `}</style>
             <Link
               href="/about"
