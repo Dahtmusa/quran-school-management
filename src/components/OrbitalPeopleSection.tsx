@@ -148,7 +148,7 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
 
   useEffect(() => {
     if (count === 0 || reduced || !visible) {
-      applyOrbit(angleRef.current, activeIndex);
+      applyOrbit(angleRef.current, nearestIndex(count, angleRef.current));
       return;
     }
     let lastTime = 0;
