@@ -44,7 +44,7 @@ function normalizeUrl(value?: string) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'facebook'|'whatsapp'}){
+function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'facebook'|'instagram'|'whatsapp'}){
   const common={viewBox:'0 0 48 48',fill:'none',xmlns:'http://www.w3.org/2000/svg'};
   if(brand==='youtube') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#ff0033] shadow-sm"><svg {...common} className="h-6 w-6"><path d="M41.6 14.1a5 5 0 0 0-3.5-3.5C35 9.8 24 9.8 24 9.8s-11 0-14.1.8a5 5 0 0 0-3.5 3.5C5.6 17.2 5.6 24 5.6 24s0 6.8.8 9.9a5 5 0 0 0 3.5 3.5c3.1.8 14.1.8 14.1.8s11 0 14.1-.8a5 5 0 0 0 3.5-3.5c.8-3.1.8-9.9.8-9.9s0-6.8-.8-9.9Z" fill="white"/><path d="m20.2 30.3 9.6-6.3-9.6-6.3v12.6Z" fill="#ff0033"/></svg></span>;
   if(brand==='instagram') return <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-[linear-gradient(135deg,#833ab4_0%,#e1306c_45%,#fd1d1d_72%,#fcb045_100%)] shadow-sm"><svg {...common} className="h-7 w-7"><rect x="8" y="8" width="32" height="32" rx="9" stroke="white" strokeWidth="3"/><circle cx="24" cy="24" r="7" stroke="white" strokeWidth="3"/><circle cx="33" cy="15" r="2" fill="white"/></svg></span>;
