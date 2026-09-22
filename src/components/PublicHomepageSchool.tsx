@@ -384,65 +384,235 @@ export default function PublicHomepageSchool() {
               {about.text ||
                 "AMQM combines Qur’an memorisation, Islamic education, discipline and pastoral care in a safe, supportive environment where students can grow in knowledge, confidence and character."}
             </p>
-            <div className="amqm-geometry-grid mt-8 grid gap-4 sm:grid-cols-2">
-              {features.slice(0, 4).map((feature: any, index: number) => {
-                const icons = [
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M24 6 40 15v18L24 42 8 33V15L24 6Z" fill="none" stroke="currentColor" strokeWidth="2.2"/><path d="m16 24 6 6 11-13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M9 34h30M12 34V21l12-9 12 9v13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinejoin="round"/><path d="M19 34V25h10v9M17 19h14" fill="none" stroke="currentColor" strokeWidth="2.2"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><circle cx="18" cy="16" r="6" fill="none" stroke="currentColor" strokeWidth="2.2"/><circle cx="32" cy="18" r="5" fill="none" stroke="currentColor" strokeWidth="2.2"/><path d="M7 37c1-8 6-12 11-12s10 4 11 12M27 37c.5-5 3-8 7-8 3.5 0 6 3 7 8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"/></svg>,
-                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-9 w-9"><path d="M24 5 28.7 18 42 24l-13.3 6L24 43l-4.7-13L6 24l13.3-6L24 5Z" fill="none" stroke="currentColor" strokeWidth="2.1"/><circle cx="24" cy="24" r="4" fill="currentColor"/></svg>,
-                ];
-                return (
-                  <article key={index} className="amqm-geometry-card group relative overflow-hidden rounded-[1.5rem] border border-[#c9a94f]/45 bg-[#073b32] p-6 text-white shadow-[0_18px_45px_rgba(3,43,36,.18)] transition-all duration-700 hover:-translate-y-2 hover:border-[#e5c968] hover:shadow-[0_25px_60px_rgba(3,43,36,.28)]">
-                    <div className="amqm-geo-pattern" />
-                    <div className="amqm-geo-glow" />
-                    <div className="amqm-geo-corner" />
-                    <div className="relative z-10 flex items-start justify-between gap-4">
-                      <div className="amqm-geo-icon grid h-16 w-16 shrink-0 place-items-center rounded-[1.2rem] border border-[#e3c768]/55 bg-[#e3c768] text-[#063d34] shadow-[0_10px_30px_rgba(0,0,0,.18)]">
-                        <span className="amqm-geo-icon-inner">{icons[index]}</span>
+            <section className="amqm-geometry-showcase" aria-label="AMQM programmes and features">
+              <div className="amqm-geometry-titlebar">
+                <div className="amqm-geometry-title-number">4</div>
+                <div>
+                  <h3>Islamic Geometry</h3>
+                  <p>Traditional touch with modern design</p>
+                </div>
+              </div>
+
+              <div className="amqm-geometry-features">
+                {features.slice(0, 4).map((feature: any, index: number) => {
+                  const icons = ['📖', '🕌', '👨‍👩‍👧', '📋'];
+                  return (
+                    <article key={index} className="amqm-geometry-feature">
+                      <div className="amqm-geometry-feature-art">
+                        <div className="amqm-geometry-icon">{icons[index]}</div>
                       </div>
-                      <span className="font-serif text-4xl font-black text-[#d9bd61]/30 transition-colors duration-500 group-hover:text-[#e8cf7c]/70">0{index + 1}</span>
-                    </div>
-                    <div className="relative z-10 mt-5">
-                      <div className="mb-3 flex items-center gap-2">
-                        <span className="h-px w-8 bg-[#e3c768] transition-all duration-500 group-hover:w-14" />
-                        <span className="text-[9px] font-black uppercase tracking-[.28em] text-[#e3c768]">AMQM</span>
+                      <div className="amqm-geometry-feature-title">{feature.title}</div>
+                      <p>{feature.excerpt || feature.text}</p>
+                      <div className="amqm-geometry-feature-bottom">
+                        <span>0{index + 1}</span>
+                        <span className="amqm-geometry-arrow">↗</span>
                       </div>
-                      <h3 className="font-serif text-[19px] font-black tracking-tight">{feature.title}</h3>
-                      <p className="mt-2 text-[13px] leading-6 text-emerald-50/75">{feature.excerpt || feature.text}</p>
-                    </div>
-                    <div className="amqm-geo-arrow">↗</div>
-                    <div className="amqm-geo-ring amqm-geo-ring-a" />
-                    <div className="amqm-geo-ring amqm-geo-ring-b" />
-                  </article>
-                );
-              })}
-            </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+
             <style jsx>{`
-              .amqm-geometry-grid{position:relative}
-              .amqm-geometry-card{isolation:isolate;min-height:205px;animation:amqmGeoIn .8s cubic-bezier(.2,.8,.2,1) both}
-              .amqm-geometry-card:nth-child(1){animation-delay:.05s}.amqm-geometry-card:nth-child(2){animation-delay:.16s}
-              .amqm-geometry-card:nth-child(3){animation-delay:.27s}.amqm-geometry-card:nth-child(4){animation-delay:.38s}
-              .amqm-geo-pattern{position:absolute;inset:0;opacity:.13;background-image:linear-gradient(30deg,rgba(255,255,255,.22) 12%,transparent 12.5%,transparent 87%,rgba(255,255,255,.22) 87.5%),linear-gradient(150deg,rgba(255,255,255,.22) 12%,transparent 12.5%,transparent 87%,rgba(255,255,255,.22) 87.5%);background-size:38px 66px;mask-image:linear-gradient(to bottom,black,transparent 88%);animation:amqmPatternMove 14s linear infinite}
-              .amqm-geo-glow{position:absolute;right:-55px;top:-65px;width:190px;height:190px;border-radius:50%;background:radial-gradient(circle,rgba(225,199,104,.24),transparent 68%);transition:transform .8s ease}
-              .amqm-geometry-card:hover .amqm-geo-glow{transform:scale(1.45)}
-              .amqm-geo-corner{position:absolute;left:-30px;bottom:-45px;width:130px;height:130px;border:1px solid rgba(227,199,104,.2);transform:rotate(45deg);transition:transform .8s ease}
-              .amqm-geometry-card:hover .amqm-geo-corner{transform:rotate(135deg) scale(1.08)}
-              .amqm-geo-icon{transition:transform .6s cubic-bezier(.2,.8,.2,1),box-shadow .6s ease}
-              .amqm-geometry-card:hover .amqm-geo-icon{transform:rotate(5deg) scale(1.08);box-shadow:0 15px 38px rgba(227,199,104,.25)}
-              .amqm-geo-icon-inner{display:grid;place-items:center;animation:amqmGeoFloat 3.8s ease-in-out infinite}
-              .amqm-geometry-card:nth-child(2) .amqm-geo-icon-inner{animation-delay:-.8s}.amqm-geometry-card:nth-child(3) .amqm-geo-icon-inner{animation-delay:-1.6s}.amqm-geometry-card:nth-child(4) .amqm-geo-icon-inner{animation-delay:-2.4s}
-              .amqm-geo-arrow{position:absolute;right:22px;bottom:19px;z-index:10;display:grid;place-items:center;width:34px;height:34px;border:1px solid rgba(227,199,104,.6);border-radius:50%;background:#e3c768;color:#063d34;font-size:19px;font-weight:900;transition:transform .5s ease}
-              .amqm-geometry-card:hover .amqm-geo-arrow{transform:rotate(45deg) scale(1.12)}
-              .amqm-geo-ring{position:absolute;border:1px solid rgba(227,199,104,.22);border-radius:50%;pointer-events:none}
-              .amqm-geo-ring-a{width:120px;height:120px;right:-50px;bottom:-48px;animation:amqmGeoSpin 12s linear infinite}
-              .amqm-geo-ring-b{width:72px;height:72px;right:-25px;bottom:-24px;animation:amqmGeoSpin 8s linear infinite reverse}
-              @keyframes amqmGeoIn{from{opacity:0;transform:translateY(26px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-              @keyframes amqmGeoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
-              @keyframes amqmGeoSpin{to{transform:rotate(360deg)}}
-              @keyframes amqmPatternMove{to{background-position:38px 66px}}
-              @media (prefers-reduced-motion:reduce){.amqm-geometry-card,.amqm-geo-icon-inner,.amqm-geo-ring,.amqm-geo-pattern{animation:none!important}.amqm-geometry-card,.amqm-geo-icon,.amqm-geo-glow,.amqm-geo-corner,.amqm-geo-arrow{transition:none!important}}
+              .amqm-geometry-showcase{
+                position:relative;
+                overflow:hidden;
+                margin-top:2rem;
+                padding:1rem 1rem 1.05rem;
+                color:#fff;
+                border:1px solid rgba(225,199,104,.72);
+                border-radius:2px;
+                background:
+                  radial-gradient(circle at 50% 12%,rgba(52,137,111,.20),transparent 30%),
+                  linear-gradient(135deg,#073f35 0%,#062f2a 48%,#063a31 100%);
+                box-shadow:0 16px 38px rgba(4,43,36,.18);
+                isolation:isolate;
+              }
+              .amqm-geometry-showcase:before{
+                content:"";
+                position:absolute;
+                inset:0;
+                z-index:-1;
+                opacity:.34;
+                background-image:
+                  linear-gradient(30deg,rgba(221,194,98,.30) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.30) 87.5%),
+                  linear-gradient(150deg,rgba(221,194,98,.30) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.30) 87.5%),
+                  linear-gradient(30deg,rgba(221,194,98,.12) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.12) 87.5%),
+                  linear-gradient(150deg,rgba(221,194,98,.12) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.12) 87.5%);
+                background-position:0 0,0 0,17px 30px,17px 30px;
+                background-size:34px 60px;
+                mask-image:linear-gradient(to bottom,black 0%,black 62%,transparent 100%);
+                animation:amqmGeometryPattern 20s linear infinite;
+              }
+              .amqm-geometry-showcase:after{
+                content:"";
+                position:absolute;
+                left:-15%;
+                right:-15%;
+                bottom:-60%;
+                height:95%;
+                z-index:-1;
+                border-radius:50%;
+                border:1px solid rgba(222,195,102,.18);
+                box-shadow:0 0 0 28px rgba(222,195,102,.04),0 0 0 56px rgba(222,195,102,.025);
+              }
+              .amqm-geometry-titlebar{
+                display:flex;
+                align-items:center;
+                gap:.7rem;
+                padding:.1rem .2rem .8rem;
+              }
+              .amqm-geometry-title-number{
+                display:grid;
+                place-items:center;
+                width:2.35rem;
+                height:2.35rem;
+                flex:none;
+                border:1px solid #dfc56c;
+                border-radius:999px;
+                color:#062f2a;
+                background:linear-gradient(145deg,#f1d77d,#cda84b);
+                font:900 1.25rem/1 Georgia,serif;
+                box-shadow:0 4px 12px rgba(0,0,0,.22);
+              }
+              .amqm-geometry-titlebar h3{
+                margin:0;
+                color:#fff;
+                font:900 1.08rem/1.1 Georgia,serif;
+              }
+              .amqm-geometry-titlebar p{
+                margin:.15rem 0 0;
+                color:rgba(242,249,246,.78);
+                font:500 .68rem/1.25 Inter,system-ui,sans-serif;
+              }
+              .amqm-geometry-features{
+                display:grid;
+                grid-template-columns:repeat(4,minmax(0,1fr));
+                gap:.55rem;
+              }
+              .amqm-geometry-feature{
+                position:relative;
+                min-width:0;
+                min-height:13.4rem;
+                padding:.7rem .62rem .55rem;
+                overflow:hidden;
+                border:1px solid rgba(231,201,103,.92);
+                border-radius:1.35rem 1.35rem .75rem .75rem;
+                background:linear-gradient(180deg,rgba(6,59,50,.72),rgba(3,48,42,.86));
+                box-shadow:inset 0 0 0 1px rgba(255,255,255,.035),0 8px 18px rgba(0,0,0,.13);
+                transition:transform .55s cubic-bezier(.2,.8,.2,1),box-shadow .55s,border-color .55s;
+                animation:amqmGeometryCardIn .75s cubic-bezier(.2,.8,.2,1) both;
+              }
+              .amqm-geometry-feature:nth-child(1){animation-delay:.06s}
+              .amqm-geometry-feature:nth-child(2){animation-delay:.16s}
+              .amqm-geometry-feature:nth-child(3){animation-delay:.26s}
+              .amqm-geometry-feature:nth-child(4){animation-delay:.36s}
+              .amqm-geometry-feature:before{
+                content:"";
+                position:absolute;
+                inset:0;
+                background:linear-gradient(140deg,rgba(255,255,255,.10),transparent 30%,transparent 70%,rgba(216,188,93,.06));
+                pointer-events:none;
+              }
+              .amqm-geometry-feature:hover{
+                transform:translateY(-7px);
+                border-color:#f1d675;
+                box-shadow:0 18px 30px rgba(0,0,0,.24),0 0 0 1px rgba(241,214,117,.14);
+              }
+              .amqm-geometry-feature-art{
+                display:grid;
+                place-items:center;
+                height:5.1rem;
+              }
+              .amqm-geometry-icon{
+                display:grid;
+                place-items:center;
+                width:4.1rem;
+                height:4.1rem;
+                font-size:2.65rem;
+                line-height:1;
+                filter:drop-shadow(0 8px 7px rgba(0,0,0,.22));
+                transform:translateY(0);
+                animation:amqmGeometryIcon 3.6s ease-in-out infinite;
+              }
+              .amqm-geometry-feature:nth-child(2) .amqm-geometry-icon{animation-delay:-.8s}
+              .amqm-geometry-feature:nth-child(3) .amqm-geometry-icon{animation-delay:-1.6s}
+              .amqm-geometry-feature:nth-child(4) .amqm-geometry-icon{animation-delay:-2.4s}
+              .amqm-geometry-feature-title{
+                position:relative;
+                min-height:2.25rem;
+                margin-top:.05rem;
+                color:#fff;
+                font:900 .82rem/1.08 Georgia,serif;
+                text-shadow:0 1px 1px rgba(0,0,0,.22);
+              }
+              .amqm-geometry-feature p{
+                position:relative;
+                min-height:3.7rem;
+                margin:.35rem 0 0;
+                color:rgba(241,249,246,.78);
+                font:500 .61rem/1.45 Inter,system-ui,sans-serif;
+              }
+              .amqm-geometry-feature-bottom{
+                position:absolute;
+                left:.62rem;
+                right:.62rem;
+                bottom:.55rem;
+                display:flex;
+                align-items:center;
+                justify-content:space-between;
+                color:#e4c65f;
+                font:900 .72rem/1 Inter,system-ui,sans-serif;
+              }
+              .amqm-geometry-arrow{
+                display:grid;
+                place-items:center;
+                width:1.65rem;
+                height:1.65rem;
+                border-radius:999px;
+                color:#073b32;
+                background:#efd372;
+                font-size:1rem;
+                box-shadow:0 3px 9px rgba(0,0,0,.22);
+                transition:transform .45s ease;
+              }
+              .amqm-geometry-feature:hover .amqm-geometry-arrow{transform:rotate(45deg) scale(1.08)}
+              @keyframes amqmGeometryCardIn{
+                from{opacity:0;transform:translateY(18px) scale(.97)}
+                to{opacity:1;transform:translateY(0) scale(1)}
+              }
+              @keyframes amqmGeometryIcon{
+                0%,100%{transform:translateY(0) rotate(0)}
+                50%{transform:translateY(-5px) rotate(-2deg)}
+              }
+              @keyframes amqmGeometryPattern{to{background-position:34px 60px,34px 60px,51px 90px,51px 90px}}
+              @media(max-width:820px){
+                .amqm-geometry-features{
+                  grid-template-columns:repeat(2,minmax(0,1fr));
+                }
+              }
+              @media(max-width:520px){
+                .amqm-geometry-showcase{padding:.8rem .7rem .8rem}
+                .amqm-geometry-features{
+                  display:flex;
+                  overflow-x:auto;
+                  scroll-snap-type:x mandatory;
+                  padding-bottom:.25rem;
+                }
+                .amqm-geometry-feature{
+                  flex:0 0 72%;
+                  scroll-snap-align:start;
+                }
+                .amqm-geometry-titlebar h3{font-size:.98rem}
+              }
+              @media(prefers-reduced-motion:reduce){
+                .amqm-geometry-showcase:before,
+                .amqm-geometry-feature,
+                .amqm-geometry-icon{animation:none!important}
+                .amqm-geometry-feature,.amqm-geometry-arrow{transition:none!important}
+              }
             `}</style>
+
             <Link
               href="/about"
               className="mt-8 inline-flex rounded-full bg-[#075848] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#06483c]"
