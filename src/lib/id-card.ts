@@ -111,10 +111,10 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  /* Front side: strict ID-1 height budget to prevent clipping */
  .card.front{display:flex;flex-direction:column}
  .card.front .band{flex:0 0 13mm;height:13mm;min-height:13mm}
- .card.front .frontName{flex:0 0 7.4mm;height:7.4mm;padding:1.5mm 3.5mm .35mm;overflow:hidden}
- .card.front .name{font-size:3.8mm;line-height:1;margin-top:.45mm}
- .card.front .frontMain{flex:0 0 26mm;height:26mm;min-height:26mm;grid-template-columns:17mm 1fr 16.5mm;gap:2mm;padding:.8mm 3.5mm 1.2mm;overflow:hidden}
- .card.front .photo{width:17mm;height:20mm}
+ .card.front .frontName{flex:0 0 9.1mm;height:9.1mm;padding:1.25mm 3.5mm .35mm;overflow:hidden}
+ .card.front .name{font-size:3.65mm;line-height:1.08;margin-top:.45mm;max-height:4.1mm;overflow:hidden}
+ .card.front .frontMain{flex:0 0 24.3mm;height:24.3mm;min-height:24.3mm;grid-template-columns:17mm 1fr 16.5mm;gap:2mm;padding:.8mm 3.5mm 1.2mm;overflow:hidden}
+ .card.front .photo{width:17mm;height:19mm}
  .card.front .facts{gap:1mm}
  .card.front .facts .fact{padding:1mm 1.2mm;border-radius:1.2mm}
  .card.front .facts span{font-size:1mm;letter-spacing:.15mm}
@@ -166,7 +166,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
   </div><div class="foot">${esc(ENGLISH_SCHOOL_NAME)} · QR &amp; barcode encode the unique record for verification and attendance</div>
  </div>
  </div><script>
- function fitName(){var n=document.getElementById('fname');if(!n)return;var s=19;n.style.fontSize=s+'px';var guard=0;while(n.scrollWidth>n.clientWidth+1&&s>8&&guard<20){s-=1;n.style.fontSize=s+'px';guard++;}n.style.textOverflow='clip';}
+ function fitName(){var n=document.getElementById('fname');if(!n)return;var s=15;n.style.fontSize=s+'px';n.style.lineHeight='1.08';n.style.whiteSpace='nowrap';var guard=0;while(n.scrollWidth>n.clientWidth+1&&s>8&&guard<20){s-=0.5;n.style.fontSize=s+'px';guard++;}n.style.textOverflow='clip';}
  function waitForImages(){var imgs=Array.from(document.images||[]);return Promise.all(imgs.map(function(img){return img.complete?Promise.resolve():new Promise(function(resolve){img.onload=img.onerror=resolve;});}));}
  window.addEventListener('load',function(){fitName();waitForImages().then(function(){setTimeout(function(){window.print();},250);});});
  </script></body></html>`;
