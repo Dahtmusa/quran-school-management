@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
     if (jsonType === 'staff') {
       const { data } = await admin
         .from('profiles')
-        .select('id,full_name,role,avatar_url,staff_number')
+        .select('id,full_name,role,avatar_url,staff_id')
         .eq('id', jsonId)
         .single();
       if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.avatar_url });
@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
       .maybeSingle(),
     admin
       .from('profiles')
-      .select('id,full_name,role,avatar_url,staff_number')
-      .or(`staff_number.eq.${safeQ},staff_id.eq.${safeQ}`)
+      .select('id,full_name,role,avatar_url,staff_id')
+      .or(`staff_id.eq.${safeQ}`)
       .limit(1)
       .maybeSingle(),
   ]);
