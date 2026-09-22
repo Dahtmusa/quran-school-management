@@ -44,7 +44,7 @@ function normalizeUrl(value?: string) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-export default function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'facebook'|'whatsapp'}){
+function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'facebook'|'whatsapp'}){
   const common={viewBox:'0 0 48 48',fill:'none',xmlns:'http://www.w3.org/2000/svg'};
   if(brand==='youtube') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#ff0033] shadow-sm"><svg {...common} className="h-6 w-6"><path d="M41.6 14.1a5 5 0 0 0-3.5-3.5C35 9.8 24 9.8 24 9.8s-11 0-14.1.8a5 5 0 0 0-3.5 3.5C5.6 17.2 5.6 24 5.6 24s0 6.8.8 9.9a5 5 0 0 0 3.5 3.5c3.1.8 14.1.8 14.1.8s11 0 14.1-.8a5 5 0 0 0 3.5-3.5c.8-3.1.8-9.9.8-9.9s0-6.8-.8-9.9Z" fill="white"/><path d="m20.2 30.3 9.6-6.3-9.6-6.3v12.6Z" fill="#ff0033"/></svg></span>;
   if(brand==='facebook') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#1877F2] shadow-sm"><svg {...common} className="h-8 w-8"><path d="M27 42V26h5.4l.8-6H27v-3.8c0-1.7.5-2.9 3-2.9h3.3V8a45 45 0 0 0-4.8-.3c-4.8 0-8.1 2.9-8.1 8.2V20h-5.5v6h5.5v16h6.6Z" fill="white"/></svg></span>;
@@ -52,7 +52,7 @@ export default function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'faceb
   return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-black shadow-sm"><svg {...common} className="h-7 w-7"><path d="M29.5 10.2c1.2 1.6 2.8 2.6 4.8 2.7v4.1c-1.9-.1-3.5-.6-5-1.5v9.8c0 5.8-4.1 9.4-9 9.4-4.5 0-7.9-3.3-7.9-7.6 0-4.8 4.2-8.2 9.1-7.5v4.2c-2.2-.7-4.6.6-4.6 3 0 1.8 1.5 3.5 3.5 3.5 2.2 0 3.9-1.4 3.9-4.2V10.2h5.2Z" fill="white"/></svg></span>;
 }
 
-function PublicHomepageSchool() {
+export default function PublicHomepageSchool() {
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [team, setTeam] = useState<any[]>([]);
