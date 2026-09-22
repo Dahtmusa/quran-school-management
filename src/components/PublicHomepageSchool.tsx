@@ -122,18 +122,21 @@ export default function PublicHomepageSchool() {
   const fallbackTestimonials = [
     {
       quote: 'AMQM gives children structure, discipline and a genuine love for the Qur’an. We have seen a beautiful change in our child.',
-      name: 'AMQM Parent',
-      role: 'Parent',
+      name: 'AMQM Parent A',
+      role: 'Sample parent testimonial',
+      sample: true,
     },
     {
       quote: 'The teachers are patient and attentive. The combination of memorisation, character and education gives us confidence as parents.',
-      name: 'AMQM Parent',
-      role: 'Parent',
+      name: 'AMQM Parent B',
+      role: 'Sample parent testimonial',
+      sample: true,
     },
     {
       quote: 'We appreciate the care given to every student and the clear way progress is followed throughout the journey.',
-      name: 'AMQM Parent',
-      role: 'Parent',
+      name: 'AMQM Parent C',
+      role: 'Sample parent testimonial',
+      sample: true,
     },
   ];
 
@@ -494,18 +497,38 @@ export default function PublicHomepageSchool() {
               </p>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
-              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 3).map((item: any, index: number) => (
-                <article key={index} className="rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
-                  <div className="text-3xl leading-none text-[#e7c66c]">“</div>
-                  <p className="mt-2 text-sm leading-6 text-white/80">{item.quote || item.text || item.excerpt}</p>
-                  <div className="mt-5 border-t border-white/10 pt-4">
-                    <div className="text-sm font-black">{item.name || 'AMQM Parent'}</div>
-                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[.12em] text-[#e7c66c]">
-                      {item.role || item.relation || 'Parent'}
+              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 3).map((item: any, index: number) => {
+                const name = item.name || 'AMQM Parent';
+                const initials = name.split(/\\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
+                return (
+                  <article key={index} className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
+                    {item.sample && (
+                      <span className="absolute right-4 top-4 rounded-full border border-[#e7c66c]/20 bg-[#e7c66c]/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.12em] text-[#e7c66c]">
+                        Sample
+                      </span>
+                    )}
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-[#e7c66c]/70 bg-[#d9e8e2] shadow-lg">
+                        {item.image_url || item.image ? (
+                          <img src={item.image_url || item.image} alt={name} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_35%_25%,#f0d78e,#a97d2d_42%,#174d43_43%,#062d28)] font-serif text-lg font-black text-white">
+                            {initials}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-black text-white">{name}</div>
+                        <div className="mt-1 text-[9px] font-black uppercase tracking-[.12em] text-[#e7c66c]">
+                          {item.role || item.relation || 'Parent'}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
+                    <div className="mt-5 text-3xl leading-none text-[#e7c66c]">“</div>
+                    <p className="mt-1 text-sm leading-6 text-white/80">{item.quote || item.text || item.excerpt}</p>
+                  </article>
+                );
+              })}
             </div>
           </div>
         </div>
