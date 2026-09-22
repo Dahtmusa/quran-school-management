@@ -163,7 +163,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
    <div class="backGrid">${input.type==='STUDENT'
      ? `<div><span>Valid until</span><b>${formatDate(studentDisplayExpiry)}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div>`
      : `<div style="grid-column:1/-1"><span>ID holder</span><b>${esc(input.name)}</b></div>`
-   }</div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
+   }</div>
    
    <div class="signRow"><div>${directorMarkup}</div><div class="terms"><b>If found</b><p>Please return this card to the school office or drop it in the collection box at the main gate.</p><p class="police">If found, please contact the school: <strong>08036042021</strong></p></div></div>
   </div><div class="foot">${esc(ENGLISH_SCHOOL_NAME)} · QR &amp; barcode encode the unique record for verification and attendance</div>
