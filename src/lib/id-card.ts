@@ -36,7 +36,7 @@ async function loadProgramEndDate(programYear:string|undefined){
 export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEMENT';name:string;id:string;admissionNo?:string;photoUrl?:string|null;year?:string;section?:string;className?:string|null;jobTitle?:string;department?:string;phone?:string;expiry?:string|null;programEndDate?:string|null;logoUrl?:string|null;}){
  const displayId=(input.type==='STUDENT'?(input.admissionNo||input.id):input.id)||input.id;
  const qr=await QRCode.toDataURL(JSON.stringify({institution:'AMQM',type:input.type,id:input.id}),{width:180,margin:2,errorCorrectionLevel:'H'});
- const barcode=barcodeSvg(input.id);
+ const barcode=barcodeSvg(displayId);
  const calculatedProgramEnd=input.type==='STUDENT'?await loadProgramEndDate(input.year):null;
 
  let directorSignature='';
