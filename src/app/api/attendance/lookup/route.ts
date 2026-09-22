@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
+  const admin = createAdminClient();
   const q = req.nextUrl.searchParams.get('q')?.trim();
   if (!q) return NextResponse.json({ error: 'q required' }, { status: 400 });
 
@@ -28,20 +30,20 @@ export async function GET(req: NextRequest) {
     const parsed = JSON.parse(q);
     if (parsed?.institution === 'AMQM' && parsed?.id) {
       jsonId = parsed.id;
-      jsonType = parsed.type === 'STAFF' ? 'staff' : 'student';
+      jsonType = ['STAFF','MANAGEMENT'].includes(String(parsed.type).toUpperCase()) ? 'staff' : 'student';
     }
   } catch { /* not JSON */ }
 
   if (jsonId) {
     if (jsonType === 'staff') {
-      const { data } = await supabase
+      const { data } = await admin
         .from('profiles')
-        .select('id,full_name,role,photo_url')
+        .select('id,full_name,role,avatar_url,staff_number')
         .eq('id', jsonId)
         .single();
-      if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.photo_url });
+      if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.avatar_url });
     } else {
-      const { data } = await supabase
+      const { data } = await admin
         .from('students')
         .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
         .eq('id', jsonId)
@@ -61,16 +63,16 @@ export async function GET(req: NextRequest) {
   // splicing user input into a raw .or() filter string.
   const safeQ = q.replace(/[,.()]/g, '');
   const [studentsRes, staffRes] = await Promise.all([
-    supabase
+    admin
       .from('students')
       .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
       .or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`)
       .limit(1)
       .maybeSingle(),
-    supabase
+    admin
       .from('profiles')
-      .select('id,full_name,role,photo_url')
-      .eq('staff_number', q)
+      .select('id,full_name,role,avatar_url,staff_number')
+      .or(`staff_number.eq.${safeQ},staff_id.eq.${safeQ}`)
       .limit(1)
       .maybeSingle(),
   ]);
@@ -87,7 +89,7 @@ export async function GET(req: NextRequest) {
 
   if (staffRes.data) {
     const d = staffRes.data;
-    return NextResponse.json({ type: 'staff', id: d.id, name: d.full_name, role: d.role, photoUrl: d.photo_url });
+    return NextResponse.json({ type: 'staff', id: d.id, name: d.full_name, role: d.role, photoUrl: d.avatar_url });
   }
 
   return NextResponse.json({ error: 'not_found' }, { status: 404 });
