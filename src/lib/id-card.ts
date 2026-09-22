@@ -35,7 +35,7 @@ async function loadProgramEndDate(programYear:string|undefined){
 
 export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEMENT';name:string;id:string;admissionNo?:string;photoUrl?:string|null;year?:string;section?:string;className?:string|null;jobTitle?:string;department?:string;phone?:string;expiry?:string|null;programEndDate?:string|null;logoUrl?:string|null;}){
  const displayId=(input.type==='STUDENT'?(input.admissionNo||input.id):input.id)||input.id;
- const qr=await QRCode.toDataURL(JSON.stringify({institution:'AMQM',type:input.type,id:input.id}),{width:140,margin:1,errorCorrectionLevel:'M'});
+ const qr=await QRCode.toDataURL(JSON.stringify({institution:'AMQM',type:input.type,id:input.id}),{width:180,margin:2,errorCorrectionLevel:'H'});
  const barcode=barcodeSvg(input.id);
  const calculatedProgramEnd=input.type==='STUDENT'?await loadProgramEndDate(input.year):null;
 
@@ -160,7 +160,10 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
   ${watermarkMarkup}
   <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-qr"><img src="${qr}" alt="QR verification code"/></div></div>
   <div class="backBody"><div class="backKicker">Official School Identification Card</div><h2>This card belongs to ${esc(input.name)}</h2><p>This card is the property of Aliyu &amp; Maimuna Center for Qur’anic Memorization. It must be presented on request for school identity verification, attendance scanning, school access and approved academic services. It is not transferable.</p>
-   <div class="backGrid"><div><span>Valid until</span><b>${formatDate(studentDisplayExpiry)}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
+   <div class="backGrid">${input.type==='STUDENT'
+     ? `<div><span>Valid until</span><b>${formatDate(studentDisplayExpiry)}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div>`
+     : `<div style="grid-column:1/-1"><span>ID holder</span><b>${esc(input.name)}</b></div>`
+   }</div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
    
    <div class="signRow"><div>${directorMarkup}</div><div class="terms"><b>If found</b><p>Please return this card to the school office or drop it in the collection box at the main gate.</p><p class="police">If found, please contact the school: <strong>08036042021</strong></p></div></div>
   </div><div class="foot">${esc(ENGLISH_SCHOOL_NAME)} · QR &amp; barcode encode the unique record for verification and attendance</div>
