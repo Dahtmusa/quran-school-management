@@ -33,8 +33,9 @@ export async function POST(req: NextRequest) {
     const { data: staffRecord } = await supabase.from('profiles').select('id').eq('id', personId).in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).maybeSingle();
     if (!staffRecord) return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
   } else {
-    const { data: studentRecord } = await supabase.from('students').select('id,status').eq('id', personId).maybeSingle();
+    const { data: studentRecord } = await supabase.from('students').select('id,status,section').eq('id', personId).maybeSingle();
     if (!studentRecord || studentRecord.status !== 'active') return NextResponse.json({ error: 'Active student record not found' }, { status: 404 });
+    if (studentRecord.section !== 'day') return NextResponse.json({ error: 'Boarding students are not required to use the main-gate morning scanner' }, { status: 403 });
   }
 
   // Server-side timestamp — client cannot manipulate this
