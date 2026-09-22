@@ -503,7 +503,7 @@ export default function PublicHomepageSchool() {
               const name = item.name || ['Hajiya Amina Bello', 'Alh. Ibrahim Usman', 'Hajiya Zainab Abdullahi', 'Alh. Abdulrahman Sani'][index];
               const spritePosition = ['0%', '33.3333%', '66.6667%', '100%'][index] || '0%';
               const image = item.image_url || item.image;
-              const isSprite = item.sprite === true && image;
+              const isSprite = item.sprite === true && image && /parents-composite(?:\.|$)/i.test(String(image));
               const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
               return (
                 <article key={index} className="min-w-0 text-center">
