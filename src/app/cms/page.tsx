@@ -65,9 +65,10 @@ export default function CMS(){
 }
 
 function SectionEditor({section,setSection,save,busy,media,uploadImage}:{section:any;setSection:(x:any)=>void;save:()=>void;busy:boolean;media:any[];uploadImage:(file:File)=>Promise<string>}){
- let content:any={};try{content=typeof section.content==='string'?JSON.parse(section.content):section.content||{}}catch{}
+ let initialContent:any={};try{initialContent=typeof section.content==='string'?JSON.parse(section.content):section.content||{}}catch{}
+ const [content,setContent]=useState<any>(initialContent);
  const key=section.section_key;
- const update=(patch:any)=>setSection({...section,content:JSON.stringify({...content,...patch},null,2)});
+ const update=(patch:any)=>{const next={...content,...patch};setContent(next);setSection({...section,content:JSON.stringify(next,null,2)})};
  const items=Array.isArray(content.items)?content.items:[];
  const updateItem=(i:number,patch:any)=>update({items:items.map((x:any,n:number)=>n===i?{...x,...patch}:x)});
  const addItem=(item:any)=>update({items:[...items,item]});
