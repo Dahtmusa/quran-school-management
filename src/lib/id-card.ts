@@ -79,7 +79,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .sheet{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 14px}
  .card{width:420px;border-radius:13px;overflow:hidden;position:relative;background:#fff;box-shadow:0 10px 28px rgba(16,37,31,.28);page-break-after:always}
  .card:last-child{page-break-after:auto}
- .watermark{position:absolute;left:50%;top:53%;width:220px;height:220px;transform:translate(-50%,-50%);object-fit:contain;opacity:.095;filter:grayscale(1);z-index:0;pointer-events:none}.band,.frontName,.frontMain,.bottomBar,.backBody,.foot{position:relative;z-index:1}
+ .watermark{position:absolute;left:50%;top:54%;width:46mm;height:46mm;transform:translate(-50%,-50%);object-fit:contain;opacity:.16;filter:grayscale(1);z-index:1;pointer-events:none}.band,.frontName,.frontMain,.bottomBar,.backBody,.foot{position:relative;z-index:2}
  .band{min-height:76px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;padding:8px 14px;background:linear-gradient(120deg,#07523f 0%,#062d2a 70%,#07241f 100%);color:#fff;border-bottom:2px solid #c9a84c;position:relative;z-index:1}
  .logo{width:52px;height:52px;border-radius:50%;background:#fff;object-fit:contain;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
  .brand{text-align:center;min-width:0;padding:0 2px}.brand strong{display:block;font-family:Georgia,'Times New Roman',serif;font-size:12.5px;line-height:1.15;font-weight:900;letter-spacing:.25px;color:#fff}.brand small{display:block;margin-top:4px;font-size:7.4px;line-height:1.25;font-weight:800;letter-spacing:.45px;color:#e4f0eb;text-transform:uppercase;white-space:normal}.arabic{direction:rtl;unicode-bidi:isolate;color:#f0c65d;font-size:10px;line-height:1.25;margin-top:1px;font-weight:700;font-family:Arial,'Noto Naskh Arabic','Amiri',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -103,25 +103,26 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .bottomBar{min-height:7mm;height:7mm;gap:1.5mm;padding:0 3mm}.barcode{height:5.2mm}.barcode svg{height:5mm}.idChip{border-radius:1.2mm;padding:.5mm 1.7mm}.idChip span{font-size:.95mm;letter-spacing:.2mm}.idChip b{font-size:2.1mm;max-width:29mm}
  .backBody{padding:2.7mm 3.5mm 2.4mm}.backKicker{font-size:1.45mm;letter-spacing:.4mm}.backBody h2{font-size:3.7mm;margin-top:.6mm;line-height:1.05}.backBody p{font-size:1.7mm;line-height:1.3;margin-top:1.1mm}.backGrid{gap:1.5mm;margin-top:1.6mm}.backGrid div{border-radius:1.5mm;padding:1.4mm 1.6mm}.backGrid span{font-size:1.1mm;letter-spacing:.25mm}.backGrid b{font-size:2mm;margin-top:.35mm;line-height:1.1}
  .signRow{gap:2mm;margin-top:1.7mm}.directorSignImage{width:27mm;height:9mm;margin:0 auto .6mm}.directorSignLabel{padding-top:.7mm;font-size:1.35mm;letter-spacing:.16mm}.directorSign small{font-size:1.05mm;letter-spacing:.12mm;margin-top:.25mm}.signLine{margin-bottom:1.2mm}.terms{border-radius:1.5mm;padding:1.4mm 1.7mm}.terms b{font-size:1.25mm;letter-spacing:.25mm}.terms p{font-size:1.55mm;line-height:1.3;margin-top:.6mm}.police{margin-top:.8mm;font-size:1.55mm!important}
- .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:42mm;height:42mm;top:55%;opacity:.075}
+ .card.back .footerContacts{position:absolute;right:3mm;bottom:1.4mm;z-index:4;text-align:right;font-size:1.15mm;line-height:1.25;font-weight:800;letter-spacing:.05mm;color:#d9e7e2;white-space:nowrap}.card.back .footerContacts b{color:#f0cf73}
+ .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:46mm;height:46mm;top:54%;opacity:.16}
  @media screen and (min-width:720px){.sheet{zoom:1!important}}
  @media print{.sheet{padding:0;gap:0}.card{box-shadow:none}.card.front{margin-bottom:4mm}.card.back{margin-bottom:0}.sheet{align-items:center}}
  </style></head><body><div class="sheet">
  <div class="card front">
   ${watermarkMarkup}
-  <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><small>Official School Identification · Quran Memorization Programme</small><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-tag">${typeLabel}<br/>ID</div></div>
+  <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-tag">${typeLabel}<br/>ID</div></div>
   <div class="frontName"><div class="topLine"><div class="eyebrow">Official Identification</div><div class="tag">${input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff'}</div></div><div class="name" id="fname">${esc(input.name)}</div></div>
   <div class="frontMain">${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt="${esc(typeLabel)} photo"/>`:'<div class="photo"></div>'}<div class="info"><div class="facts">${factsRows.map(f=>`<div class="fact${f[2]?' wide':''}"><span>${f[0]}</span><b>${f[1]}</b></div>`).join('')}</div></div><div class="qrBox"><img class="qr" src="${qr}" alt="QR verification code"/><div class="scan">Scan to<br/>verify</div></div></div>
   <div class="bottomBar"><div class="barcode">${barcode}</div><div class="idChip"><span>ID No.</span><b>${esc(displayId)}</b></div></div>
  </div>
  <div class="card back">
   ${watermarkMarkup}
-  <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><small>Official School Identification · Quran Memorization Programme</small><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-qr"><img src="${qr}" alt="QR verification code"/></div></div>
+  <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-qr"><img src="${qr}" alt="QR verification code"/></div></div>
   <div class="backBody"><div class="backKicker">Official School Identification Card</div><h2>This card belongs to ${esc(input.name)}</h2><p>This card is the property of Aliyu &amp; Maimuna Center for Qur’anic Memorization. It must be presented on request for school identity verification, attendance scanning, school access and approved academic services. It is not transferable.</p>
    <div class="backGrid"><div><span>Valid until</span><b>${formatDate(studentDisplayExpiry)}</b></div><div><span>Issued to</span><b>${esc(input.name)}</b></div></div>
    
    <div class="signRow"><div>${directorMarkup}</div><div class="terms"><b>If found</b><p>Please return this card to the school office or drop it in the collection box at the main gate. Thanks for your honesty.</p><p class="police">If you cannot reach the school, please report the card to the nearest police station.</p></div></div>
-  </div><div class="foot">${esc(ENGLISH_SCHOOL_NAME)} · QR &amp; barcode encode the unique record for verification and attendance</div>
+  </div><div class="foot">${esc(ENGLISH_SCHOOL_NAME)} · QR &amp; barcode encode the unique record for verification and attendance</div><div class="footerContacts"><b>Director</b> 08036042021 &nbsp; <b>Supervisor</b> 08038889690</div>
  </div>
  </div><script>
  function fitName(){var n=document.getElementById('fname');if(!n)return;var s=19;n.style.fontSize=s+'px';var guard=0;while(n.scrollWidth>n.clientWidth+1&&s>8&&guard<20){s-=1;n.style.fontSize=s+'px';guard++;}n.style.textOverflow='clip';}
