@@ -34,6 +34,10 @@ expect(orbit.includes('requestAnimationFrame'), 'Orbital people uses performant 
 expect(orbit.includes('prefers-reduced-motion'), 'Orbital people respects reduced motion');
 expect(orbit.includes('IntersectionObserver'), 'Orbital people pauses work outside the viewport');
 expect(orbit.includes('View Profile'), 'Orbital people preserves profile navigation');
+expect(orbit.includes('count <= 1'), 'Orbital people handles a single person without navigation');
+expect(orbit.includes('count >= 9'), 'Orbital people adapts sizing for larger teams');
+expect(orbit.includes('width < 390'), 'Orbital people has a dedicated small-phone layout');
+expect(orbit.includes('ResizeObserver'), 'Orbital people recalculates layout on resize');
 expect(leadership.includes("href: '/leadership/' + leader.id"), 'Leadership keeps existing profile routing');
 expect(teaching.includes("href: '/teachers/' + teacher.id"), 'Teachers keep existing profile routing');
 
