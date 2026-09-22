@@ -121,22 +121,32 @@ export default function PublicHomepageSchool() {
 
   const fallbackTestimonials = [
     {
-      quote: 'AMQM gives children structure, discipline and a genuine love for the Qur’an. We have seen a beautiful change in our child.',
-      name: 'AMQM Parent A',
-      role: 'Sample parent testimonial',
-      sample: true,
+      quote: 'AMQM has given my daughter a solid foundation in Qur’anic knowledge and good character.',
+      name: 'Hajiya Amina Bello',
+      role: 'Parent',
+      image_url: '/images/testimonials/parents-composite.jpg',
+      sprite: true,
     },
     {
-      quote: 'The teachers are patient and attentive. The combination of memorisation, character and education gives us confidence as parents.',
-      name: 'AMQM Parent B',
-      role: 'Sample parent testimonial',
-      sample: true,
+      quote: 'The discipline and values my son has learned at AMQM have made a real difference in his life.',
+      name: 'Alh. Ibrahim Usman',
+      role: 'Parent',
+      image_url: '/images/testimonials/parents-composite.jpg',
+      sprite: true,
     },
     {
-      quote: 'We appreciate the care given to every student and the clear way progress is followed throughout the journey.',
-      name: 'AMQM Parent C',
-      role: 'Sample parent testimonial',
-      sample: true,
+      quote: 'The teachers are caring and attentive. We are happy to see our child grow in both knowledge and character.',
+      name: 'Hajiya Fatima Muhammad',
+      role: 'Parent',
+      image_url: '/images/testimonials/parents-composite.jpg',
+      sprite: true,
+    },
+    {
+      quote: 'AMQM has created a safe and nurturing environment. We are grateful for the positive change we see in our child.',
+      name: 'Alh. Abdulrahman Sani',
+      role: 'Parent',
+      image_url: '/images/testimonials/parents-composite.jpg',
+      sprite: true,
     },
   ];
 
@@ -496,26 +506,31 @@ export default function PublicHomepageSchool() {
                 {testimonials.length ? 'A few reflections from families in our school community.' : 'We value partnership with parents throughout every student’s Qur’anic journey.'}
               </p>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
-              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 3).map((item: any, index: number) => {
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {(testimonials.length ? testimonials : fallbackTestimonials).slice(0, 4).map((item: any, index: number) => {
                 const name = item.name || 'AMQM Parent';
                 const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase();
+                const spritePosition = ['0%', '33.3333%', '66.6667%', '100%'][index] || '0%';
+                const sprite = item.sprite === true && (item.image_url || item.image);
                 return (
                   <article key={index} className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.07] p-5 backdrop-blur">
-                    {item.sample && (
-                      <span className="absolute right-4 top-4 rounded-full border border-[#e7c66c]/20 bg-[#e7c66c]/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-[.12em] text-[#e7c66c]">
-                        Sample
-                      </span>
-                    )}
                     <div className="flex items-center gap-3">
-                      <div className="grid h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-[#e7c66c]/70 bg-[#d9e8e2] shadow-lg">
-                        {item.image_url || item.image ? (
+                      <div
+                        className="grid h-14 w-14 shrink-0 overflow-hidden rounded-full border-2 border-[#e7c66c]/70 bg-[#d9e8e2] shadow-lg"
+                        style={sprite ? {
+                          backgroundImage: `url(${item.image_url || item.image})`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '400% auto',
+                          backgroundPosition: `${spritePosition} 0%`,
+                        } : undefined}
+                      >
+                        {!sprite && (item.image_url || item.image) ? (
                           <img src={item.image_url || item.image} alt={name} className="h-full w-full object-cover" />
-                        ) : (
+                        ) : !sprite ? (
                           <div className="grid h-full w-full place-items-center bg-[radial-gradient(circle_at_35%_25%,#f0d78e,#a97d2d_42%,#174d43_43%,#062d28)] font-serif text-lg font-black text-white">
                             {initials}
                           </div>
-                        )}
+                        ) : null}
                       </div>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-black text-white">{name}</div>
