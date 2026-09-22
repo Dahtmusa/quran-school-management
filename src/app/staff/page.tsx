@@ -14,7 +14,7 @@ const STATUS_OPTS=['active','inactive','suspended','left'];
 const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0,qualifications:'',experience:'',subjects:''};
 
 export default function StaffPage(){
- const [tab,setTab]=useState<'teaching'|'leadership'|'accounts'|'signatures'>('teaching');
+ const [tab,setTab]=useState<'people'|'signatures'>('people');
  const [staff,setStaff]=useState<StaffProfile[]>([]);
  const [classes,setClasses]=useState<LiveClass[]>([]);
  const [team,setTeam]=useState<TeamProfile[]>([]);
@@ -47,7 +47,6 @@ export default function StaffPage(){
  const [editA,setEditA]=useState<StaffProfile|null>(null);
  const [editAOrigEmail,setEditAOrigEmail]=useState('');
  const [showPwEditA,setShowPwEditA]=useState(false);
- const [showGrantAdmin,setShowGrantAdmin]=useState(false);
 
  /* ── signatures tab ── */
  const [sigRows,setSigRows]=useState<StaffSignatureRow[]>([]);
@@ -62,7 +61,7 @@ export default function StaffPage(){
  };
  useEffect(()=>{refresh()},[]);
 
- async function printStaffId(a:StaffProfile){const managementRoles=['admin','super_admin','principal','finance','admissions'];const type=managementRoles.includes(a.role)?'MANAGEMENT':'STAFF';await printAcademicIdCard({type,name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url,jobTitle:a.job_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
+ async function printStaffId(a:StaffProfile){const managementRoles=['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];const type=managementRoles.includes(a.role)?'MANAGEMENT':'STAFF';const linkedTeam=team.find(t=>t.full_name.trim().toLowerCase()===a.full_name.trim().toLowerCase());await printAcademicIdCard({type,name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url||linkedTeam?.photo_url||null,jobTitle:a.job_title??linkedTeam?.role_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
 
  const teachers=useMemo(()=>staff.filter(s=>s.role==='teacher'),[staff]);
  const teacherClasses=useMemo(()=>{const m:Record<string,string[]>={};for(const c of classes)for(const t of c.teachers){if(!m[t.id])m[t.id]=[];m[t.id].push(c.name)}return m;},[classes]);
@@ -113,6 +112,8 @@ export default function StaffPage(){
      let photo_url=editL.photo_url??null;
      if(lPhotoFile){photo_url=await uploadProfileImage(lPhotoFile,'staff');}
      await saveTeamProfile({...editL,photo_url});
+     const linkedStaff=staff.find(s=>s.full_name.trim().toLowerCase()===(editL.full_name||'').trim().toLowerCase());
+     if(linkedStaff) await updateStaffProfile(linkedStaff.id,{avatar_url:photo_url,job_title:editL.role_title||linkedStaff.job_title,department:linkedStaff.department||'Leadership'});
      await refresh();setEditL(null);setLPhotoFile(null);setMessage('Profile saved.');
    }catch(e:any){setMessage(e?.message??'Save failed.')}finally{setBusy(false)}
  }
@@ -161,8 +162,7 @@ export default function StaffPage(){
          <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">Manage teaching staff profiles, bios, website visibility, and school leadership. Class assignments are done in <Link href="/classes" className="underline underline-offset-2">Classes & Teachers</Link>.</p>
        </div>
        <div className="flex flex-wrap gap-2">
-         {tab==='teaching'&&<button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button>}
-         {tab==='leadership'&&<button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button>}
+         {tab==='people'&&<><button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button><button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button></>}
        </div>
 
      </div>
@@ -172,159 +172,33 @@ export default function StaffPage(){
 
    {/* Tabs */}
    <div className="flex gap-1 rounded-2xl border bg-slate-50 p-1">
-     {(['teaching','leadership','accounts','signatures'] as const).map(t=><button key={t} onClick={()=>{setTab(t);if(t==='signatures'){setSigLoading(true);loadStaffSignaturesAdmin().then(r=>{setSigRows(r);setSigLoading(false);});}}} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='teaching'?'Teaching Staff':t==='leadership'?'Leadership':t==='accounts'?'Accounts & Access':'Signatures'}</button>)}
+     {(['people','signatures'] as const).map(t=><button key={t} onClick={()=>{setTab(t);if(t==='signatures'){setSigLoading(true);loadStaffSignaturesAdmin().then(r=>{setSigRows(r);setSigLoading(false);});}}} className={`flex-1 rounded-xl py-3 text-sm font-black transition ${tab===t?'bg-white shadow text-slate-900':'text-slate-500 hover:text-slate-700'}`}>{t==='people'?'Staff & Management':'Signatures'}</button>)}
    </div>
 
-   {/* ── TEACHING STAFF ── */}
-   {tab==='teaching'&&<>
-     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-       {teachers.map(t=><article key={t.id} className="card overflow-hidden">
-         <div className="p-5">
-           <div className="flex items-start gap-4">
-             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-               {t.avatar_url?<img src={t.avatar_url} alt={t.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}
-             </div>
-             <div className="min-w-0 flex-1">
-               <div className="font-black truncate">{t.full_name}</div>
-               <div className="text-xs text-emerald-700 font-semibold">{t.staff_id||'Staff ID pending'}</div>
-               <div className="text-xs text-slate-500 mt-0.5">{t.job_title||'Teacher'} {t.department?`· ${t.department}`:''}</div>
-               {t.username&&<div className="text-[11px] text-indigo-600 font-semibold mt-0.5">@{t.username}</div>}
-               <span className={`pill mt-1.5 text-[10px] ${t.employment_status==='active'?'bg-emerald-50 text-emerald-700':t.employment_status==='inactive'?'bg-slate-100 text-slate-600':'bg-rose-50 text-rose-700'}`}>{t.employment_status}</span>
-             </div>
-           </div>
-           {(teacherClasses[t.id]??[]).length>0&&<div className="mt-3 flex flex-wrap gap-1">{(teacherClasses[t.id]).map(n=><span key={n} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">{n}</span>)}</div>}
-           {(teacherClasses[t.id]??[]).length===0&&<p className="mt-3 text-xs text-slate-400">No class assigned — go to <Link href="/classes" className="underline">Classes</Link> to assign.</p>}
-           {t.bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-2">{t.bio}</p>}
-         </div>
-         <div className="flex items-center gap-2 border-t px-5 py-3">
-           <button onClick={()=>toggleWebsite(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black transition ${t.show_on_website?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
-             <span className={`h-2 w-2 rounded-full ${t.show_on_website?'bg-emerald-500':'bg-slate-300'}`}/>
-             {t.show_on_website?'On website':'Hidden from website'}
-           </button>
-           <button className="ml-auto btn bg-emerald-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(t)}>Print ID</button>
-            <button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit</button>
-         </div>
-       </article>)}
-       {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet. Click "Create teacher" to add the first one.</div>}
-     </div>
-
-     {/* Stats row */}
-     <div className="grid grid-cols-3 gap-3">
-       {[['Total teachers',String(teachers.length)],['Active',String(teachers.filter(t=>t.employment_status==='active').length)],['On website',String(teachers.filter(t=>t.show_on_website).length)]].map(([l,v])=><div key={l} className="card p-4"><div className="text-xs font-bold uppercase text-slate-400">{l}</div><div className="mt-1 text-2xl font-black">{v}</div></div>)}
-     </div>
-   </>}
-
-   {/* ── LEADERSHIP ── */}
-   {tab==='leadership'&&<>
-     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-       {team.map((t:any)=><article key={t.id} className="card overflow-hidden">
-         <div className="p-5">
-           <div className="flex items-start gap-4">
-             <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-               {t.photo_url?<img src={t.photo_url} alt={t.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}
-             </div>
-             <div className="min-w-0 flex-1">
-               <div className="font-black truncate">{t.full_name}</div>
-               <div className="text-xs text-emerald-700 font-semibold">{t.role_title}</div>
-               <span className="pill mt-1 bg-indigo-50 text-indigo-700 text-[10px]">{t.category}</span>
-               {!t.published&&<span className="pill ml-1 bg-slate-100 text-slate-500 text-[10px]">Draft</span>}
-             </div>
-           </div>
-           {t.brief_bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-3">{t.brief_bio}</p>}
-         </div>
-         <div className="flex items-center gap-2 border-t px-5 py-3">
-           <button onClick={()=>toggleHomepage(t)} disabled={busy} className={`flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-black transition ${t.display_on_homepage?'bg-emerald-100 text-emerald-800':'bg-slate-100 text-slate-500'}`}>
-             <span className={`h-2 w-2 rounded-full ${t.display_on_homepage?'bg-emerald-500':'bg-slate-300'}`}/>
-             {t.display_on_homepage?'On homepage':'Hidden'}
-           </button>
-           <button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditL({...t});setLPhotoFile(null)}}>Edit</button>
-           <button className="btn bg-rose-50 text-rose-700 text-sm py-1.5" onClick={()=>deleteLeader(t.id)}>Delete</button>
-         </div>
-       </article>)}
-       {!team.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No leadership profiles yet. Click "Add leader" to create the first one.</div>}
-     </div>
-     <div className="rounded-[1.5rem] bg-gradient-to-r from-indigo-900 to-indigo-700 p-5 text-white flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-       <div>
-         <div className="text-xs font-black uppercase tracking-[.2em] text-indigo-200">Administrator Access</div>
-         <p className="mt-0.5 text-sm text-indigo-100/80">Grant or revoke admin system access for management staff.</p>
+   {/* ── STAFF & MANAGEMENT ── */}
+   {tab==='people'&&<div className="space-y-8">
+     <section>
+       <div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-xl font-black text-slate-900">Teaching Staff</h3><p className="text-sm text-slate-500">Manage teachers, photos, class assignments and staff ID cards.</p></div><button className="btn bg-emerald-50 text-emerald-900" onClick={()=>setShowCreate(true)}>+ Create teacher</button></div>
+       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+         {teachers.map(t=><article key={t.id} className="card overflow-hidden">
+           <div className="p-5"><div className="flex items-start gap-4"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">{t.avatar_url?<img src={t.avatar_url} alt={t.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}</div><div className="min-w-0 flex-1"><div className="font-black truncate">{t.full_name}</div><div className="text-xs text-emerald-700 font-semibold">{t.staff_id||'Staff ID pending'}</div><div className="text-xs text-slate-500 mt-0.5">{t.job_title||'Teacher'}{t.department?' · '+t.department:''}</div><span className="pill mt-1.5 text-[10px] bg-emerald-50 text-emerald-700">{t.employment_status}</span></div></div>{(teacherClasses[t.id]??[]).length>0&&<div className="mt-3 flex flex-wrap gap-1">{teacherClasses[t.id].map(n=><span key={n} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">{n}</span>)}</div>}{(teacherClasses[t.id]??[]).length===0&&<p className="mt-3 text-xs text-slate-400">No class assigned — <Link href="/classes" className="underline">assign a class</Link>.</p>}</div>
+           <div className="flex flex-wrap items-center gap-2 border-t px-5 py-3"><button className="btn bg-emerald-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(t)}>Print ID</button><button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditT(t);setEditTOrigEmail((t.email||'').trim().toLowerCase());setPhotoFile(null);setNewPassword('');setShowPwEditT(false);}}>Edit profile</button></div>
+         </article>)}
+         {!teachers.length&&<div className="card p-8 text-center text-sm text-slate-500 sm:col-span-2 xl:col-span-3">No teachers yet.</div>}
        </div>
-       <button onClick={()=>setShowGrantAdmin(true)} className="btn shrink-0 bg-white text-indigo-900 font-black px-5 py-2.5 text-sm">
-         + Manage Admin Access
-       </button>
-     </div>
-     <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-xs text-indigo-800 leading-5">Website profiles shown above appear on the homepage when "On homepage" is enabled. System account access is managed via the button above.</div>
-   </>}
-
-   {/* ── ACCOUNTS & ACCESS ── */}
-   {tab==='accounts'&&(()=>{
-     const ROLE_LABELS:Record<string,string>={super_admin:'Super Admin',admin:'Administrator',principal:'Principal',finance:'Finance',admissions:'Admissions',security:'Security',teacher:'Teacher',parent:'Parent'};
-     const accounts=staff.filter(s=>s.role!=='teacher'&&s.role!=='parent');
-     const admins=accounts.filter(a=>a.role==='admin'||a.role==='super_admin');
-     const nonAdmins=accounts.filter(a=>a.role!=='admin'&&a.role!=='super_admin');
-     return<>
-       {/* Grant Admin banner */}
-       <div className="rounded-[1.5rem] bg-gradient-to-r from-indigo-900 to-indigo-700 p-6 text-white flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-         <div>
-           <div className="text-xs font-black uppercase tracking-[.2em] text-indigo-200">Administrator Access</div>
-           <h3 className="mt-1 text-xl font-black">Grant admin privileges to a staff member</h3>
-           <p className="mt-1 text-sm text-indigo-100/75">Select a management or leadership staff member to give them full administrator access to the system.</p>
-         </div>
-         <button onClick={()=>setShowGrantAdmin(true)} className="btn shrink-0 bg-white text-indigo-900 font-black px-6 py-3">
-           + Grant Admin Access
-         </button>
+     </section>
+     <section>
+       <div className="mb-4 flex items-end justify-between gap-3"><div><h3 className="text-xl font-black text-slate-900">Management & Leadership</h3><p className="text-sm text-slate-500">One place for management profiles, photos, system access and management ID cards.</p></div><button className="btn bg-indigo-50 text-indigo-900" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button></div>
+       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+         {team.map((t:any)=>{const account=staff.find(a=>a.full_name.trim().toLowerCase()===t.full_name.trim().toLowerCase());const photo=account?.avatar_url||t.photo_url;return <article key={'team-'+t.id} className="card overflow-hidden">
+           <div className="p-5"><div className="flex items-start gap-4"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">{photo?<img src={photo} alt={t.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{t.full_name.charAt(0)}</div>}</div><div className="min-w-0 flex-1"><div className="font-black truncate">{t.full_name}</div><div className="text-xs text-emerald-700 font-semibold">{t.role_title}</div>{account?.staff_id&&<div className="text-xs text-slate-500 mt-0.5">{account.staff_id}</div>}<div className="flex flex-wrap gap-1 mt-1.5"><span className="pill text-[10px] bg-indigo-50 text-indigo-700">{account?.role==='admin'?'Administrator':account?.role||'Profile only'}</span>{t.display_on_homepage&&<span className="pill text-[10px] bg-emerald-50 text-emerald-700">On homepage</span>}</div></div></div>{t.brief_bio&&<p className="mt-3 text-xs text-slate-500 line-clamp-2">{t.brief_bio}</p>}</div>
+           <div className="flex flex-wrap items-center gap-2 border-t px-5 py-3"><button className="btn bg-indigo-900 text-white text-sm py-1.5 font-black" onClick={()=>account&&printStaffId(account)} disabled={!account}>Print ID</button><button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditL({...t});setLPhotoFile(null)}}>Edit profile</button>{account&&<button className="btn bg-slate-100 text-xs py-1.5" onClick={()=>{setEditA({...account});setEditAOrigEmail((account.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Access</button>}{account&&account.role!=='super_admin'&&<button className="btn bg-indigo-50 text-indigo-700 text-xs py-1.5" onClick={async()=>{setBusy(true);try{await updateStaffProfile(account.id,{role:account.role==='admin'?'principal':'admin'});await refresh();setMessage(account.role==='admin'?'Admin access removed.':account.full_name+' is now an Administrator.')}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>{account.role==='admin'?'Revoke admin':'Grant admin'}</button>}</div>
+         </article>})}
+         {staff.filter(a=>a.role!=='teacher'&&a.role!=='parent'&&!team.some(t=>t.full_name.trim().toLowerCase()===a.full_name.trim().toLowerCase())).map(a=><article key={'account-'+a.id} className="card overflow-hidden"><div className="p-5"><div className="flex items-start gap-4"><div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl bg-slate-100">{a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover"/>:<div className="grid h-full place-items-center text-2xl font-black text-slate-300">{a.full_name.charAt(0)}</div>}</div><div className="min-w-0 flex-1"><div className="font-black truncate">{a.full_name}</div><div className="text-xs text-emerald-700 font-semibold">{a.job_title||a.role}</div><div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'Staff ID pending'}</div><span className="pill mt-1.5 text-[10px] bg-slate-100 text-slate-700">{a.role}</span></div></div></div><div className="flex flex-wrap gap-2 border-t px-5 py-3"><button className="btn bg-indigo-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(a)}>Print ID</button><button className="btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit access</button></div></article>)}
        </div>
-
-       {/* Current admins */}
-       {admins.length>0&&<>
-         <div className="text-xs font-black uppercase tracking-[.2em] text-slate-400">Current Administrators</div>
-         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-           {admins.map(a=><article key={a.id} className="card overflow-hidden border-indigo-200">
-             <div className="p-5 flex items-start gap-4">
-               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-indigo-50">
-                 {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-indigo-300">{a.full_name.charAt(0)}</div>}
-               </div>
-               <div className="min-w-0 flex-1">
-                 <div className="font-black truncate">{a.full_name}</div>
-                 <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
-                 <span className="pill mt-1.5 text-[10px] bg-indigo-100 text-indigo-700">{ROLE_LABELS[a.role]||a.role}</span>
-                 {a.username&&<div className="text-[11px] text-indigo-600 font-semibold mt-0.5">@{a.username}</div>}
-               </div>
-             </div>
-<div className="flex items-center gap-2 border-t px-5 py-3 bg-indigo-50/50">
-                <button className="btn bg-indigo-900 text-white text-sm py-1.5 font-black" onClick={()=>printStaffId(a)}>Print ID</button>
-                <button className="ml-auto btn bg-white border text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Edit / Set credentials</button>
-             </div>
-           </article>)}
-         </div>
-       </>}
-
-       {/* Other staff accounts */}
-       {nonAdmins.length>0&&<>
-         <div className="text-xs font-black uppercase tracking-[.2em] text-slate-400">Other Staff Accounts</div>
-         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-           {nonAdmins.map(a=><article key={a.id} className="card overflow-hidden">
-             <div className="p-5 flex items-start gap-4">
-               <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-                 {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-xl font-black text-slate-300">{a.full_name.charAt(0)}</div>}
-               </div>
-               <div className="min-w-0 flex-1">
-                 <div className="font-black truncate">{a.full_name}</div>
-                 <div className="text-xs text-slate-500 mt-0.5">{a.staff_id||'No staff ID'}</div>
-                 <span className="pill mt-1.5 text-[10px] bg-slate-100 text-slate-600">{ROLE_LABELS[a.role]||a.role}</span>
-               </div>
-             </div>
-             <div className="flex items-center gap-2 border-t px-5 py-3">
-               <button className="btn bg-emerald-900 text-white text-xs py-1.5 font-black" onClick={()=>printStaffId(a)}>Print ID</button>
-                <button className="btn bg-indigo-50 text-indigo-700 text-sm py-1.5 font-black" onClick={async()=>{if(!confirm(`Grant Administrator access to ${a.full_name}? This gives full system access.`))return;setBusy(true);try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}catch(e:any){setMessage(e?.message??'Failed.')}finally{setBusy(false)}}}>Grant Admin ↑</button>
-               <button className="ml-auto btn bg-slate-100 text-sm py-1.5" onClick={()=>{setEditA({...a});setEditAOrigEmail((a.email||'').trim().toLowerCase());setNewPassword('');setShowPwEditA(false);}}>Change role</button>
-             </div>
-           </article>)}
-         </div>
-       </>}
-       {!accounts.length&&<div className="card p-8 text-center text-sm text-slate-500">No staff accounts found.</div>}
-     </>;
-   })()}
-
+     </section>
+     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs leading-5 text-slate-600"><b>One person, one place:</b> photos, profile information, system access and ID printing are now managed from these two lists. Student IDs remain under Students.</div>
+   </div>}
   {/* ── SIGNATURES TAB ── */}
   {tab==='signatures'&&<div className="space-y-4">
     <div className="card overflow-hidden">
@@ -517,47 +391,6 @@ export default function StaffPage(){
   </div></div>}
 
   {/* ── GRANT / REVOKE ADMIN MODAL ── */}
-  {showGrantAdmin&&(()=>{
-   // All management accounts (non-teacher, non-parent) can have admin granted/revoked
-   const leadership=staff.filter(s=>s.role!=='teacher'&&s.role!=='parent'&&s.role!=='super_admin');
-   return<div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white shadow-2xl">
-    <div className="flex items-center justify-between border-b p-5"><div><h2 className="text-xl font-black">Administrator Access</h2><p className="text-sm text-slate-500">Grant or revoke admin access for leadership staff only.</p></div><button onClick={()=>setShowGrantAdmin(false)} className="rounded-xl bg-slate-100 p-2">✕</button></div>
-    <div className="divide-y max-h-[60vh] overflow-y-auto">
-     {leadership.length===0&&<div className="p-8 text-center text-sm text-slate-400">No management staff accounts found. Create staff accounts from the Accounts & Access tab first.</div>}
-     {leadership.map(a=>{
-      const isAdmin=a.role==='admin';
-      return<div key={a.id} className="flex items-center gap-4 p-4 hover:bg-slate-50">
-       <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
-        {a.avatar_url?<img src={a.avatar_url} alt={a.full_name} className="h-full w-full object-cover object-top"/>:<div className="grid h-full place-items-center text-lg font-black text-slate-300">{a.full_name.charAt(0)}</div>}
-       </div>
-       <div className="flex-1 min-w-0">
-        <div className="font-black truncate">{a.full_name}</div>
-        <div className="text-xs text-slate-500">{a.job_title||a.role}{a.staff_id?` · ${a.staff_id}`:''}</div>
-        <span className={`inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${isAdmin?'bg-indigo-100 text-indigo-700':'bg-slate-100 text-slate-500'}`}>{isAdmin?'Administrator':'No admin access'}</span>
-       </div>
-       {isAdmin
-        ?<button disabled={busy} className="btn bg-rose-50 text-rose-700 text-sm py-2 px-4 shrink-0 border border-rose-200" onClick={async()=>{
-          if(!confirm(`Remove Administrator access from ${a.full_name}?`))return;
-          setBusy(true);
-          try{await updateStaffProfile(a.id,{role:'principal'});await refresh();setMessage(`Admin access removed from ${a.full_name}.`);}
-          catch(e:any){setMessage(e?.message??'Failed.')}
-          finally{setBusy(false)}
-         }}>Revoke Admin</button>
-        :<button disabled={busy} className="btn bg-indigo-600 text-white text-sm py-2 px-4 shrink-0" onClick={async()=>{
-          if(!confirm(`Grant Administrator access to ${a.full_name}?\n\nThis gives full system access to all admin features.`))return;
-          setBusy(true);
-          try{await updateStaffProfile(a.id,{role:'admin'});await refresh();setMessage(`${a.full_name} is now an Administrator.`);}
-          catch(e:any){setMessage(e?.message??'Failed.')}
-          finally{setBusy(false)}
-         }}>Grant Admin →</button>
-       }
-      </div>;
-     })}
-    </div>
-    <div className="border-t p-4 flex justify-end"><button className="btn bg-slate-100" onClick={()=>setShowGrantAdmin(false)}>Close</button></div>
-   </div></div>;
-  })()}
-
   {/* ── EDIT ACCOUNT MODAL ── */}
   {editA&&(()=>{
    const CHANGEABLE_ROLES=['admin','principal','finance','admissions','security'];
