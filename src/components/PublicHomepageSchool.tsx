@@ -257,8 +257,7 @@ export default function PublicHomepageSchool() {
                 onClick={() => setMenu(false)}
                 className="grid h-10 w-10 place-items-center rounded-full bg-[#edf2ee] text-2xl text-[#075848]"
                 aria-label="Close navigation"
-              >
-                ×
+              >                ×
               </button>
             </div>
             <nav className="mt-6 grid gap-2">
@@ -384,243 +383,266 @@ export default function PublicHomepageSchool() {
               {about.text ||
                 "AMQM combines Qur’an memorisation, Islamic education, discipline and pastoral care in a safe, supportive environment where students can grow in knowledge, confidence and character."}
             </p>
-            <section className="amqm-geometry-showcase" aria-label="AMQM programmes and features">
-              <div className="amqm-geometry-titlebar">
-                <div className="amqm-geometry-title-number">4</div>
+            <section className="amqm-living-showcase" aria-label="AMQM programmes and features">
+              <div className="amqm-living-heading">
+                <div className="amqm-living-number">3</div>
                 <div>
-                  <h3>Islamic Geometry</h3>
-                  <p>Traditional touch with modern design</p>
+                  <h3>Living Cards</h3>
+                  <p>Fresh, modern and interactive with real school images</p>
                 </div>
               </div>
 
-              <div className="amqm-geometry-features">
+              <div className="amqm-living-cards">
                 {features.slice(0, 4).map((feature: any, index: number) => {
-                  const featureImage = feature.image_url || feature.image || feature.photo_url || imageMedia[index + 1]?.public_url || imageMedia[index]?.public_url || aboutImage || heroImage;
+                  const featureImage =
+                    feature.image_url ||
+                    feature.image ||
+                    feature.photo_url ||
+                    imageMedia[index + 1]?.public_url ||
+                    imageMedia[index]?.public_url ||
+                    aboutImage ||
+                    heroImage;
+
                   return (
-                    <article key={index} className="amqm-geometry-feature">
-                      <div className="amqm-geometry-feature-art">
+                    <Link
+                      key={index}
+                      href={feature.href || '/programs'}
+                      className="amqm-living-card"
+                    >
+                      <div className="amqm-living-card-image">
                         {featureImage ? (
                           <img
                             src={featureImage}
                             alt={feature.title || 'AMQM programme'}
-                            className="amqm-geometry-feature-image"
                             loading="lazy"
                           />
                         ) : (
-                          <div className="amqm-geometry-feature-image amqm-geometry-image-fallback">
-                            <span>{String(feature.title || 'AMQM').slice(0, 1)}</span>
+                          <div className="amqm-living-card-fallback">
+                            {String(feature.title || 'AMQM').slice(0, 1)}
                           </div>
                         )}
+                        <div className="amqm-living-card-number">0{index + 1}</div>
                       </div>
-                      <div className="amqm-geometry-feature-title">{feature.title}</div>
-                      <p>{feature.excerpt || feature.text}</p>
-                      <div className="amqm-geometry-feature-bottom">
-                        <span>0{index + 1}</span>
-                        <span className="amqm-geometry-arrow">↗</span>
+
+                      <div className="amqm-living-card-body">
+                        <div className="amqm-living-card-icon" aria-hidden="true">
+                          {index === 0 ? '◈' : index === 1 ? '⌂' : index === 2 ? '♧' : '✓'}
+                        </div>
+                        <div className="amqm-living-card-copy">
+                          <h4>{feature.title}</h4>
+                          <p>{feature.excerpt || feature.text}</p>
+                        </div>
+                        <span className="amqm-living-arrow" aria-hidden="true">↗</span>
                       </div>
-                    </article>
+                    </Link>
                   );
                 })}
               </div>
             </section>
 
             <style jsx>{`
-              .amqm-geometry-showcase{
+              .amqm-living-showcase{
                 position:relative;
-                overflow:hidden;
                 margin-top:2rem;
-                padding:1rem 1rem 1.05rem;
-                color:#fff;
-                border:1px solid rgba(225,199,104,.72);
-                border-radius:2px;
+                padding:1.25rem 0 .25rem;
+                overflow:visible;
+              }
+              .amqm-living-showcase:before{
+                content:"";
+                position:absolute;
+                inset:-1.5rem -2rem -1rem;
+                z-index:-1;
+                border-radius:2rem;
                 background:
-                  radial-gradient(circle at 50% 12%,rgba(52,137,111,.20),transparent 30%),
-                  linear-gradient(135deg,#073f35 0%,#062f2a 48%,#063a31 100%);
-                box-shadow:0 16px 38px rgba(4,43,36,.18);
-                isolation:isolate;
+                  radial-gradient(circle at 8% 18%,rgba(39,145,111,.12),transparent 27%),
+                  radial-gradient(circle at 94% 78%,rgba(218,191,101,.10),transparent 25%),
+                  linear-gradient(135deg,#f5faf6,#eef6f0 52%,#f9faf5);
               }
-              .amqm-geometry-showcase:before{
-                content:"";
-                position:absolute;
-                inset:0;
-                z-index:-1;
-                opacity:.34;
-                background-image:
-                  linear-gradient(30deg,rgba(221,194,98,.30) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.30) 87.5%),
-                  linear-gradient(150deg,rgba(221,194,98,.30) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.30) 87.5%),
-                  linear-gradient(30deg,rgba(221,194,98,.12) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.12) 87.5%),
-                  linear-gradient(150deg,rgba(221,194,98,.12) 12%,transparent 12.5%,transparent 87%,rgba(221,194,98,.12) 87.5%);
-                background-position:0 0,0 0,17px 30px,17px 30px;
-                background-size:34px 60px;
-                mask-image:linear-gradient(to bottom,black 0%,black 62%,transparent 100%);
-                animation:amqmGeometryPattern 20s linear infinite;
-              }
-              .amqm-geometry-showcase:after{
-                content:"";
-                position:absolute;
-                left:-15%;
-                right:-15%;
-                bottom:-60%;
-                height:95%;
-                z-index:-1;
-                border-radius:50%;
-                border:1px solid rgba(222,195,102,.18);
-                box-shadow:0 0 0 28px rgba(222,195,102,.04),0 0 0 56px rgba(222,195,102,.025);
-              }
-              .amqm-geometry-titlebar{
+              .amqm-living-heading{
                 display:flex;
                 align-items:center;
-                gap:.7rem;
-                padding:.1rem .2rem .8rem;
+                gap:.75rem;
+                padding:.2rem .1rem 1.05rem;
               }
-              .amqm-geometry-title-number{
+              .amqm-living-number{
                 display:grid;
                 place-items:center;
-                width:2.35rem;
-                height:2.35rem;
+                width:2.45rem;
+                height:2.45rem;
                 flex:none;
-                border:1px solid #dfc56c;
                 border-radius:999px;
-                color:#062f2a;
-                background:linear-gradient(145deg,#f1d77d,#cda84b);
+                background:linear-gradient(145deg,#e9ca70,#c89e3e);
+                color:#073b32;
                 font:900 1.25rem/1 Georgia,serif;
-                box-shadow:0 4px 12px rgba(0,0,0,.22);
+                box-shadow:0 7px 16px rgba(104,81,25,.15);
               }
-              .amqm-geometry-titlebar h3{
+              .amqm-living-heading h3{
                 margin:0;
-                color:#fff;
-                font:900 1.08rem/1.1 Georgia,serif;
+                color:#0a4a3f;
+                font:900 1.15rem/1.05 Georgia,serif;
               }
-              .amqm-geometry-titlebar p{
-                margin:.15rem 0 0;
-                color:rgba(242,249,246,.78);
+              .amqm-living-heading p{
+                margin:.2rem 0 0;
+                color:#657a73;
                 font:500 .68rem/1.25 Inter,system-ui,sans-serif;
               }
-              .amqm-geometry-features{
+              .amqm-living-cards{
                 display:grid;
                 grid-template-columns:repeat(4,minmax(0,1fr));
-                gap:.55rem;
+                gap:.7rem;
               }
-              .amqm-geometry-feature{
+              .amqm-living-card{
                 position:relative;
                 min-width:0;
-                min-height:13.4rem;
-                padding:.7rem .62rem .55rem;
                 overflow:hidden;
-                border:1px solid rgba(231,201,103,.92);
-                border-radius:1.35rem 1.35rem .75rem .75rem;
-                background:linear-gradient(180deg,rgba(6,59,50,.72),rgba(3,48,42,.86));
-                box-shadow:inset 0 0 0 1px rgba(255,255,255,.035),0 8px 18px rgba(0,0,0,.13);
-                transition:transform .55s cubic-bezier(.2,.8,.2,1),box-shadow .55s,border-color .55s;
-                animation:amqmGeometryCardIn .75s cubic-bezier(.2,.8,.2,1) both;
+                border:1px solid #d7e4db;
+                border-radius:1.25rem;
+                background:rgba(255,255,255,.96);
+                box-shadow:0 10px 24px rgba(16,70,55,.08);
+                text-decoration:none;
+                transition:transform .45s cubic-bezier(.2,.8,.2,1),box-shadow .45s,border-color .45s;
+                animation:amqmLivingCardIn .65s cubic-bezier(.2,.8,.2,1) both;
               }
-              .amqm-geometry-feature:nth-child(1){animation-delay:.06s}
-              .amqm-geometry-feature:nth-child(2){animation-delay:.16s}
-              .amqm-geometry-feature:nth-child(3){animation-delay:.26s}
-              .amqm-geometry-feature:nth-child(4){animation-delay:.36s}
-              .amqm-geometry-feature:before{
+              .amqm-living-card:nth-child(1){animation-delay:.04s}
+              .amqm-living-card:nth-child(2){animation-delay:.12s}
+              .amqm-living-card:nth-child(3){animation-delay:.20s}
+              .amqm-living-card:nth-child(4){animation-delay:.28s}
+              .amqm-living-card:hover{
+                transform:translateY(-7px);
+                border-color:#b8d7c7;
+                box-shadow:0 18px 34px rgba(16,70,55,.15);
+              }
+              .amqm-living-card-image{
+                position:relative;
+                height:6.3rem;
+                overflow:hidden;
+                background:#dcebe2;
+              }
+              .amqm-living-card-image:after{
                 content:"";
                 position:absolute;
                 inset:0;
-                background:linear-gradient(140deg,rgba(255,255,255,.10),transparent 30%,transparent 70%,rgba(216,188,93,.06));
+                background:linear-gradient(180deg,transparent 55%,rgba(5,54,43,.13));
                 pointer-events:none;
               }
-              .amqm-geometry-feature:hover{
-                transform:translateY(-7px);
-                border-color:#f1d675;
-                box-shadow:0 18px 30px rgba(0,0,0,.24),0 0 0 1px rgba(241,214,117,.14);
+              .amqm-living-card-image img{
+                width:100%;
+                height:100%;
+                object-fit:cover;
+                display:block;
+                transition:transform .65s cubic-bezier(.2,.8,.2,1),filter .45s;
               }
-              .amqm-geometry-feature-art{
+              .amqm-living-card:hover .amqm-living-card-image img{
+                transform:scale(1.07);
+                filter:saturate(1.06);
+              }
+              .amqm-living-card-fallback{
                 display:grid;
                 place-items:center;
-                height:5.1rem;
+                width:100%;
+                height:100%;
+                color:#0b6552;
+                background:linear-gradient(135deg,#e6f1ea,#cfe4d8);
+                font:900 2.5rem/1 Georgia,serif;
               }
-              .amqm-geometry-icon{
-                display:grid;
-                place-items:center;
-                width:4.1rem;
-                height:4.1rem;
-                font-size:2.65rem;
-                line-height:1;
-                filter:drop-shadow(0 8px 7px rgba(0,0,0,.22));
-                transform:translateY(0);
-                animation:amqmGeometryIcon 3.6s ease-in-out infinite;
-              }
-              .amqm-geometry-feature:nth-child(2) .amqm-geometry-icon{animation-delay:-.8s}
-              .amqm-geometry-feature:nth-child(3) .amqm-geometry-icon{animation-delay:-1.6s}
-              .amqm-geometry-feature:nth-child(4) .amqm-geometry-icon{animation-delay:-2.4s}
-              .amqm-geometry-feature-title{
-                position:relative;
-                min-height:2.25rem;
-                margin-top:.05rem;
-                color:#fff;
-                font:900 .82rem/1.08 Georgia,serif;
-                text-shadow:0 1px 1px rgba(0,0,0,.22);
-              }
-              .amqm-geometry-feature p{
-                position:relative;
-                min-height:3.7rem;
-                margin:.35rem 0 0;
-                color:rgba(241,249,246,.78);
-                font:500 .61rem/1.45 Inter,system-ui,sans-serif;
-              }
-              .amqm-geometry-feature-bottom{
+              .amqm-living-card-number{
                 position:absolute;
-                left:.62rem;
-                right:.62rem;
-                bottom:.55rem;
-                display:flex;
-                align-items:center;
-                justify-content:space-between;
-                color:#e4c65f;
-                font:900 .72rem/1 Inter,system-ui,sans-serif;
-              }
-              .amqm-geometry-arrow{
+                left:.55rem;
+                bottom:.5rem;
+                z-index:2;
                 display:grid;
                 place-items:center;
-                width:1.65rem;
-                height:1.65rem;
+                width:1.85rem;
+                height:1.85rem;
                 border-radius:999px;
-                color:#073b32;
-                background:#efd372;
-                font-size:1rem;
-                box-shadow:0 3px 9px rgba(0,0,0,.22);
-                transition:transform .45s ease;
+                background:#fff;
+                color:#16846a;
+                font:900 .7rem/1 Inter,system-ui,sans-serif;
+                box-shadow:0 5px 12px rgba(0,0,0,.14);
               }
-              .amqm-geometry-feature:hover .amqm-geometry-arrow{transform:rotate(45deg) scale(1.08)}
-              @keyframes amqmGeometryCardIn{
-                from{opacity:0;transform:translateY(18px) scale(.97)}
+              .amqm-living-card-body{
+                display:grid;
+                grid-template-columns:auto 1fr auto;
+                align-items:center;
+                gap:.45rem;
+                min-height:6.1rem;
+                padding:.7rem .65rem .75rem;
+              }
+              .amqm-living-card-icon{
+                display:grid;
+                place-items:center;
+                width:2rem;
+                height:2rem;
+                flex:none;
+                border-radius:.65rem;
+                background:#e6f4ec;
+                color:#16846a;
+                font-size:1rem;
+                box-shadow:inset 0 0 0 1px #cde7d9;
+                animation:amqmLivingFloat 3.5s ease-in-out infinite;
+              }
+              .amqm-living-card:nth-child(2) .amqm-living-card-icon{animation-delay:-.8s}
+              .amqm-living-card:nth-child(3) .amqm-living-card-icon{animation-delay:-1.6s}
+              .amqm-living-card:nth-child(4) .amqm-living-card-icon{animation-delay:-2.4s}
+              .amqm-living-card-copy{min-width:0}
+              .amqm-living-card-copy h4{
+                margin:0;
+                color:#123f35;
+                font:900 .78rem/1.12 Georgia,serif;
+              }
+              .amqm-living-card-copy p{
+                display:-webkit-box;
+                -webkit-box-orient:vertical;
+                -webkit-line-clamp:3;
+                overflow:hidden;
+                margin:.3rem 0 0;
+                color:#71827d;
+                font:500 .57rem/1.4 Inter,system-ui,sans-serif;
+              }
+              .amqm-living-arrow{
+                display:grid;
+                place-items:center;
+                width:1.55rem;
+                height:1.55rem;
+                flex:none;
+                border-radius:999px;
+                background:#169273;
+                color:#fff;
+                font:900 .85rem/1 Inter,system-ui,sans-serif;
+                box-shadow:0 5px 10px rgba(22,146,115,.18);
+                transition:transform .4s ease,background .4s ease;
+              }
+              .amqm-living-card:hover .amqm-living-arrow{
+                transform:translate(2px,-2px) rotate(6deg);
+                background:#0b7059;
+              }
+              @keyframes amqmLivingCardIn{
+                from{opacity:0;transform:translateY(16px) scale(.98)}
                 to{opacity:1;transform:translateY(0) scale(1)}
               }
-              @keyframes amqmGeometryIcon{
-                0%,100%{transform:translateY(0) rotate(0)}
-                50%{transform:translateY(-5px) rotate(-2deg)}
+              @keyframes amqmLivingFloat{
+                0%,100%{transform:translateY(0)}
+                50%{transform:translateY(-3px)}
               }
-              @keyframes amqmGeometryPattern{to{background-position:34px 60px,34px 60px,51px 90px,51px 90px}}
               @media(max-width:820px){
-                .amqm-geometry-features{
-                  grid-template-columns:repeat(2,minmax(0,1fr));
-                }
+                .amqm-living-cards{grid-template-columns:repeat(2,minmax(0,1fr))}
               }
               @media(max-width:520px){
-                .amqm-geometry-showcase{padding:.8rem .7rem .8rem}
-                .amqm-geometry-features{
+                .amqm-living-showcase:before{inset:-1rem -.7rem -.5rem}
+                .amqm-living-cards{
                   display:flex;
                   overflow-x:auto;
                   scroll-snap-type:x mandatory;
-                  padding-bottom:.25rem;
+                  padding:.1rem .05rem .7rem;
                 }
-                .amqm-geometry-feature{
-                  flex:0 0 72%;
+                .amqm-living-card{
+                  flex:0 0 73%;
                   scroll-snap-align:start;
                 }
-                .amqm-geometry-titlebar h3{font-size:.98rem}
               }
               @media(prefers-reduced-motion:reduce){
-                .amqm-geometry-showcase:before,
-                .amqm-geometry-feature,
-                .amqm-geometry-icon{animation:none!important}
-                .amqm-geometry-feature,.amqm-geometry-arrow{transition:none!important}
+                .amqm-living-card,.amqm-living-card-icon{animation:none!important}
+                .amqm-living-card,.amqm-living-card-image img,.amqm-living-arrow{transition:none!important}
               }
             `}</style>
 
@@ -777,8 +799,7 @@ export default function PublicHomepageSchool() {
               );
             })}
           </div>
-        </div>
-      </section>
+        </div>      </section>
 
       {news.length > 0 && (
         <section className="mx-auto max-w-7xl px-5 pb-20 sm:px-8 lg:px-10 lg:pb-28">
