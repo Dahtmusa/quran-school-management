@@ -24,6 +24,8 @@ export default function AttendanceScannerPage(){
  const [busy,setBusy]=useState(false);
  const [result,setResult]=useState<ScanResult|null>(null);
  const [manual,setManual]=useState('');
+ const [mainGateId,setMainGateId]=useState<string>('');
+ useEffect(()=>{fetch('/api/attendance/scan-points').then(r=>r.json()).then(d=>{const p=(d.scanPoints||[]).find((x:any)=>String(x.name).toLowerCase()==='main gate');if(p)setMainGateId(p.id)}).catch(()=>{})},[]);
 
  useEffect(()=>{setSupported(typeof window!=='undefined' && 'BarcodeDetector' in window);return()=>stopCamera()},[]);
  const stopCamera=()=>{streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null;scanningRef.current=false;setCameraOn(false)};
@@ -33,7 +35,7 @@ export default function AttendanceScannerPage(){
   if(!payload){setMessage('This QR code is not a valid AMQM attendance card.');return}
   lastRawRef.current=raw;setBusy(true);setResult(null);setMessage('Recording attendance…');
   try{
-   const res=await fetch('/api/attendance/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,period:'morning'})});
+   const res=await fetch('/api/attendance/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,period:'morning',scanPointId:mainGateId||undefined})});
    const d=await res.json();setResult(d);
    if(d.success){
     const t=new Date(d.scannedAt).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
