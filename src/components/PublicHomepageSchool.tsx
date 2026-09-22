@@ -44,16 +44,6 @@ function normalizeUrl(value?: string) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-function initials(name?: string) {
-  return (name || 'AMQM')
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
-}
-
 export default function PublicHomepageSchool() {
   const [sections, setSections] = useState<CMSSection[]>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
