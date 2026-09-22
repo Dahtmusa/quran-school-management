@@ -36,18 +36,35 @@ export async function GET(req: NextRequest) {
 
   if (jsonId) {
     if (jsonType === 'staff') {
-      const { data } = await admin
+      // QR cards may encode either the canonical profile UUID or the printed
+      // STAFF ID. Resolve both to the canonical profile UUID used by attendance.
+      const { data: byUuid } = await admin
         .from('profiles')
         .select('id,full_name,role,avatar_url,staff_id')
         .eq('id', jsonId)
-        .single();
-      if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.avatar_url });
+        .maybeSingle();
+      const { data: byStaffId } = byUuid ? { data: null } : await admin
+        .from('profiles')
+        .select('id,full_name,role,avatar_url,staff_id')
+        .eq('staff_id', String(jsonId).trim())
+        .maybeSingle();
+      const data = byUuid || byStaffId;
+      if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.avatar_url, staffId: data.staff_id });
     } else {
-      const { data } = await admin
+      // Student QR may contain the canonical student UUID or a printed
+      // admission/student ID. Resolve either form to the canonical UUID.
+      const { data: byUuid } = await admin
         .from('students')
         .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
         .eq('id', jsonId)
-        .single();
+        .maybeSingle();
+      const { data: byAdmission } = byUuid ? { data: null } : await admin
+        .from('students')
+        .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
+        .or(`admission_no.eq.${String(jsonId).trim()},student_id_number.eq.${String(jsonId).trim()}`)
+        .limit(1)
+        .maybeSingle();
+      const data = byUuid || byAdmission;
       if (data) return NextResponse.json({
         type: 'student', id: data.id, name: data.full_name,
         admissionNo: data.admission_no, section: data.section,
