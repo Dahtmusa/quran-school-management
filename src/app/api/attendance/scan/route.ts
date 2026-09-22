@@ -161,7 +161,7 @@ export async function POST(req: NextRequest) {
       const windowStart = new Date(Date.now() - (windowDays - 1) * 86400000).toISOString().slice(0,10);
       const { count } = await admin.from('attendance_records')
         .select('id',{count:'exact',head:true})
-        .eq('person_id',personId).eq('person_type','staff').eq('status_code','late')
+        .eq('person_id',canonicalPersonId).eq('person_type','staff').eq('status_code','late')
         .gte('attendance_date',windowStart).lte('attendance_date',attendanceDate);
       const lateCount = Number(count || 0);
       const warningEnabled = stripAttendanceSetting(policy.staff_late_warning_enabled) !== 'false';
