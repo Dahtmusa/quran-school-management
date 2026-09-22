@@ -27,13 +27,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'personId and a valid personType (student or staff) are required' }, { status: 400 });
   }
 
-  // Never trust the QR payload's personType. Verify that the ID belongs to the
-  // requested entity before recording attendance.
+  // Never trust the card payload's personType. Verify against the canonical records
+  // with the server admin client after the gate operator has been authorized above.
+  const adminLookup = createAdminClient();
   if (personType === 'staff') {
-    const { data: staffRecord } = await supabase.from('profiles').select('id').eq('id', personId).in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).maybeSingle();
+    const { data: staffRecord } = await adminLookup.from('profiles').select('id').eq('id', personId).in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).maybeSingle();
     if (!staffRecord) return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
   } else {
-    const { data: studentRecord } = await supabase.from('students').select('id,status,section').eq('id', personId).maybeSingle();
+    const { data: studentRecord } = await adminLookup.from('students').select('id,status,section').eq('id', personId).maybeSingle();
     if (!studentRecord || studentRecord.status !== 'active') return NextResponse.json({ error: 'Active student record not found' }, { status: 404 });
     if (studentRecord.section !== 'day') return NextResponse.json({ error: 'Boarding students are not required to use the main-gate morning scanner' }, { status: 403 });
   }
