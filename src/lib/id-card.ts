@@ -50,9 +50,12 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  }catch{}
  const directorMarkup=directorSignature
    ? `<div class="directorSign"><img class="directorSignImage" src="${esc(directorSignature)}" alt="School Director signature"><span class="directorSignLabel">${esc(directorName)}</span><small>School Director · ${esc(contacts.directorPhone)}</small></div>`
-   : `<div class="directorSign"><div class="signLine"></div><span class="directorSignLabel">School Director</span></div>`;
+   : `<div class="directorSign"><div class="signLine"></div><span class="directorSignLabel">${esc(directorName)}</span><small>School Director · ${esc(contacts.directorPhone)}</small></div>`;
  const logoUrl=esc(input.logoUrl||'');
  const logoMarkup=logoUrl?`<img class="logo" src="${logoUrl}" alt="School logo" onerror="this.style.visibility='hidden'"/>`:'';
+
+ const studentDisplayExpiry=input.type==='STUDENT'?addOneMonth(input.programEndDate||input.expiry):(input.expiry||null);
+ const typeLabel=input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff';
 
  const factsRows=(()=>{
    if(input.type==='STUDENT')return [
@@ -69,13 +72,13 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
    ];
  })();
 
- const documentHtml=`<!doctype html><html><head><title>AMQM ${input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff'} ID \u2014 ${esc(input.name)}</title><style>
+ const documentHtml=`<!doctype html><html><head><title>${esc(ENGLISH_SCHOOL_NAME)} — ${typeLabel} ID — ${esc(input.name)}</title><style>
  *{box-sizing:border-box;margin:0;padding:0}
  body{background:#dde6e2;font-family:'Segoe UI',Arial,sans-serif;color:#10251f;-webkit-font-smoothing:antialiased}
  .sheet{display:flex;flex-direction:column;align-items:center;gap:14px;padding:22px 14px}
  .card{width:420px;border-radius:13px;overflow:hidden;position:relative;background:#fff;box-shadow:0 10px 28px rgba(16,37,31,.28);page-break-after:always}
  .card:last-child{page-break-after:auto}
- .band{min-height:76px;display:flex;align-items:center;gap:9px;padding:0 12px;background:linear-gradient(120deg,#07523f 0%,#062d2a 70%,#07241f 100%);color:#fff;border-bottom:2px solid #c9a84c;position:relative;z-index:1}
+ .band{min-height:76px;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;padding:8px 14px;background:linear-gradient(120deg,#07523f 0%,#062d2a 70%,#07241f 100%);color:#fff;border-bottom:2px solid #c9a84c;position:relative;z-index:1}
  .logo{width:52px;height:52px;border-radius:50%;background:#fff;object-fit:contain;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.25)}
  .brand{text-align:center;min-width:0;padding:0 2px}.brand strong{display:block;font-family:Georgia,'Times New Roman',serif;font-size:12.5px;line-height:1.15;font-weight:900;letter-spacing:.25px;color:#fff}.brand small{display:block;margin-top:4px;font-size:7.4px;line-height:1.25;font-weight:800;letter-spacing:.45px;color:#e4f0eb;text-transform:uppercase;white-space:normal}.arabic{direction:rtl;unicode-bidi:isolate;color:#f0c65d;font-size:10px;line-height:1.25;margin-top:1px;font-weight:700;font-family:Arial,'Noto Naskh Arabic','Amiri',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  .band-tag{min-width:56px;text-align:center;font-size:7.2px;font-weight:900;letter-spacing:1.4px;line-height:1.4;color:#0a3a30;background:linear-gradient(135deg,#e8c97a,#c9a84c);border-radius:8px;padding:5px 8px;text-transform:uppercase}.band-qr{flex-shrink:0;width:36px;height:36px;background:#fff;border-radius:6px;padding:2px}.band-qr img{width:100%;height:100%;display:block}
@@ -90,7 +93,7 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  <div class="card front">
   <div class="band">${logoMarkup}<div class="brand"><strong>${esc(ENGLISH_SCHOOL_NAME)}</strong><small>Official School Identification · Quran Memorization Programme</small><div class="arabic">${ARABIC_SCHOOL_NAME}</div></div><div class="band-tag">${typeLabel}<br/>ID</div></div>
   <div class="frontName"><div class="topLine"><div class="eyebrow">Official Identification</div><div class="tag">${input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff'}</div></div><div class="name" id="fname">${esc(input.name)}</div></div>
-  <div class="frontMain">${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt=""/>`:'<div class="photo"></div>'}<div class="info"><div class="facts">${factsRows.map(f=>`<div class="fact${f[2]?' wide':''}"><span>${f[0]}</span><b>${f[1]}</b></div>`).join('')}</div></div><div class="qrBox"><img class="qr" src="${qr}" alt=""/><div class="scan">Scan to<br/>verify</div></div></div>
+  <div class="frontMain">${input.photoUrl?`<img class="photo" src="${esc(input.photoUrl)}" alt="${esc(typeLabel)} photo"/>`:'<div class="photo"></div>'}<div class="info"><div class="facts">${factsRows.map(f=>`<div class="fact${f[2]?' wide':''}"><span>${f[0]}</span><b>${f[1]}</b></div>`).join('')}</div></div><div class="qrBox"><img class="qr" src="${qr}" alt="QR verification code"/><div class="scan">Scan to<br/>verify</div></div></div>
   <div class="bottomBar"><div class="barcode">${barcode}</div><div class="idChip"><span>ID No.</span><b>${esc(displayId)}</b></div></div>
  </div>
  <div class="card back">
