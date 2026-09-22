@@ -107,6 +107,24 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:48mm;height:48mm;top:52%;opacity:.24}
  @media screen and (min-width:720px){.sheet{zoom:1!important}}
 
+
+ /* Front side: strict ID-1 height budget to prevent clipping */
+ .card.front{display:flex;flex-direction:column}
+ .card.front .band{flex:0 0 13mm;height:13mm;min-height:13mm}
+ .card.front .frontName{flex:0 0 7.4mm;height:7.4mm;padding:1.5mm 3.5mm .35mm;overflow:hidden}
+ .card.front .name{font-size:3.8mm;line-height:1;margin-top:.45mm}
+ .card.front .frontMain{flex:0 0 26mm;height:26mm;min-height:26mm;grid-template-columns:17mm 1fr 16.5mm;gap:2mm;padding:.8mm 3.5mm 1.2mm;overflow:hidden}
+ .card.front .photo{width:17mm;height:20mm}
+ .card.front .facts{gap:1mm}
+ .card.front .facts .fact{padding:1mm 1.2mm;border-radius:1.2mm}
+ .card.front .facts span{font-size:1mm;letter-spacing:.15mm}
+ .card.front .facts b{font-size:1.7mm;line-height:1.05;margin-top:.2mm}
+ .card.front .qrBox{padding-left:1.5mm}
+ .card.front .qr{width:15mm;height:15mm}
+ .card.front .scan{font-size:1.1mm;margin-top:.5mm;line-height:1.15}
+ .card.front .bottomBar{flex:0 0 7.2mm;height:7.2mm;min-height:7.2mm;padding:0 3mm;gap:1.2mm}
+ .card.front .barcode{height:5.2mm}.card.front .barcode svg{height:5mm}
+ .card.front .idChip{padding:.45mm 1.4mm}.card.front .idChip span{font-size:.85mm}.card.front .idChip b{font-size:1.9mm;max-width:27mm}
  /* Back side: strict ID-1 height budget — 13mm header + 35.5mm body + 5.5mm footer */
  .card.back{display:flex;flex-direction:column}
  .card.back .band{flex:0 0 13mm}
