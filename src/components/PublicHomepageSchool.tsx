@@ -384,17 +384,53 @@ export default function PublicHomepageSchool() {
               {about.text ||
                 "AMQM combines Qur’an memorisation, Islamic education, discipline and pastoral care in a safe, supportive environment where students can grow in knowledge, confidence and character."}
             </p>
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              {features.slice(0, 4).map((feature: any, index: number) => (
-                <div key={index} className="rounded-2xl border border-[#e2ddd2] bg-white p-5 shadow-sm">
-                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#edf5f0] text-lg text-[#08735c]">
-                    {iconMap[feature.icon] || ['◈', '◇', '▥', '✦'][index]}
-                  </div>
-                  <h3 className="mt-4 text-sm font-black text-[#073b32]">{feature.title}</h3>
-                  <p className="mt-1.5 text-xs leading-5 text-slate-500">{feature.excerpt || feature.text}</p>
-                </div>
-              ))}
+            <div className="amqm-feature-grid mt-8 grid gap-4 sm:grid-cols-2">
+              {features.slice(0, 4).map((feature: any, index: number) => {
+                const icons = [
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M24 7 39 16v16L24 41 9 32V16L24 7Z" fill="none" stroke="currentColor" strokeWidth="2.5"/><path d="m17 24 5 5 10-12" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M11 31c5-10 21-10 26 0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><circle cx="17" cy="17" r="5" fill="none" stroke="currentColor" strokeWidth="2.5"/><circle cx="31" cy="17" r="5" fill="none" stroke="currentColor" strokeWidth="2.5"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="M8 36V14h32v22H8Z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="M15 20h18M15 26h12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/><path d="M19 36v5M29 36v5" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>,
+                  <svg viewBox="0 0 48 48" aria-hidden="true" className="h-7 w-7"><path d="m24 7 4.2 9.4L38 20.5l-9.8 4.1L24 34l-4.2-9.4L10 20.5l9.8-4.1L24 7Z" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round"/><path d="m37 30 1.8 4 4.2 1.8-4.2 1.7-1.8 4-1.8-4-4.2-1.7 4.2-1.8L37 30Z" fill="currentColor"/></svg>,
+                ];
+                return (
+                  <article key={index} className="amqm-feature-card group relative overflow-hidden rounded-[1.45rem] border border-[#dce7df] bg-white p-5 shadow-[0_12px_30px_rgba(7,58,50,.07)] transition-all duration-500 hover:-translate-y-2 hover:border-[#c9a34b] hover:shadow-[0_22px_45px_rgba(7,58,50,.14)]">
+                    <div className="amqm-feature-glow" />
+                    <div className="relative flex items-start justify-between gap-4">
+                      <div className="amqm-feature-icon grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-[#edf6f1] text-[#08735c] shadow-[inset_0_0_0_1px_rgba(7,88,72,.08)]">
+                        <span className="amqm-icon-draw">{icons[index]}</span>
+                      </div>
+                      <span className="amqm-feature-number font-serif text-4xl font-black text-[#e8eee9] transition-colors duration-500 group-hover:text-[#d8c27f]">
+                        0{index + 1}
+                      </span>
+                    </div>
+                    <div className="relative mt-5">
+                      <div className="mb-2 h-1 w-9 rounded-full bg-[#c9a34b] transition-all duration-500 group-hover:w-16" />
+                      <h3 className="font-serif text-[17px] font-black tracking-tight text-[#073b32]">{feature.title}</h3>
+                      <p className="mt-2 text-[13px] leading-6 text-slate-500">{feature.excerpt || feature.text}</p>
+                    </div>
+                    <div className="amqm-feature-ring" />
+                  </article>
+                );
+              })}
             </div>
+            <style jsx>{`
+              .amqm-feature-card{isolation:isolate;animation:amqmFeatureIn .75s cubic-bezier(.2,.75,.25,1) both}
+              .amqm-feature-card:nth-child(1){animation-delay:.08s}.amqm-feature-card:nth-child(2){animation-delay:.18s}
+              .amqm-feature-card:nth-child(3){animation-delay:.28s}.amqm-feature-card:nth-child(4){animation-delay:.38s}
+              .amqm-feature-card:hover .amqm-feature-icon{transform:rotate(-4deg) scale(1.06)}
+              .amqm-feature-icon{transition:transform .5s cubic-bezier(.2,.8,.2,1);position:relative}
+              .amqm-icon-draw{display:grid;place-items:center;animation:amqmIconFloat 3.8s ease-in-out infinite}
+              .amqm-feature-card:nth-child(2) .amqm-icon-draw{animation-delay:-.9s}
+              .amqm-feature-card:nth-child(3) .amqm-icon-draw{animation-delay:-1.8s}
+              .amqm-feature-card:nth-child(4) .amqm-icon-draw{animation-delay:-2.7s}
+              .amqm-feature-glow{position:absolute;right:-35px;top:-45px;width:130px;height:130px;border-radius:999px;background:radial-gradient(circle,rgba(201,163,75,.20),rgba(201,163,75,0) 68%);transition:transform .7s ease}
+              .amqm-feature-card:hover .amqm-feature-glow{transform:scale(1.45)}
+              .amqm-feature-ring{position:absolute;right:-28px;bottom:-35px;width:110px;height:110px;border:1px solid rgba(7,115,92,.12);border-radius:50%;transition:transform .7s ease}
+              .amqm-feature-card:hover .amqm-feature-ring{transform:scale(1.3)}
+              @keyframes amqmFeatureIn{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+              @keyframes amqmIconFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+              @media (prefers-reduced-motion:reduce){.amqm-feature-card,.amqm-icon-draw{animation:none!important}.amqm-feature-card,.amqm-feature-icon,.amqm-feature-glow,.amqm-feature-ring{transition:none!important}}
+            `}</style>
             <Link
               href="/about"
               className="mt-8 inline-flex rounded-full bg-[#075848] px-5 py-3 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#06483c]"
