@@ -106,6 +106,29 @@ export async function printAcademicIdCard(input:{type:'STUDENT'|'STAFF'|'MANAGEM
  
  .foot{font-size:1.25mm;letter-spacing:.2mm;padding:1.8mm 3mm;line-height:1.15;min-height:5.5mm}.watermark{width:48mm;height:48mm;top:52%;opacity:.24}
  @media screen and (min-width:720px){.sheet{zoom:1!important}}
+
+ /* Back side: strict ID-1 height budget — 13mm header + 35.5mm body + 5.5mm footer */
+ .card.back{display:flex;flex-direction:column}
+ .card.back .band{flex:0 0 13mm}
+ .card.back .backBody{flex:0 0 35.48mm;height:35.48mm;min-height:35.48mm;padding:1.8mm 3.5mm 1.2mm;overflow:hidden}
+ .card.back .backKicker{font-size:1.25mm;letter-spacing:.32mm}
+ .card.back .backBody h2{font-size:3.35mm;margin-top:.45mm;line-height:1.02}
+ .card.back .backBody>p{font-size:1.45mm;line-height:1.18;margin-top:.7mm}
+ .card.back .backGrid{gap:1.2mm;margin-top:1.1mm}
+ .card.back .backGrid div{padding:1mm 1.3mm;border-radius:1.2mm}
+ .card.back .backGrid span{font-size:.95mm;letter-spacing:.18mm}
+ .card.back .backGrid b{font-size:1.75mm;margin-top:.2mm;line-height:1.05}
+ .card.back .signRow{height:12.2mm;min-height:12.2mm;gap:2mm;margin-top:1mm}
+ .card.back .directorSign{min-height:12.2mm;height:12.2mm}
+ .card.back .directorSignImage{width:29mm;height:7.2mm;margin:0 auto .2mm}
+ .card.back .directorSignLabel{padding-top:.4mm;font-size:1.15mm;letter-spacing:.1mm}
+ .card.back .directorSign small{font-size:.9mm;letter-spacing:.06mm;margin-top:.15mm}
+ .card.back .terms{min-height:12.2mm;height:12.2mm;padding:1mm 1.3mm;border-radius:1.2mm;overflow:hidden}
+ .card.back .terms b{font-size:1.1mm;letter-spacing:.18mm}
+ .card.back .terms p{font-size:1.25mm;line-height:1.18;margin-top:.4mm}
+ .card.back .terms .police{font-size:1.45mm!important;line-height:1.12;margin-top:.45mm}
+ .card.back .foot{flex:0 0 5.5mm;height:5.5mm;min-height:5.5mm;font-size:1.05mm;padding:1.3mm 2.5mm;line-height:1.05}
+ .card.back .watermark{width:44mm;height:44mm;top:52%;opacity:.24}
  @media print{.sheet{padding:0;gap:0}.card{box-shadow:none}.card.front{margin-bottom:4mm}.card.back{margin-bottom:0}.sheet{align-items:center}}
  </style></head><body><div class="sheet">
  <div class="card front">
