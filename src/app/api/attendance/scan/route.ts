@@ -27,16 +27,44 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'personId and a valid personType (student or staff) are required' }, { status: 400 });
   }
 
-  // Never trust the card payload's personType. Verify against the canonical records
-  // with the server admin client after the gate operator has been authorized above.
+  // Resolve the scanned value to the canonical UUID before writing attendance.
+  // Printed cards use human-readable STAFF IDs/admission numbers, while QR
+  // payloads may contain either those IDs or the database UUID.
   const adminLookup = createAdminClient();
+  let canonicalPersonId = String(personId).trim();
+
   if (personType === 'staff') {
-    const { data: staffRecord } = await adminLookup.from('profiles').select('id').eq('id', personId).in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).maybeSingle();
-    if (!staffRecord) return NextResponse.json({ error: 'Staff record not found' }, { status: 404 });
+    const { data: byUuid } = await adminLookup
+      .from('profiles')
+      .select('id,staff_id')
+      .eq('id', canonicalPersonId)
+      .in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'])
+      .maybeSingle();
+    const { data: byStaffId } = byUuid ? { data: null } : await adminLookup
+      .from('profiles')
+      .select('id,staff_id')
+      .eq('staff_id', canonicalPersonId)
+      .in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'])
+      .maybeSingle();
+    const staffRecord = byUuid || byStaffId;
+    if (!staffRecord) return NextResponse.json({ error: 'Staff ID not found' }, { status: 404 });
+    canonicalPersonId = staffRecord.id;
   } else {
-    const { data: studentRecord } = await adminLookup.from('students').select('id,status,section').eq('id', personId).maybeSingle();
-    if (!studentRecord || studentRecord.status !== 'active') return NextResponse.json({ error: 'Active student record not found' }, { status: 404 });
+    const { data: byUuid } = await adminLookup
+      .from('students')
+      .select('id,status,section,admission_no,student_id_number')
+      .eq('id', canonicalPersonId)
+      .maybeSingle();
+    const { data: byPrintedId } = byUuid ? { data: null } : await adminLookup
+      .from('students')
+      .select('id,status,section,admission_no,student_id_number')
+      .or(`admission_no.eq.${canonicalPersonId},student_id_number.eq.${canonicalPersonId}`)
+      .limit(1)
+      .maybeSingle();
+    const studentRecord = byUuid || byPrintedId;
+    if (!studentRecord || studentRecord.status !== 'active') return NextResponse.json({ error: 'Active student ID not found' }, { status: 404 });
     if (studentRecord.section !== 'day') return NextResponse.json({ error: 'Boarding students are not required to use the main-gate morning scanner' }, { status: 403 });
+    canonicalPersonId = studentRecord.id;
   }
 
   // Server-side timestamp — client cannot manipulate this
@@ -59,7 +87,7 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await supabase
     .from('attendance_records')
     .select('id, scanned_at')
-    .eq('person_id', personId)
+    .eq('person_id', canonicalPersonId)
     .eq('attendance_date', attendanceDate)
     .eq('period', period)
     .maybeSingle();
@@ -96,7 +124,7 @@ export async function POST(req: NextRequest) {
   const { data: record, error } = await supabase
     .from('attendance_records')
     .upsert({
-      person_id: personId,
+      person_id: canonicalPersonId,
       person_type: personType,
       scanned_at: scannedAt,
       attendance_date: attendanceDate,
@@ -123,7 +151,7 @@ export async function POST(req: NextRequest) {
   if (personType === 'staff' && statusCode === 'late') {
     try {
       const admin = createAdminClient();
-      const { data: staff } = await admin.from('profiles').select('id,full_name,phone').eq('id', personId).single();
+      const { data: staff } = await admin.from('profiles').select('id,full_name,phone').eq('id', canonicalPersonId).single();
       const settingRows = (await admin.from('attendance_settings').select('key,value')).data || [];
       const policy: Record<string, unknown> = {};
       for (const row of settingRows) policy[row.key] = row.value;
@@ -144,7 +172,7 @@ export async function POST(req: NextRequest) {
 
       if (fineEnabled && fineAmount > 0 && lateCount >= fineThreshold) {
         await admin.from('staff_attendance_fines').upsert({
-          staff_id: personId, attendance_record_id: record.id, amount: fineAmount,
+          staff_id: canonicalPersonId, attendance_record_id: record.id, amount: fineAmount,
           reason: `Late gate arrival #${lateCount} within ${windowDays} days`
         }, { onConflict: 'attendance_record_id', ignoreDuplicates: true });
       }
@@ -186,7 +214,7 @@ export async function POST(req: NextRequest) {
     user_id: user.id,
     user_role: role,
     action: isOfflineScan ? 'offline_scan_synced' : 'scanned',
-    new_value: { personId, personType, statusCode, period, scannedAt },
+    new_value: { personId: canonicalPersonId, scannedId: personId, personType, statusCode, period, scannedAt },
   });
 
   return NextResponse.json({
