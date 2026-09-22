@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
 import AdminShell from '@/components/AdminShell';
+import Link from 'next/link';
 import StaffAttendancePanel from '@/components/StaffAttendancePanel';
 import {
   loadAttendanceSummary, loadTodayRecords, loadPendingRecords,
@@ -562,7 +563,7 @@ export default function AttendanceDashboard() {
     setLoading(false);
   }, [filterDate]);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); fetch('/api/attendance/finalize',{method:'POST'}).then(()=>refresh()).catch(()=>{}); }, [refresh]);
 
   const showFlash = (msg: string) => { setFlash(msg); setTimeout(() => setFlash(''), 3500); };
 
@@ -620,7 +621,10 @@ export default function AttendanceDashboard() {
             </div>
             <div style={{ fontSize: 18, fontWeight: 800 }}>{todayStr}</div>
           </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link href="/attendance/scan" style={{ padding: '10px 16px', borderRadius: 10, background: '#C9A84C', color: '#062d2a', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
+              Open Main Gate Scanner
+            </Link>
             <input
               type="date"
               value={filterDate}
