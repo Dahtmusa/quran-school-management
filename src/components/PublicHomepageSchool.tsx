@@ -395,11 +395,22 @@ export default function PublicHomepageSchool() {
 
               <div className="amqm-geometry-features">
                 {features.slice(0, 4).map((feature: any, index: number) => {
-                  const icons = ['📖', '🕌', '👨‍👩‍👧', '📋'];
+                  const featureImage = feature.image_url || feature.image || feature.photo_url || imageMedia[index + 1]?.public_url || imageMedia[index]?.public_url || aboutImage || heroImage;
                   return (
                     <article key={index} className="amqm-geometry-feature">
                       <div className="amqm-geometry-feature-art">
-                        <div className="amqm-geometry-icon">{icons[index]}</div>
+                        {featureImage ? (
+                          <img
+                            src={featureImage}
+                            alt={feature.title || 'AMQM programme'}
+                            className="amqm-geometry-feature-image"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="amqm-geometry-feature-image amqm-geometry-image-fallback">
+                            <span>{String(feature.title || 'AMQM').slice(0, 1)}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="amqm-geometry-feature-title">{feature.title}</div>
                       <p>{feature.excerpt || feature.text}</p>
