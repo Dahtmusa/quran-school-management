@@ -47,6 +47,7 @@ function normalizeUrl(value?: string) {
 function SocialBrandIcon({brand}:{brand:'tiktok'|'youtube'|'facebook'|'whatsapp'}){
   const common={viewBox:'0 0 48 48',fill:'none',xmlns:'http://www.w3.org/2000/svg'};
   if(brand==='youtube') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#ff0033] shadow-sm"><svg {...common} className="h-6 w-6"><path d="M41.6 14.1a5 5 0 0 0-3.5-3.5C35 9.8 24 9.8 24 9.8s-11 0-14.1.8a5 5 0 0 0-3.5 3.5C5.6 17.2 5.6 24 5.6 24s0 6.8.8 9.9a5 5 0 0 0 3.5 3.5c3.1.8 14.1.8 14.1.8s11 0 14.1-.8a5 5 0 0 0 3.5-3.5c.8-3.1.8-9.9.8-9.9s0-6.8-.8-9.9Z" fill="white"/><path d="m20.2 30.3 9.6-6.3-9.6-6.3v12.6Z" fill="#ff0033"/></svg></span>;
+  if(brand==='instagram') return <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[11px] bg-[linear-gradient(135deg,#833ab4_0%,#e1306c_45%,#fd1d1d_72%,#fcb045_100%)] shadow-sm"><svg {...common} className="h-7 w-7"><rect x="8" y="8" width="32" height="32" rx="9" stroke="white" strokeWidth="3"/><circle cx="24" cy="24" r="7" stroke="white" strokeWidth="3"/><circle cx="33" cy="15" r="2" fill="white"/></svg></span>;
   if(brand==='facebook') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#1877F2] shadow-sm"><svg {...common} className="h-8 w-8"><path d="M27 42V26h5.4l.8-6H27v-3.8c0-1.7.5-2.9 3-2.9h3.3V8a45 45 0 0 0-4.8-.3c-4.8 0-8.1 2.9-8.1 8.2V20h-5.5v6h5.5v16h6.6Z" fill="white"/></svg></span>;
   if(brand==='whatsapp') return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-[#25D366] shadow-sm"><svg {...common} className="h-7 w-7"><path d="M24 7.5a16.5 16.5 0 0 0-14.1 25l-2.1 7.6 7.8-2A16.5 16.5 0 1 0 24 7.5Z" stroke="white" strokeWidth="3"/><path d="M18.5 16.8c.4-.8.8-.8 1.4-.8.3 0 .6 0 .9.7l1.1 2.6c.2.5.1.8-.2 1.2l-.8.9c1 1.9 2.5 3.3 4.5 4.2l.8-.9c.4-.5.8-.6 1.3-.3l2.5 1.2c.6.3.8.6.7 1.1-.2 1.5-1.5 2.8-3 3-2.1.3-5.3-1.1-8-3.4-2.7-2.3-4.4-5.3-4.5-7.4-.1-1.4.6-2.7 1.7-3.1l1.6-.1Z" fill="white"/></svg></span>;
   return <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-black shadow-sm"><svg {...common} className="h-7 w-7"><path d="M29.5 10.2c1.2 1.6 2.8 2.6 4.8 2.7v4.1c-1.9-.1-3.5-.6-5-1.5v9.8c0 5.8-4.1 9.4-9 9.4-4.5 0-7.9-3.3-7.9-7.6 0-4.8 4.2-8.2 9.1-7.5v4.2c-2.2-.7-4.6.6-4.6 3 0 1.8 1.5 3.5 3.5 3.5 2.2 0 3.9-1.4 3.9-4.2V10.2h5.2Z" fill="white"/></svg></span>;
@@ -883,10 +884,10 @@ export default function PublicHomepageSchool() {
                 {contact.email && <span>{contact.email}</span>}
               </div>
               <div className="mt-6 space-y-3">
-                {(['tiktok','youtube','facebook','whatsapp'] as const).map((key) => {
+                {(['tiktok','youtube','facebook','instagram','whatsapp'] as const).map((key) => {
                   const value = social[key];
                   if (!value) return null;
-                  const labels: Record<string,string> = {tiktok:'TikTok',youtube:'YouTube',facebook:'Facebook',whatsapp:'WhatsApp'};
+                  const labels: Record<string,string> = {tiktok:'TikTok',youtube:'YouTube',facebook:'Facebook',instagram:'Instagram',whatsapp:'WhatsApp'};
                   return (
                     <a key={key} href={normalizeUrl(String(value))} target="_blank" rel="noreferrer"
                       className="group flex items-center gap-3 text-sm font-medium text-emerald-50/75 transition hover:text-white">
