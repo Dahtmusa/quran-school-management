@@ -322,8 +322,10 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
               >
                 <div className="absolute inset-[-17px] rounded-full border border-[#C9A24D]/40 shadow-[0_0_0_8px_rgba(201,162,77,.045)]" />
                 <div className="absolute inset-[-9px] rounded-full border-[3px] border-[#C9A24D] shadow-[0_0_32px_rgba(201,162,77,.22)]" />
-                <div
-                  className="relative z-10 overflow-hidden rounded-full border-[5px] border-[#F8F5ED] bg-[#073B33] shadow-[0_16px_42px_rgba(7,59,51,.24)]"
+                <Link
+                  href={active.href}
+                  aria-label={'Open profile for ' + active.full_name}
+                  className="relative z-10 block overflow-hidden rounded-full border-[5px] border-[#F8F5ED] bg-[#073B33] shadow-[0_16px_42px_rgba(7,59,51,.24)] outline-none focus-visible:ring-2 focus-visible:ring-[#C9A24D]"
                   style={{ width: dims.active, height: dims.active }}
                 >
                   {active.photo_url ? (
@@ -333,7 +335,7 @@ export default function OrbitalPeopleSection({ eyebrow, title, description, peop
                       {initials(active.full_name)}
                     </div>
                   )}
-                </div>
+                </Link>
                 <span className="absolute bottom-2 right-[-4px] z-20 h-[15px] w-[15px] rounded-full border-[3px] border-[#F8F5ED] bg-[#C9A24D] shadow-sm" />
               </div>
 
