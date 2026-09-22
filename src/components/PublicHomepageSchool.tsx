@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { LeadershipSection } from '@/components/LeadershipSection';
+import { TeachingStaffSection } from '@/components/TeachingStaffSection';
 import {
   loadCMSSections,
   loadCMSSettings,
@@ -453,80 +455,11 @@ export default function PublicHomepageSchool() {
       </section>
 
       {leadership.length > 0 && (
-        <section className="bg-[#06342d] text-white">
-          <div className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
-            <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e7c66c]">Leadership</div>
-                <h2 className="mt-3 font-serif text-4xl font-black sm:text-5xl">People who guide the school.</h2>
-                <p className="mt-4 max-w-2xl text-sm leading-7 text-emerald-50/65">
-                  Experienced people committed to Qur’an, learning, discipline and the wellbeing of every student.
-                </p>
-              </div>
-              <Link href="/about" className="text-sm font-black text-[#e7c66c]">Meet the full team →</Link>
-            </div>
-            <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-              {leadership.slice(0, 3).map((person: any, index: number) => (
-                <article key={person.id || index} className="overflow-hidden rounded-[1.5rem] border border-white/10 bg-white/[.06]">
-                  <div className="aspect-[4/4.4] bg-[#0a4a3e]">
-                    {person.photo_url ? (
-                      <img src={person.photo_url} alt={person.full_name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="grid h-full place-items-center font-serif text-6xl font-black text-[#e6c76d]">{initials(person.full_name)}</div>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-serif text-xl font-black">{person.full_name}</h3>
-                    <p className="mt-1 text-[10px] font-black uppercase tracking-[.16em] text-[#e6c76d]">
-                      {person.role_title || 'School Leadership'}
-                    </p>
-                    {person.brief_bio && <p className="mt-4 line-clamp-3 text-sm leading-6 text-emerald-50/65">{person.brief_bio}</p>}
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
+        <LeadershipSection leaders={leadership} shortName={shortName} />
       )}
 
       {teacherList.length > 0 && (
-        <section className="mx-auto max-w-7xl px-5 py-20 sm:px-8 lg:px-10 lg:py-24">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#0a755f]">Our teachers</div>
-              <h2 className="mt-3 font-serif text-4xl font-black text-[#073b32] sm:text-5xl">A team students can learn from.</h2>
-            </div>
-            <Link href="/about" className="text-sm font-black text-[#075848]">Meet the team →</Link>
-          </div>
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {teacherList.slice(0, 4).map((person: any, index: number) => (
-              <article key={person.id || index} className="overflow-hidden rounded-[1.5rem] border border-[#e1dcd1] bg-white shadow-sm">
-                <div className="aspect-[4/4.2] bg-[#e8eee9]">
-                  {person.photo_url || person.avatar_url ? (
-                    <img
-                      src={person.photo_url || person.avatar_url}
-                      alt={person.full_name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-full place-items-center font-serif text-5xl font-black text-[#0a6a57]">{initials(person.full_name)}</div>
-                  )}
-                </div>
-                <div className="p-5">
-                  <h3 className="font-serif text-lg font-black text-[#073b32]">{person.full_name}</h3>
-                  <p className="mt-1 text-[10px] font-black uppercase tracking-[.14em] text-[#0a755f]">
-                    {person.role_title || person.job_title || person.department || 'Teacher'}
-                  </p>
-                  {(person.subjects || person.experience) && (
-                    <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-500">
-                      {person.subjects || person.experience}
-                    </p>
-                  )}
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+        <TeachingStaffSection teachers={teacherList} />
       )}
 
       {campuses.length > 0 && (
