@@ -61,7 +61,7 @@ BEGIN
     SELECT p.id,'staff',p.full_name,p.staff_id,NULL::text,p.job_title,p.avatar_url
     FROM profiles p
     WHERE p.employment_status='active'
-      AND p.role NOT IN ('admin','super_admin','principal','finance','admissions','security','librarian','accountant')
+      AND p.role NOT IN ('admin','super_admin','principal','finance','admissions','librarian','accountant')
       AND (p.id::text=v_id OR lower(trim(coalesce(p.staff_id,'')))=lower(v_id))
     LIMIT 1;
     IF FOUND THEN RETURN; END IF;
@@ -117,7 +117,7 @@ BEGIN
       INTO v_name,v_identifier,v_role,v_role
     FROM profiles p
     WHERE p.id=p_person_id AND p.employment_status='active'
-      AND p.role NOT IN ('admin','super_admin','principal','finance','admissions','security','librarian','accountant');
+      AND p.role NOT IN ('admin','super_admin','principal','finance','admissions','librarian','accountant');
 
     IF v_name IS NULL THEN RAISE EXCEPTION 'Staff member is not eligible for gate attendance'; END IF;
   ELSE
