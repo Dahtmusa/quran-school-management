@@ -58,7 +58,7 @@ export default function AttendanceRosterPanel({type,date}:Props){
    <button onClick={()=>setSelected('all')} className={'rounded-xl border p-4 text-left '+(selected==='all'?'border-slate-900 bg-slate-50':'border-slate-200 bg-white')}>
     <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Total</div><div className="mt-1 text-2xl font-black text-slate-900">{counts.total||0}</div>
    </button>
-   {statuses.map(s=><button key={s.key} onClick={()=>setSelected(s.key)} className={'rounded-xl border p-4 text-left '+(selected===s.key?'border-slate-900 bg-slate-50':'border-slate-200 bg-white')}>
+   {[...statuses,{key:'not_recorded',label:'Not recorded',color:'#64748b'}].map(s=><button key={s.key} onClick={()=>setSelected(s.key)} className={'rounded-xl border p-4 text-left '+(selected===s.key?'border-slate-900 bg-slate-50':'border-slate-200 bg-white')}>
     <div className="text-[10px] font-black uppercase tracking-wide" style={{color:s.color}}>{s.label}</div><div className="mt-1 text-2xl font-black" style={{color:s.color}}>{counts[s.key]||0}</div>
    </button>)}
   </div>
