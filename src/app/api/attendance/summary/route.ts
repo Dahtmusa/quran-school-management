@@ -16,7 +16,7 @@ export async function GET(req:NextRequest){
  const date=req.nextUrl.searchParams.get('date')||today();
  const [studentsRes,staffRes,recordsRes]=await Promise.all([
   admin.from('students').select('id,full_name,admission_no,section,class_id').eq('status','active').order('full_name'),
-  admin.from('profiles').select('id,full_name,staff_id,role,job_title,department,avatar_url').eq('employment_status','active').not('role','in','(admin,super_admin,principal,finance,admissions,librarian,accountant)').order('full_name'),
+  admin.from('profiles').select('id,full_name,staff_id,role,job_title,department,avatar_url').eq('employment_status','active').not('role','in','(admin,super_admin,principal,finance,admissions)').order('full_name'),
   admin.from('attendance_records').select('person_id,person_type,status_code,scanned_at,recorded_by').eq('attendance_date',date).eq('period','morning')
  ]);
  const err=studentsRes.error||staffRes.error||recordsRes.error;
