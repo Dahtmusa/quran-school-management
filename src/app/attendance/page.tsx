@@ -635,7 +635,7 @@ export default function AttendanceDashboard() {
               onChange={e => setFilterDate(e.target.value)}
               style={{ border: 'none', borderRadius: 10, padding: '10px 12px', fontSize: 14, fontWeight: 600, background: 'rgba(255,255,255,.15)', color: '#fff', minHeight: 40 }}
             />
-            <button onClick={refresh} style={{
+            <button onClick={() => refresh()} style={{
               padding: '10px 16px', borderRadius: 10, border: 'none', background: 'rgba(255,255,255,.18)',
               color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', minHeight: 40,
             }}>
