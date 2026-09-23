@@ -42,11 +42,13 @@ export async function GET(req: NextRequest) {
         .from('profiles')
         .select('id,full_name,role,avatar_url,staff_id')
         .eq('id', jsonId)
+        .eq('employment_status','active')
         .maybeSingle();
       const { data: byStaffId } = byUuid ? { data: null } : await admin
         .from('profiles')
         .select('id,full_name,role,avatar_url,staff_id')
         .eq('staff_id', String(jsonId).trim())
+        .eq('employment_status','active')
         .maybeSingle();
       const data = byUuid || byStaffId;
       if (data) return NextResponse.json({ type: 'staff', id: data.id, name: data.full_name, role: data.role, photoUrl: data.avatar_url, staffId: data.staff_id });
@@ -81,11 +83,11 @@ export async function GET(req: NextRequest) {
   const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
   const [studentsRes, staffRes] = await Promise.all([
     uuidLike
-      ? admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').eq('id', q).maybeSingle()
+      ? admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').eq('id', q).eq('employment_status','active').maybeSingle()
       : admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`).limit(1).maybeSingle(),
     uuidLike
       ? admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('id', q).maybeSingle()
-      : admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('staff_id', safeQ).maybeSingle(),
+      : admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('staff_id', safeQ).eq('employment_status','active').maybeSingle(),
   ]);
 
   if (studentsRes.data) {
