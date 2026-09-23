@@ -30,7 +30,7 @@ export async function GET(req:NextRequest){
  const rows=(staffRes.data||[]).map((s:any)=>{
    const r=byPerson.get(s.id); const status=r?.status_code||'absent'; const fine=r?fineByRecord.get(r.id):undefined;
    const expectedFine=status==='late'&&lateEnabled?lateAmount:status==='absent'&&absentEnabled?absentAmount:0;
-   return {id:r?.id||`absent-${s.id}`,full_name:s.full_name,staff_id:s.staff_id,status_code:status,status_label:label(status),scanned_at:r?.scanned_at||null,note:r?.note||null,fine_amount:Number(fine?.amount||0),fine_status:fine?.status||null,expected_fine:expectedFine,fine_reason:fine?.reason||null};
+   return {id:r?.id||`absent-${s.id}`,full_name:s.full_name,staff_id:s.staff_id,status_code:status,status_label:label(status),scanned_at:r?.scanned_at||null,note:r?.note||null,fine_id:fine?.id||null,fine_amount:Number(fine?.amount||0),fine_status:fine?.status||null,expected_fine:expectedFine,fine_reason:fine?.reason||null};
  });
  const pendingFines=(finesRes.data||[]).filter((f:any)=>f.status==='pending');
  const summary={total:rows.length,present:rows.filter(r=>r.status_code==='present').length,late:rows.filter(r=>r.status_code==='late').length,absent:rows.filter(r=>r.status_code==='absent').length,excused:rows.filter(r=>r.status_code==='excused').length,sick:rows.filter(r=>r.status_code==='sick').length,pendingFines:pendingFines.length,pendingAmount:pendingFines.reduce((a:number,f:any)=>a+Number(f.amount||0),0)};
