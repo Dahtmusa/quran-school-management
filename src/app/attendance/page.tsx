@@ -2,9 +2,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
-import StaffAttendancePanel from '@/components/StaffAttendancePanel';
+import AttendanceRosterPanel from '@/components/AttendanceRosterPanel';
 import {
-  loadAttendanceSummary, loadTodayRecords, loadPendingRecords,
+  loadAttendanceSummary, loadPendingRecords,
   AttendanceRecord, AttendanceSummary,
 } from '@/lib/attendance-store';
 
@@ -258,6 +258,7 @@ function SmsSettings() {
   const [saving, setSaving] = useState(false);
   const [savingTpls, setSavingTpls] = useState(false);
   const [flash, setFlash] = useState('');
+  const [rosterCounts, setRosterCounts] = useState<any>({ student: null, staff: null });
   const [tplFlash, setTplFlash] = useState('');
 
   useEffect(() => {
@@ -541,27 +542,26 @@ function SmsSettings() {
 export default function AttendanceDashboard() {
   const [tab, setTab] = useState<Tab>('overview');
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
-  const [todayRecords, setTodayRecords] = useState<AttendanceRecord[]>([]);
   const [pendingRecords, setPendingRecords] = useState<AttendanceRecord[]>([]);
   const [reviewTarget, setReviewTarget] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }));
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ sent: number; skipped: number; failed: number; errors?: string[] } | null>(null);
-  const [filterSection, setFilterSection] = useState('all');
-  const [searchQ, setSearchQ] = useState('');
   const [flash, setFlash] = useState('');
 
   const refresh = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
-    const [sum, today, pending] = await Promise.all([
+    const [sum, today, pending, studentRoster, staffRoster] = await Promise.all([
       loadAttendanceSummary(filterDate),
       loadTodayRecords(filterDate),
       loadPendingRecords(),
+      fetch('/api/attendance/roster?type=student&date='+encodeURIComponent(filterDate),{cache:'no-store'}).then(r=>r.json()),
+      fetch('/api/attendance/roster?type=staff&date='+encodeURIComponent(filterDate),{cache:'no-store'}).then(r=>r.json()),
     ]);
     setSummary(sum);
-    setTodayRecords(today);
     setPendingRecords(pending);
+    setRosterCounts({ student: studentRoster?.counts || null, staff: staffRoster?.counts || null });
     if (showLoading) setLoading(false);
   }, [filterDate]);
 
@@ -578,23 +578,13 @@ export default function AttendanceDashboard() {
     refresh();
   };
 
-  const filteredToday = todayRecords.filter(r => {
-    if (tab === 'students' && r.personType !== 'student') return false;
-    if (filterSection !== 'all' && r.personType !== filterSection) return false;
-    if (searchQ) {
-      const q = searchQ.toLowerCase();
-      if (!r.personName.toLowerCase().includes(q) && !(r.personAdmissionNo || '').toLowerCase().includes(q)) return false;
-    }
-    return true;
-  });
-
   const todayStr = new Date(filterDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: 'overview',  label: 'Overview' },
     { key: 'pending',   label: 'Pending Review', badge: pendingRecords.length },
-    { key: 'students',  label: 'Student Attendance' },
-    { key: 'staff',     label: 'Staff Today' },
+    { key: 'students',  label: 'Students' },
+    { key: 'staff',     label: 'Staff' },
     { key: 'reports',   label: 'Reports' },
     { key: 'settings',  label: 'SMS Settings' },
   ];
@@ -646,16 +636,17 @@ export default function AttendanceDashboard() {
           </div>
         </div>
 
-        {/* KPI row */}
-        {summary && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 12 }}>
-            <Kpi label="Total Scanned" value={summary.total} />
-            <Kpi label="Present"  value={summary.present}  color="#16a34a" />
-            <Kpi label="Late"     value={summary.late}     color="#d97706" />
-            <Kpi label="Excused"  value={summary.excused}  color="#2563eb" />
-            <Kpi label="Sick"     value={summary.sick}     color="#7c3aed" />
-            <Kpi label="Absent"   value={summary.absent}   color="#dc2626" />
-            <Kpi label="Pending Review" value={summary.pending} color={summary.pending > 0 ? '#d97706' : '#9ca3af'} />
+        {/* Whole-school totals — attendance status is shown in the Students and Staff tabs. */}
+        {(rosterCounts.student || rosterCounts.staff) && (
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))', gap:12 }}>
+            <Kpi label="Total Students" value={rosterCounts.student?.total || 0} />
+            <Kpi label="Students Present" value={rosterCounts.student?.present || 0} color="#16a34a" />
+            <Kpi label="Students Late" value={rosterCounts.student?.late || 0} color="#d97706" />
+            <Kpi label="Students Absent" value={rosterCounts.student?.absent || 0} color="#dc2626" />
+            <Kpi label="Total Staff" value={rosterCounts.staff?.total || 0} />
+            <Kpi label="Staff Present" value={rosterCounts.staff?.present || 0} color="#16a34a" />
+            <Kpi label="Staff Late" value={rosterCounts.staff?.late || 0} color="#d97706" />
+            <Kpi label="Staff Absent" value={rosterCounts.staff?.absent || 0} color="#dc2626" />
           </div>
         )}
 
@@ -678,11 +669,6 @@ export default function AttendanceDashboard() {
         </div>
 
         {loading && <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</div>}
-
-        {/* Staff attendance & fines */}
-        {!loading && tab === 'staff' && (
-          <StaffAttendancePanel />
-        )}
 
         {/* Overview tab */}
         {!loading && tab === 'overview' && (
@@ -801,44 +787,9 @@ export default function AttendanceDashboard() {
           </div>
         )}
 
-        {/* All records tab */}
-        {!loading && tab === 'students' && (
-          <div className="space-y-3">
-            {/* Filters */}
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <input
-                value={searchQ}
-                onChange={e => setSearchQ(e.target.value)}
-                placeholder="Search by name or ID…"
-                style={{ flex: 1, minWidth: 180, border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit' }}
-              />
-              <select value={filterSection} onChange={e => setFilterSection(e.target.value)}
-                style={{ border: '1.5px solid #e5e7eb', borderRadius: 10, padding: '8px 12px', fontSize: 13, fontFamily: 'inherit' }}>
-                <option value="all">All types</option>
-                <option value="student">Students only</option>
-                <option value="staff">Staff only</option>
-              </select>
-            </div>
-
-            <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
-              {filteredToday.length === 0 ? (
-                <div style={{ padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                  No records match the current filters.
-                </div>
-              ) : (
-                <>
-                  <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6', fontWeight: 800, fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#6b7280' }}>
-                    {filteredToday.length} record{filteredToday.length !== 1 ? 's' : ''}
-                  </div>
-                  <div style={{ maxHeight: 560, overflowY: 'auto' }}>
-                    {filteredToday.map(r => (
-                      <RecordRow key={r.id} record={r} onReview={setReviewTarget} />
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+        {/* Students and Staff — one reusable roster, no duplicate attendance UI. */}
+        {!loading && (tab === 'students' || tab === 'staff') && (
+          <AttendanceRosterPanel type={tab === 'students' ? 'student' : 'staff'} date={filterDate} />
         )}
 
         {/* Reports tab */}
