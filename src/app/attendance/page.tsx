@@ -4,8 +4,8 @@ import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import AttendanceRosterPanel from '@/components/AttendanceRosterPanel';
 import {
-  loadAttendanceSummary, loadPendingRecords,
-  AttendanceRecord, AttendanceSummary,
+  loadPendingRecords,
+  AttendanceRecord,
 } from '@/lib/attendance-store';
 
 /* ── Small helpers ── */
@@ -541,7 +541,6 @@ function SmsSettings() {
 
 export default function AttendanceDashboard() {
   const [tab, setTab] = useState<Tab>('overview');
-  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [pendingRecords, setPendingRecords] = useState<AttendanceRecord[]>([]);
   const [reviewTarget, setReviewTarget] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
@@ -552,14 +551,11 @@ export default function AttendanceDashboard() {
 
   const refresh = useCallback(async (showLoading = true) => {
     if (showLoading) setLoading(true);
-    const [sum, today, pending, studentRoster, staffRoster] = await Promise.all([
-      loadAttendanceSummary(filterDate),
-      loadTodayRecords(filterDate),
+    const [pending, studentRoster, staffRoster] = await Promise.all([
       loadPendingRecords(),
       fetch('/api/attendance/roster?type=student&date='+encodeURIComponent(filterDate),{cache:'no-store'}).then(r=>r.json()),
       fetch('/api/attendance/roster?type=staff&date='+encodeURIComponent(filterDate),{cache:'no-store'}).then(r=>r.json()),
     ]);
-    setSummary(sum);
     setPendingRecords(pending);
     setRosterCounts({ student: studentRoster?.counts || null, staff: staffRoster?.counts || null });
     if (showLoading) setLoading(false);
@@ -670,104 +666,28 @@ export default function AttendanceDashboard() {
 
         {loading && <div style={{ padding: 32, textAlign: 'center', color: '#9ca3af', fontSize: 13 }}>Loading…</div>}
 
-        {/* Overview tab */}
+        {/* Overview: totals only. Detailed status lists live in Students and Staff. */}
         {!loading && tab === 'overview' && (
           <div className="space-y-4">
             {pendingRecords.length > 0 && (
-              <div style={{ background: '#fffbeb', border: '1.5px solid #fcd34d', borderRadius: 16, padding: '14px 18px' }}>
-                <div style={{ fontWeight: 800, fontSize: 13, color: '#92400e', marginBottom: 4 }}>
-                  {pendingRecords.length} record{pendingRecords.length !== 1 ? 's' : ''} awaiting review
-                </div>
-                <div style={{ fontSize: 12, color: '#b45309' }}>
-                  Review and approve or reject attendance records scanned by security.
-                </div>
-                <button onClick={() => setTab('pending')} style={{
-                  marginTop: 10, padding: '9px 18px', borderRadius: 9, border: 'none', cursor: 'pointer',
-                  background: '#92400e', color: '#fff', fontSize: 13, fontWeight: 700, minHeight: 40,
-                }}>
-                  Review now →
-                </button>
+              <div style={{ background:'#fffbeb', border:'1.5px solid #fcd34d', borderRadius:16, padding:'14px 18px' }}>
+                <div style={{ fontWeight:800, fontSize:13, color:'#92400e' }}>{pendingRecords.length} record{pendingRecords.length!==1?'s':''} awaiting review</div>
+                <div style={{ fontSize:12, color:'#b45309', marginTop:4 }}>Review attendance records scanned by security.</div>
+                <button onClick={()=>setTab('pending')} style={{ marginTop:10,padding:'9px 18px',borderRadius:9,border:'none',background:'#92400e',color:'#fff',fontSize:13,fontWeight:700 }}>Review now →</button>
               </div>
             )}
-
-            {/* Bulk SMS card */}
-            {summary && summary.total > 0 && (
-              <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, padding: '16px 20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: '#111', marginBottom: 3 }}>Notify All Parents</div>
-                    <div style={{ fontSize: 12, color: '#6b7280' }}>
-                      Send one SMS per student to their parent based on today&apos;s attendance status (Present, Late, Absent, etc.).
-                      Already-notified students are skipped automatically.
-                    </div>
-                  </div>
-                  <button
-                    disabled={bulkSending}
-                    onClick={async () => {
-                      setBulkSending(true); setBulkResult(null);
-                      const res = await fetch('/api/attendance/notify', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bulk: true, date: filterDate, period: 'morning' }),
-                      });
-                      const d = await res.json();
-                      setBulkSending(false);
-                      setBulkResult(d);
-                    }}
-                    style={{
-                      padding: '9px 20px', borderRadius: 10, border: 'none', cursor: bulkSending ? 'default' : 'pointer',
-                      background: '#2563eb', color: '#fff', fontSize: 13, fontWeight: 700,
-                      whiteSpace: 'nowrap', opacity: bulkSending ? 0.6 : 1, flexShrink: 0,
-                    }}
-                  >
-                    {bulkSending ? 'Sending…' : 'Send SMS to All Parents'}
-                  </button>
+            {(rosterCounts.student?.total||0)>0 && (
+              <div style={{background:'#fff',border:'1.5px solid #e5e7eb',borderRadius:16,padding:'16px 20px'}}>
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
+                  <div><div style={{fontWeight:800,fontSize:14,color:'#111'}}>Notify All Parents</div><div style={{fontSize:12,color:'#6b7280',marginTop:3}}>Send one SMS per student using today&apos;s attendance status. Already-notified students are skipped.</div></div>
+                  <button disabled={bulkSending} onClick={async()=>{setBulkSending(true);setBulkResult(null);const res=await fetch('/api/attendance/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bulk:true,date:filterDate,period:'morning'})});const d=await res.json();setBulkSending(false);setBulkResult(d)}} style={{padding:'9px 20px',borderRadius:10,border:'none',background:'#2563eb',color:'#fff',fontSize:13,fontWeight:700,opacity:bulkSending?.6:1}}>{bulkSending?'Sending…':'Send SMS to All Parents'}</button>
                 </div>
-                {bulkResult && (
-                  <div style={{
-                    marginTop: 12, padding: '10px 14px', borderRadius: 10,
-                    background: bulkResult.failed > 0 ? '#fef3c7' : '#dcfce7',
-                    border: `1px solid ${bulkResult.failed > 0 ? '#fcd34d' : '#86efac'}`,
-                    fontSize: 12, fontWeight: 700,
-                    color: bulkResult.failed > 0 ? '#92400e' : '#166534',
-                  }}>
-                    {bulkResult.sent} sent · {bulkResult.skipped} skipped (no phone / already notified) · {bulkResult.failed} failed
-                    {bulkResult.errors && bulkResult.errors.length > 0 && (
-                      <div style={{ marginTop: 6, fontWeight: 400 }}>{bulkResult.errors.join(' · ')}</div>
-                    )}
-                  </div>
-                )}
+                {bulkResult&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:bulkResult.failed>0?'#fef3c7':'#dcfce7',fontSize:12,fontWeight:700,color:bulkResult.failed>0?'#92400e':'#166534'}}>{bulkResult.sent} sent · {bulkResult.skipped} skipped · {bulkResult.failed} failed</div>}
               </div>
             )}
-
-            {summary && summary.total === 0 && (
-              <div style={{ padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                No scans recorded for {filterDate}.
-              </div>
-            )}
-
-            {summary && summary.total > 0 && (
-              <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6', fontWeight: 800, fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#6b7280' }}>
-                  Today's breakdown
-                </div>
-                {[
-                  { label: 'Present',  value: summary.present,  color: '#16a34a' },
-                  { label: 'Late',     value: summary.late,     color: '#d97706' },
-                  { label: 'Excused',  value: summary.excused,  color: '#2563eb' },
-                  { label: 'Sick',     value: summary.sick,     color: '#7c3aed' },
-                  { label: 'Absent',   value: summary.absent,   color: '#dc2626' },
-                ].map(row => (
-                  <div key={row.label} style={{ padding: '10px 18px', borderBottom: '1px solid #f9fafb', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: row.color, flexShrink: 0 }} />
-                    <div style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#374151' }}>{row.label}</div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: row.value > 0 ? row.color : '#d1d5db' }}>{row.value}</div>
-                    <div style={{ fontSize: 11, color: '#9ca3af', width: 36, textAlign: 'right' }}>
-                      {summary.total > 0 ? Math.round((row.value / summary.total) * 100) : 0}%
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <div style={{background:'#f8fafc',border:'1px solid #e2e8f0',borderRadius:16,padding:'18px 20px',color:'#475569',fontSize:13,lineHeight:1.7}}>
+              <strong style={{color:'#0f172a'}}>Clean attendance model:</strong> the totals represent every active student and staff member, not just people who have scanned. Use <b>Students</b> or <b>Staff</b> and click a status box to see the exact people in that category.
+            </div>
           </div>
         )}
 
