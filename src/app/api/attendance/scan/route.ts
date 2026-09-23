@@ -128,6 +128,8 @@ export async function POST(req: NextRequest) {
       status_code: statusCode,
       period,
       review_status: 'pending',
+      note: existing?.status_code === 'absent' && String(existing?.note || '').toLowerCase().includes('automatically marked absent')
+        ? 'Automatic absence placeholder replaced by gate scan.' : undefined,
       recorded_by: user.id,
       scan_point_id: scanPointId || null,
       is_offline_scan: isOfflineScan,
