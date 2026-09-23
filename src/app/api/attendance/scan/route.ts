@@ -85,13 +85,16 @@ export async function POST(req: NextRequest) {
   // Duplicate check: same person, same date, same period
   const { data: existing } = await supabase
     .from('attendance_records')
-    .select('id, scanned_at')
+    .select('id, scanned_at, status_code, note')
     .eq('person_id', canonicalPersonId)
     .eq('attendance_date', attendanceDate)
     .eq('period', period)
     .maybeSingle();
 
-  if (existing) {
+  const replacingAutomaticAbsence = existing?.status_code === 'absent'
+    && String(existing.note || '').toLowerCase().includes('automatically marked absent');
+
+  if (existing && !replacingAutomaticAbsence) {
     // A person has one official arrival scan per attendance period/day.
     // Do not overwrite the original arrival time if the card is scanned again.
     return NextResponse.json({
