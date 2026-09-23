@@ -14,14 +14,17 @@ export async function GET(req:NextRequest){
 
  const admin=createAdminClient();
  const date=req.nextUrl.searchParams.get('date')||today();
- const [studentsRes,staffRes,recordsRes]=await Promise.all([
+ const [studentsRes,staffRes,recordsRes,leadershipRes]=await Promise.all([
   admin.from('students').select('id,full_name,admission_no,section,class_id').eq('status','active').order('full_name'),
   admin.from('profiles').select('id,full_name,staff_id,role,job_title,department,avatar_url').eq('employment_status','active').not('role','in','(admin,super_admin,principal,finance,admissions)').order('full_name'),
-  admin.from('attendance_records').select('person_id,person_type,status_code,scanned_at,recorded_by').eq('attendance_date',date).eq('period','morning')
+  admin.from('attendance_records').select('person_id,person_type,status_code,scanned_at,recorded_by').eq('attendance_date',date).eq('period','morning'),
+  admin.from('public_team_profiles').select('full_name').eq('category','leadership').eq('published',true)
  ]);
- const err=studentsRes.error||staffRes.error||recordsRes.error;
+ const err=studentsRes.error||staffRes.error||recordsRes.error||leadershipRes.error;
  if(err)return NextResponse.json({error:err.message},{status:500});
 
+ const leadershipNames=new Set((leadershipRes.data||[]).map((x:any)=>String(x.full_name||'').trim().toLowerCase()));
+ const eligibleStaff=(staffRes.data||[]).filter((p:any)=>!leadershipNames.has(String(p.full_name||'').trim().toLowerCase()));
  const records=new Map((recordsRes.data||[]).map((r:any)=>[r.person_type+':'+r.person_id,r]));
  const inferAbsent=date<today()||(date===today()&&cutoffReached());
  const build=(people:any[],type:'student'|'staff')=>people.map(p=>{
@@ -32,7 +35,7 @@ export async function GET(req:NextRequest){
   return {...p,status,scanned_at:r?.scanned_at||null,source:r?'record':(isGate?'awaiting_gate_scan':'teacher')};
  });
  const students=build(studentsRes.data||[],'student');
- const staff=build(staffRes.data||[],'staff');
+ const staff=build(eligibleStaff,'staff');
  const count=(rows:any[])=>({total:rows.length,present:rows.filter(r=>r.status==='present').length,late:rows.filter(r=>r.status==='late').length,absent:rows.filter(r=>r.status==='absent').length,not_marked:rows.filter(r=>!r.status).length});
  return NextResponse.json({
   date,cutoff:'09:00',students:{day:students.filter(r=>String(r.section).toLowerCase()==='day'),boarding:students.filter(r=>String(r.section).toLowerCase()==='boarding')},
