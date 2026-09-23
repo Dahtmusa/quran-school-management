@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
   // never receive late fines or disciplinary SMS warnings.
   let staffLateWarning: { sent: boolean; lateCount?: number; error?: string } | null = null;
   if (personType === 'staff' && statusCode === 'late') {
-    const managementRoles = ['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];
+    const managementRoles = ['admin','super_admin','principal','finance','admissions','security','accountant'];
     const { data: scannedProfile } = await createAdminClient()
       .from('profiles')
       .select('id,role,full_name')
@@ -375,7 +375,7 @@ export async function POST(req: NextRequest) {
   // never receive late fines or disciplinary SMS warnings.
   let staffLateWarning: { sent: boolean; lateCount?: number; error?: string } | null = null;
   if (personType === 'staff' && statusCode === 'late') {
-    const managementRoles = ['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];
+    const managementRoles = ['admin','super_admin','principal','finance','admissions','security','accountant'];
     const { data: scannedProfile } = await createAdminClient()
       .from('profiles')
       .select('id,role,full_name')
