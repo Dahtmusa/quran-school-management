@@ -248,6 +248,8 @@ function SmsSettings() {
     staff_late_warning_enabled: 'true', staff_late_warning_threshold: '2', staff_late_warning_repeat: '2',
     staff_late_fine_enabled: 'false', staff_late_fine_amount: '0', staff_late_fine_threshold: '2',
     staff_late_count_window_days: '30',
+    staff_absent_fine_enabled: 'false', staff_absent_fine_amount: '0',
+    staff_fine_payment_account_name: 'AMQM School Account', staff_fine_payment_account_number: '', staff_fine_payment_bank: '',
     staff_late_warning_template: 'Dear {staff_name}, you have been recorded late {late_count} times in the last {window_days} days. Please report on time. - AMQM',
   });
   const [sendOn, setSendOn] = useState<string[]>(['absent','late']);
@@ -592,7 +594,7 @@ export default function AttendanceDashboard() {
     { key: 'overview',  label: 'Overview' },
     { key: 'pending',   label: 'Pending Review', badge: pendingRecords.length },
     { key: 'students',  label: 'Student Attendance' },
-    { key: 'staff',     label: 'Staff & Fines' },
+    { key: 'staff',     label: 'Staff Today' },
     { key: 'reports',   label: 'Reports' },
     { key: 'settings',  label: 'SMS Settings' },
   ];
