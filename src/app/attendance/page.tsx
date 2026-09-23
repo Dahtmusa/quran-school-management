@@ -258,7 +258,6 @@ function SmsSettings() {
   const [saving, setSaving] = useState(false);
   const [savingTpls, setSavingTpls] = useState(false);
   const [flash, setFlash] = useState('');
-  const [rosterCounts, setRosterCounts] = useState<any>({ student: null, staff: null });
   const [tplFlash, setTplFlash] = useState('');
 
   useEffect(() => {
@@ -547,6 +546,7 @@ export default function AttendanceDashboard() {
   const [filterDate, setFilterDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }));
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ sent: number; skipped: number; failed: number; errors?: string[] } | null>(null);
+  const [rosterCounts, setRosterCounts] = useState<any>({ student: null, staff: null });
   const [flash, setFlash] = useState('');
 
   const refresh = useCallback(async (showLoading = true) => {
@@ -562,9 +562,15 @@ export default function AttendanceDashboard() {
   }, [filterDate]);
 
   useEffect(() => {
-    refresh(true);
-    fetch('/api/attendance/finalize',{method:'POST'}).catch(()=>{});
-  }, [refresh]);
+    let cancelled=false;
+    (async()=>{
+      if(filterDate===new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'})){
+        await fetch('/api/attendance/finalize',{method:'POST'}).catch(()=>{});
+      }
+      if(!cancelled) await refresh(true);
+    })();
+    return()=>{cancelled=true};
+  }, [refresh, filterDate]);
 
   const showFlash = (msg: string) => { setFlash(msg); setTimeout(() => setFlash(''), 3500); };
 
@@ -680,7 +686,7 @@ export default function AttendanceDashboard() {
               <div style={{background:'#fff',border:'1.5px solid #e5e7eb',borderRadius:16,padding:'16px 20px'}}>
                 <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
                   <div><div style={{fontWeight:800,fontSize:14,color:'#111'}}>Notify All Parents</div><div style={{fontSize:12,color:'#6b7280',marginTop:3}}>Send one SMS per student using today&apos;s attendance status. Already-notified students are skipped.</div></div>
-                  <button disabled={bulkSending} onClick={async()=>{setBulkSending(true);setBulkResult(null);const res=await fetch('/api/attendance/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bulk:true,date:filterDate,period:'morning'})});const d=await res.json();setBulkSending(false);setBulkResult(d)}} style={{padding:'9px 20px',borderRadius:10,border:'none',background:'#2563eb',color:'#fff',fontSize:13,fontWeight:700,opacity:bulkSending?.6:1}}>{bulkSending?'Sending…':'Send SMS to All Parents'}</button>
+                  <button disabled={bulkSending} onClick={async()=>{setBulkSending(true);setBulkResult(null);const res=await fetch('/api/attendance/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bulk:true,date:filterDate,period:'morning'})});const d=await res.json();setBulkSending(false);setBulkResult(d)}} style={{padding:'9px 20px',borderRadius:10,border:'none',background:'#2563eb',color:'#fff',fontSize:13,fontWeight:700,opacity:bulkSending?0.6:1}}>{bulkSending?'Sending…':'Send SMS to All Parents'}</button>
                 </div>
                 {bulkResult&&<div style={{marginTop:12,padding:'10px 14px',borderRadius:10,background:bulkResult.failed>0?'#fef3c7':'#dcfce7',fontSize:12,fontWeight:700,color:bulkResult.failed>0?'#92400e':'#166534'}}>{bulkResult.sent} sent · {bulkResult.skipped} skipped · {bulkResult.failed} failed</div>}
               </div>
