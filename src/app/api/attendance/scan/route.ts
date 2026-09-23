@@ -38,13 +38,13 @@ export async function POST(req: NextRequest) {
       .from('profiles')
       .select('id,staff_id')
       .eq('id', canonicalPersonId)
-      .in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'])
+      .eq('employment_status','active')
       .maybeSingle();
     const { data: byStaffId } = byUuid ? { data: null } : await adminLookup
       .from('profiles')
       .select('id,staff_id')
       .eq('staff_id', canonicalPersonId)
-      .in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'])
+      .eq('employment_status','active')
       .maybeSingle();
     const staffRecord = byUuid || byStaffId;
     if (!staffRecord) return NextResponse.json({ error: 'Staff ID not found' }, { status: 404 });
