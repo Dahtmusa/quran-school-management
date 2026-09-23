@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
   const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
   const [studentsRes, staffRes] = await Promise.all([
     uuidLike
-      ? admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').eq('id', q).eq('employment_status','active').maybeSingle()
+      ? admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').eq('id', q).maybeSingle()
       : admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`).limit(1).maybeSingle(),
     uuidLike
       ? admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('id', q).maybeSingle()
