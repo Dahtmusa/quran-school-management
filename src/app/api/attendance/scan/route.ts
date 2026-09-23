@@ -93,15 +93,13 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    const firstScan = new Date(existing.scanned_at);
-    const minsElapsed = (Date.now() - firstScan.getTime()) / 60000;
-    if (minsElapsed < dupMinutes) {
-      return NextResponse.json({
-        success: false,
-        error: 'duplicate',
-        firstScanTime: existing.scanned_at,
-      });
-    }
+    // A person has one official arrival scan per attendance period/day.
+    // Do not overwrite the original arrival time if the card is scanned again.
+    return NextResponse.json({
+      success: false,
+      error: 'duplicate',
+      firstScanTime: existing.scanned_at,
+    });
   }
 
   // Auto-determine status: present or late (compare in Nigeria time WAT = UTC+1)
