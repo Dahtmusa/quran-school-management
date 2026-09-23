@@ -56,6 +56,11 @@ export async function POST(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  // A valid excuse removes the attendance fine; an unexcused absence keeps it payable.
+  if (current.person_type === 'staff' && ['excused','sick'].includes(String(updates.status_code || ''))) {
+    await supabase.from('staff_attendance_fines').update({ status: 'waived', paid_at: null, notes: note || 'Attendance excused by administration.' }).eq('attendance_record_id', recordId).eq('status','pending');
+  }
+
   // Record the review action
   await supabase.from('attendance_reviews').insert({
     record_id: recordId,
