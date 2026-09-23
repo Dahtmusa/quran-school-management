@@ -45,6 +45,9 @@ export default function TeacherDashboard() {
   const [sigOpen, setSigOpen] = useState(false);
   const [attendanceBusy, setAttendanceBusy] = useState(false);
   const [boardingAttendance, setBoardingAttendance] = useState<TeacherBoardingAttendanceRow[]>([]);
+  const [myFines, setMyFines] = useState<any[]>([]);
+  const [myFineTotal, setMyFineTotal] = useState(0);
+  const [finePaymentAccount, setFinePaymentAccount] = useState({name:'AMQM School Account',number:'',bank:''});
   const [studentView, setStudentView] = useState<'all'|'day'|'boarding'>('all');
   const sigPadRef = useRef<SignaturePadRef|null>(null);
 
@@ -77,7 +80,7 @@ export default function TeacherDashboard() {
     setBoardingAttendance(attendanceRows);
     return studentRows;
   };
-  useEffect(() => { refresh(); getCurrentProfile().then(setMe); }, []);
+  useEffect(() => { refresh(); getCurrentProfile().then(setMe); fetch('/api/attendance/my-fines').then(r=>r.json()).then(d=>{if(d.fines){setMyFines(d.fines);setMyFineTotal(Number(d.pendingAmount||0));setFinePaymentAccount(d.paymentAccount||finePaymentAccount);}}).catch(()=>{}); }, []);
   useEffect(() => {
     getMySignature().then(sig => { setMySig(sig.signature_data ? sig : null); setSigOpen(!sig.signature_data); });
   }, []);
@@ -207,6 +210,37 @@ export default function TeacherDashboard() {
         </div>
       </div>
     </section>
+
+    {/* Staff attendance fines */}
+    {myFines.length > 0 && (
+      <section className="overflow-hidden rounded-2xl border border-amber-200 bg-white shadow-sm">
+        <div className="border-b bg-amber-50 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-[.18em] text-amber-700">Attendance account</div>
+              <h2 className="mt-1 text-lg font-black text-slate-900">My attendance fines</h2>
+              <p className="mt-1 text-sm text-slate-600">Late or unexcused absence fines appear here. If an absence has an approved reason, the fine is waived.</p>
+            </div>
+            <div className="rounded-xl bg-white px-4 py-3 text-right ring-1 ring-amber-200">
+              <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Amount due</div>
+              <div className="text-xl font-black text-rose-700">₦{myFineTotal.toLocaleString('en-NG',{minimumFractionDigits:2})}</div>
+            </div>
+          </div>
+        </div>
+        <div className="divide-y">
+          {myFines.map((fine:any)=><div key={fine.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div><div className="font-black text-slate-900">{fine.reason}</div><div className="text-xs text-slate-400">{new Date(fine.created_at).toLocaleDateString('en-GB')} · {fine.status}</div>{fine.notes&&<div className="mt-1 text-xs text-slate-500">{fine.notes}</div>}</div>
+            <div className="text-lg font-black text-slate-900">₦{Number(fine.amount||0).toLocaleString('en-NG',{minimumFractionDigits:2})}</div>
+          </div>)}
+        </div>
+        <div className="border-t bg-slate-50 p-5">
+          <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Pay attendance fine to school</div>
+          <div className="mt-1 font-black text-slate-900">{finePaymentAccount.bank||'School bank'} · {finePaymentAccount.name}</div>
+          <div className="mt-1 text-lg font-black tracking-wide text-[#062d2a]">{finePaymentAccount.number||'School payment account not configured yet'}</div>
+          <div className="mt-2 text-xs text-slate-500">After payment, submit your payment evidence to the school office for verification. The school will mark the fine Paid.</div>
+        </div>
+      </section>
+    )}
 
     {/* Campaign evaluation sections */}
     {byCampaign.map(({ campaign, evals: campEvals }) => {
