@@ -142,10 +142,32 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // Staff late policy: count recent late gate scans, create an optional fine,
-  // and send an automatic warning SMS on the configured threshold.
+  // Staff late policy applies only to ordinary teaching/staff accounts.
+  // Management and leadership may scan and have attendance records, but must
+  // never receive late fines or disciplinary SMS warnings.
   let staffLateWarning: { sent: boolean; lateCount?: number; error?: string } | null = null;
   if (personType === 'staff' && statusCode === 'late') {
+    const managementRoles = ['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];
+    const { data: scannedProfile } = await createAdminClient()
+      .from('profiles')
+      .select('id,role,full_name')
+      .eq('id', canonicalPersonId)
+      .maybeSingle();
+    const { data: leadershipProfile } = await createAdminClient()
+      .from('public_team_profiles')
+      .select('id,full_name,role_title,category')
+      .eq('published', true)
+      .ilike('category', 'leadership');
+    const isLeadership = !!leadershipProfile?.some((p: any) =>
+      String(p.full_name || '').trim().toLowerCase() === String(scannedProfile?.full_name || '').trim().toLowerCase()
+    );
+    const isManagement = managementRoles.includes(String(scannedProfile?.role || '').toLowerCase()) || isLeadership;
+
+    if (isManagement) {
+      // Attendance is still recorded above; deliberately skip all fines,
+      // late-count warnings and SMS for management/leadership.
+      staffLateWarning = { sent: false, lateCount: 0 };
+    } else {
     try {
       const admin = createAdminClient();
       const { data: staff } = await admin.from('profiles').select('id,full_name,phone').eq('id', canonicalPersonId).single();
@@ -204,7 +226,6 @@ export async function POST(req: NextRequest) {
       staffLateWarning = { sent: false, error: policyError instanceof Error ? policyError.message : 'Staff late policy failed' };
     }
   }
-
   // Audit log
   await supabase.from('attendance_audit_logs').insert({
     record_id: record.id,
