@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const STAFF_ROLES=['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'];
-
 function nigeriaDate(){return new Intl.DateTimeFormat('en-CA',{timeZone:'Africa/Lagos',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
 function clean(v:unknown){return String(v??'').replace(/^"|"$/g,'');}
 
@@ -22,7 +20,7 @@ export async function GET(req:NextRequest){
   const [peopleRes,recordsRes,statusRes,settingsRes]=await Promise.all([
     type==='student'
       ? admin.from('students').select('id,full_name,admission_no,section,status').eq('status','active').order('full_name')
-      : admin.from('profiles').select('id,full_name,staff_id,role,job_title,department,employment_status').in('role',STAFF_ROLES).eq('employment_status','active').order('full_name'),
+      : admin.from('profiles').select('id,full_name,staff_id,role,job_title,department,employment_status').eq('employment_status','active').order('full_name'),
     admin.from('attendance_records').select('id,person_id,person_type,scanned_at,status_code,review_status,note').eq('person_type',type).eq('attendance_date',date).eq('period','morning'),
     admin.from('attendance_statuses').select('code,label,color').eq('is_active',true).order('sort_order'),
     admin.from('attendance_settings').select('key,value').eq('key','morning_cutoff_time').maybeSingle(),
