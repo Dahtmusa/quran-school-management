@@ -13,8 +13,11 @@ export async function POST(_req:NextRequest){
  if(!['security','admin','super_admin','principal'].includes(profile?.role||''))return NextResponse.json({error:'Forbidden'},{status:403});
 
  const admin=createAdminClient();
- const {data:settings}=await admin.from('attendance_settings').select('key,value').eq('key','morning_cutoff_time').maybeSingle();
- const cutoff=String(settings?.value??'07:00').replace(/^"|"$/g,'');
+ const {data:settingRows}=await admin.from('attendance_settings').select('key,value').in('key',['morning_cutoff_time','staff_absent_fine_enabled','staff_absent_fine_amount']);
+ const settingMap=Object.fromEntries((settingRows||[]).map((x:any)=>[x.key,typeof x.value==='string'?x.value:JSON.stringify(x.value)]));
+ const cutoff=String(settingMap.morning_cutoff_time??'07:00').replace(/^"|"$/g,'');
+ const absentFineEnabled=String(settingMap.staff_absent_fine_enabled??'false').replace(/^"|"$/g,'')==='true';
+ const absentFineAmount=Number(String(settingMap.staff_absent_fine_amount??'0').replace(/^"|"$/g,''))||0;
  const now=nigeriaTime();
  if(now < cutoff)return NextResponse.json({success:false,error:'Morning attendance cannot be finalized before the cutoff time',cutoff,now},{status:400});
 
@@ -31,6 +34,13 @@ export async function POST(_req:NextRequest){
    const rows=missing.map(x=>({person_id:x.person_id,person_type:x.person_type,attendance_date:date,status_code:'absent',period:'morning',review_status:'approved',recorded_by:user.id,note:'Automatically marked absent after the morning gate attendance cutoff.'}));
    const {error}=await admin.from('attendance_records').upsert(rows,{onConflict:'person_id,attendance_date,period',ignoreDuplicates:true});
    if(error)return NextResponse.json({error:error.message},{status:500});
+   if(absentFineEnabled && absentFineAmount>0){
+     const staffMissing=missing.filter(x=>x.person_type==='staff');
+     const {data:inserted}=await admin.from('attendance_records').select('id,person_id').eq('attendance_date',date).eq('period','morning').eq('status_code','absent').in('person_id',staffMissing.map(x=>x.person_id));
+     if(inserted?.length){
+       await admin.from('staff_attendance_fines').upsert(inserted.map((x:any)=>({staff_id:x.person_id,attendance_record_id:x.id,amount:absentFineAmount,reason:'Unexcused staff absence',status:'pending'})),{onConflict:'attendance_record_id',ignoreDuplicates:true});
+     }
+   }
  }
  return NextResponse.json({success:true,date,cutoff,absentCreated:missing.length,eligibleCount:ids.length});
 }
