@@ -23,8 +23,8 @@ export async function POST(_req:NextRequest){
 
  const date=nigeriaDate();
  const {data:students}=await admin.from('students').select('id').eq('status','active').eq('section','day');
- const staffRoles=['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant'];
- const {data:staff}=await admin.from('profiles').select('id').in('role',staffRoles);
+ const staffRoles=['teacher','admin','super_admin','principal','finance','security','admissions'];
+ const {data:staff}=await admin.from('profiles').select('id').in('role',staffRoles).eq('employment_status','active');
  const ids=[...(students||[]).map(x=>({person_id:x.id,person_type:'student'})),...(staff||[]).map(x=>({person_id:x.id,person_type:'staff'}))];
 
  const {data:existing}=await admin.from('attendance_records').select('person_id,person_type').eq('attendance_date',date).eq('period','morning');
