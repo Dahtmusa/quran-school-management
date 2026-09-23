@@ -563,7 +563,14 @@ export default function AttendanceDashboard() {
     setLoading(false);
   }, [filterDate]);
 
-  useEffect(() => { refresh(); fetch('/api/attendance/finalize',{method:'POST'}).then(()=>refresh()).catch(()=>{}); }, [refresh]);
+  useEffect(() => {
+    refresh();
+    fetch('/api/attendance/finalize',{method:'POST'}).then(()=>refresh()).catch(()=>{});
+    // Keep the admin dashboard synchronized with the gate scanner without
+    // requiring the admin to press Refresh after every arrival.
+    const timer = window.setInterval(() => { refresh(); }, 5000);
+    return () => window.clearInterval(timer);
+  }, [refresh]);
 
   const showFlash = (msg: string) => { setFlash(msg); setTimeout(() => setFlash(''), 3500); };
 
