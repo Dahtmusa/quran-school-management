@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
 
-type Row={id:string;full_name:string;staff_id:string|null;status_code:string;status_label:string;scanned_at:string|null;note:string|null;fine_amount:number;fine_status:string|null;expected_fine:number;fine_reason:string|null};
+type Row={id:string;full_name:string;staff_id:string|null;status_code:string;status_label:string;scanned_at:string|null;note:string|null;fine_id:string|null;fine_amount:number;fine_status:string|null;expected_fine:number;fine_reason:string|null};
 type Summary={total:number;present:number;late:number;absent:number;excused:number;sick:number;pendingFines:number;pendingAmount:number};
 
 const money=(n:number)=>'₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -62,6 +62,7 @@ export default function StaffAttendancePanel(){
        <td className="px-3 py-3 text-xs text-slate-500">{r.scanned_at?new Date(r.scanned_at).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true}):'—'}</td>
        <td className="px-3 py-3">{r.fine_amount>0?<div><div className="font-black text-rose-700">{money(r.fine_amount)}</div><div className="text-[10px] uppercase font-bold text-slate-400">{r.fine_status||'expected'}</div></div>:r.expected_fine>0?<div><div className="font-black text-amber-700">{money(r.expected_fine)}</div><div className="text-[10px] text-slate-400">expected</div></div>:<span className="text-slate-300">—</span>}</td>
        <td className="px-4 py-3"><div className="flex justify-end gap-2">
+        {r.fine_id&&r.fine_status==='pending'&&<><button onClick={async()=>{await fetch('/api/attendance/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'fine_status',id:r.fine_id,status:'paid'})});await load()}} className="rounded-lg bg-emerald-50 px-3 py-2 text-[10px] font-black text-emerald-700">Mark paid</button><button onClick={async()=>{await fetch('/api/attendance/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'fine_status',id:r.fine_id,status:'waived'})});await load()}} className="rounded-lg bg-slate-100 px-3 py-2 text-[10px] font-black text-slate-600">Waive</button></>}
         {(r.status_code==='absent'||r.status_code==='late')&&<button onClick={()=>{setAction(r);setReason('');}} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] font-black text-blue-700">Has a reason?</button>}
        </div></td>
       </tr>)}
