@@ -80,7 +80,6 @@ export async function POST(req: NextRequest) {
   const settings: Record<string, unknown> = {};
   for (const r of settingsRows || []) settings[r.key] = r.value;
 
-  const dupMinutes = Number(settings['duplicate_interval_minutes'] ?? 30);
   const cutoff = String(settings['morning_cutoff_time'] ?? '09:00');
 
   // Duplicate check: same person, same date, same period
