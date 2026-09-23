@@ -1,53 +1,80 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-type StaffRow={id:string;full_name:string;phone:string|null;role:string|null;employment_status:string|null;staff_id:string|null};
-type RecordRow={id:string;person_id:string;scanned_at:string;attendance_date:string;status_code:string;period:string;review_status:string};
-type Fine={id:string;staff_id:string;attendance_record_id:string|null;amount:number;reason:string;status:string;created_at:string;paid_at:string|null;notes:string|null};
-type Warning={id:string;staff_id:string;warning_type:string;reason:string;notes:string|null;issued_at:string;status:string};
-const fmt=(v:string)=>new Date(v).toLocaleString('en-NG',{dateStyle:'medium',timeStyle:'short'});
+
+type Row={id:string;full_name:string;staff_id:string|null;status_code:string;status_label:string;scanned_at:string|null;note:string|null;fine_amount:number;fine_status:string|null;expected_fine:number;fine_reason:string|null};
+type Summary={total:number;present:number;late:number;absent:number;excused:number;sick:number;pendingFines:number;pendingAmount:number};
+
 const money=(n:number)=>'₦'+Number(n||0).toLocaleString('en-NG',{minimumFractionDigits:2,maximumFractionDigits:2});
+const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'});
+const statusClass=(s:string)=>s==='present'?'bg-emerald-50 text-emerald-700':s==='late'?'bg-amber-50 text-amber-800':s==='absent'?'bg-rose-50 text-rose-700':s==='excused'?'bg-blue-50 text-blue-700':'bg-violet-50 text-violet-700';
 
 export default function StaffAttendancePanel(){
- const [staff,setStaff]=useState<StaffRow[]>([]); const [records,setRecords]=useState<RecordRow[]>([]); const [fines,setFines]=useState<Fine[]>([]); const [warnings,setWarnings]=useState<Warning[]>([]); const [action,setAction]=useState<'fine'|'warning'|null>(null); const [selectedStaff,setSelectedStaff]=useState(''); const [amount,setAmount]=useState(''); const [reason,setReason]=useState(''); const [notes,setNotes]=useState(''); const [savingAction,setSavingAction]=useState(false);
- const [from,setFrom]=useState(()=>new Date(Date.now()-30*86400000).toISOString().slice(0,10)); const [to,setTo]=useState(()=>new Date().toISOString().slice(0,10));
- const [loading,setLoading]=useState(true); const [flash,setFlash]=useState(''); const [search,setSearch]=useState('');
- const load=async()=>{setLoading(true);try{const r=await fetch('/api/attendance/staff?from='+from+'&to='+to);const d=await r.json();if(!r.ok)throw new Error(d.error);setStaff(d.staff||[]);setRecords(d.records||[]);setFines(d.fines||[]);setWarnings(d.warnings||[]);}catch(e:any){setFlash(e?.message||'Could not load staff attendance.')}finally{setLoading(false)}};
- useEffect(()=>{load()},[from,to]);
- const names=useMemo(()=>Object.fromEntries(staff.map(s=>[s.id,s.full_name])),[staff]);
- const filtered=useMemo(()=>records.filter(r=>!search||String(names[r.person_id]||'').toLowerCase().includes(search.toLowerCase())),[records,names,search]);
- const late=records.filter(r=>r.status_code==='late').length; const pendingFines=fines.filter(f=>f.status==='pending'); const totalPending=pendingFines.reduce((a,f)=>a+Number(f.amount||0),0);
- const updateFine=async(id:string,status:string)=>{const r=await fetch('/api/attendance/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'fine_status',id,status})});const d=await r.json();if(!r.ok)throw new Error(d.error);await load()}; const updateWarning=async(id:string,status:string)=>{const r=await fetch('/api/attendance/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'warning_status',id,status})});const d=await r.json();if(!r.ok)throw new Error(d.error);await load()}; const submitAction=async()=>{setSavingAction(true);try{const body=action==='fine'?{action:'add_fine',staffId:selectedStaff,amount,reason,notes}:{action:'add_warning',staffId:selectedStaff,reason,notes};const r=await fetch('/api/attendance/staff',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw new Error(d.error);setFlash(action==='fine'?'Charge/fine recorded.':'Warning recorded.');setAction(null);setSelectedStaff('');setAmount('');setReason('');setNotes('');await load()}catch(e:any){setFlash(e?.message||'Could not save.')}finally{setSavingAction(false)}};
- return <section className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-  <div className="border-b bg-[#062d2a] p-5 text-white"><div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-   <div><div className="text-[10px] font-black uppercase tracking-[.2em] text-[#C9A84C]">Staff gate attendance</div><h2 className="mt-1 text-xl font-black">Staff scans, lateness & fines</h2><p className="mt-1 text-sm text-white/70">Every staff QR scan is recorded with the server time. Late warnings and fines are applied automatically from Attendance Settings.</p></div>
-   <div className="flex gap-2"><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="rounded-lg bg-white/10 px-2 py-2 text-xs text-white"/><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="rounded-lg bg-white/10 px-2 py-2 text-xs text-white"/><button onClick={load} className="rounded-lg bg-white/15 px-3 py-2 text-xs font-black">Refresh</button></div>
-  </div></div>
-  <div className="grid gap-3 p-5 sm:grid-cols-4">
-   <div className="rounded-xl bg-slate-50 p-4"><div className="text-[10px] font-black uppercase text-slate-400">Staff on list</div><div className="mt-1 text-2xl font-black text-slate-900">{staff.length}</div></div>
-   <div className="rounded-xl bg-emerald-50 p-4"><div className="text-[10px] font-black uppercase text-emerald-600">Staff scans</div><div className="mt-1 text-2xl font-black text-emerald-900">{records.length}</div></div>
-   <div className="rounded-xl bg-amber-50 p-4"><div className="text-[10px] font-black uppercase text-amber-600">Late scans</div><div className="mt-1 text-2xl font-black text-amber-900">{late}</div></div>
-   <div className="rounded-xl bg-rose-50 p-4"><div className="text-[10px] font-black uppercase text-rose-600">Pending fines</div><div className="mt-1 text-2xl font-black text-rose-900">{money(totalPending)}</div></div>
-  </div>
-  {flash&&<div className="mx-5 mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{flash}</div>}
-  <div className="border-t bg-slate-50 p-5">
-   <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-black text-slate-900">Staff disciplinary actions</h3><p className="mt-1 text-xs text-slate-500">Enter a manual warning or charge/fine here. Automatic late rules remain in Attendance Settings.</p></div>
-    <div className="flex gap-2"><button onClick={()=>{setAction("warning");setReason("Late attendance");}} className="rounded-lg bg-amber-100 px-3 py-2 text-xs font-black text-amber-800">+ Issue warning</button><button onClick={()=>{setAction("fine");setReason("Late attendance fine");}} className="rounded-lg bg-rose-100 px-3 py-2 text-xs font-black text-rose-800">+ Add charge/fine</button></div></div>
-   {action&&<div className="mt-4 grid gap-3 rounded-xl border bg-white p-4 md:grid-cols-2"><select value={selectedStaff} onChange={e=>setSelectedStaff(e.target.value)} className="rounded-lg border px-3 py-2 text-sm md:col-span-2"><option value="">Select staff member…</option>{staff.map(s=><option key={s.id} value={s.id}>{s.full_name}{s.staff_id?" · "+s.staff_id:""}</option>)}</select>
-    {action==="fine"&&<input type="number" min="0" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount (₦)" className="rounded-lg border px-3 py-2 text-sm"/>}<input value={reason} onChange={e=>setReason(e.target.value)} placeholder={action==="fine"?"Reason for charge/fine":"Reason for warning"} className="rounded-lg border px-3 py-2 text-sm"/>
-    <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Notes (optional)" rows={2} className="rounded-lg border px-3 py-2 text-sm md:col-span-2"/><div className="flex justify-end gap-2 md:col-span-2"><button onClick={()=>setAction(null)} className="rounded-lg border px-4 py-2 text-xs font-bold">Cancel</button><button disabled={savingAction||!selectedStaff||!reason||(action==="fine"&&!amount)} onClick={submitAction} className="rounded-lg bg-[#062d2a] px-4 py-2 text-xs font-black text-white disabled:opacity-40">{savingAction?"Saving…":action==="fine"?"Record charge/fine":"Issue warning"}</button></div></div>}
-  </div>
-  <div className="grid gap-6 border-t p-5 lg:grid-cols-2">
-   <div><div className="mb-3 flex items-center justify-between"><h3 className="font-black text-slate-900">Warnings</h3><span className="text-xs text-slate-400">{warnings.length} records</span></div><div className="max-h-[320px] space-y-2 overflow-auto">{warnings.map(w=><div key={w.id} className="rounded-xl border p-3"><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-black">{names[w.staff_id]||"Unknown staff"}</div><div className="text-[11px] text-slate-500">{w.reason}</div>{w.notes&&<div className="mt-1 text-[11px] text-slate-400">{w.notes}</div>}</div><span className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-black uppercase text-amber-700">{w.status}</span></div><div className="mt-2 flex items-center justify-between text-[10px] text-slate-400"><span>{new Date(w.issued_at).toLocaleDateString("en-GB")}</span>{w.status==="active"&&<button onClick={()=>updateWarning(w.id,"resolved")} className="rounded-lg bg-emerald-50 px-2 py-1 font-black text-emerald-700">Resolve</button>}</div></div>)}{!warnings.length&&<div className="rounded-xl border border-dashed p-6 text-center text-sm text-slate-400">No warnings recorded.</div>}</div></div>
-   <div><div className="mb-3 flex items-center justify-between"><h3 className="font-black text-slate-900">Charges / fines</h3><span className="text-xs text-slate-400">{fines.length} records</span></div></div>
-  </div>
-  <div className="grid gap-6 border-t p-5 lg:grid-cols-[1.4fr_1fr]">
-   <div><div className="mb-3 flex items-center justify-between gap-2"><h3 className="font-black text-slate-900">Attendance history</h3><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search staff…" className="rounded-lg border px-3 py-2 text-xs"/></div>
-    {loading?<div className="py-8 text-center text-sm text-slate-400">Loading…</div>:<div className="max-h-[460px] overflow-auto rounded-xl border">{filtered.map(r=><div key={r.id} className="flex items-center justify-between gap-3 border-b p-3 last:border-0"><div className="min-w-0"><div className="truncate text-sm font-black">{names[r.person_id]||'Unknown staff'}</div><div className="text-[11px] text-slate-400">{r.attendance_date} · {fmt(r.scanned_at)} · {r.period}</div></div><div className={'rounded-full px-2 py-1 text-[10px] font-black uppercase '+(r.status_code==='late'?'bg-amber-100 text-amber-700':r.status_code==='absent'?'bg-rose-100 text-rose-700':'bg-emerald-100 text-emerald-700')}>{r.status_code}</div></div>)}{!filtered.length&&<div className="p-8 text-center text-sm text-slate-400">No staff scans in this period.</div>}</div>}
+ const [date,setDate]=useState(today()); const [rows,setRows]=useState<Row[]>([]); const [summary,setSummary]=useState<Summary|null>(null);
+ const [loading,setLoading]=useState(true); const [search,setSearch]=useState(''); const [message,setMessage]=useState('');
+ const [account,setAccount]=useState<{name:string;number:string;bank:string}>({name:'AMQM School Account',number:'',bank:''});
+ const [action,setAction]=useState<Row|null>(null); const [reason,setReason]=useState(''); const [saving,setSaving]=useState(false);
+
+ const load=async()=>{
+  setLoading(true);setMessage('');
+  try{
+   if(date===today()) await fetch('/api/attendance/finalize',{method:'POST'}).catch(()=>{});
+   const r=await fetch('/api/attendance/staff?date='+encodeURIComponent(date)); const d=await r.json();
+   if(!r.ok) throw new Error(d.error||'Could not load staff attendance');
+   setRows(d.rows||[]);setSummary(d.summary||null);setAccount(d.paymentAccount||{name:'AMQM School Account',number:'',bank:''});
+  }catch(e:any){setMessage(e?.message||'Could not load staff attendance.')}finally{setLoading(false)}
+ };
+ useEffect(()=>{load()},[date]);
+
+ const filtered=useMemo(()=>rows.filter(r=>!search||r.full_name.toLowerCase().includes(search.toLowerCase())||String(r.staff_id||'').toLowerCase().includes(search.toLowerCase())),[rows,search]);
+
+ async function resolve(row:Row,status:'excused'|'sick'){
+  setSaving(true);
+  try{
+   const r=await fetch('/api/attendance/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({recordId:row.id,action:'change_status',newStatusCode:status,newReviewStatus:'approved',note:reason||'Reason recorded by administration.'})});
+   const d=await r.json(); if(!r.ok) throw new Error(d.error||'Could not update attendance');
+   setAction(null);setReason('');await load();
+  }catch(e:any){setMessage(e?.message||'Could not update attendance')}finally{setSaving(false)}
+ }
+
+ return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+  <div className="border-b bg-[#062d2a] p-5 text-white">
+   <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <div><div className="text-[10px] font-black uppercase tracking-[.2em] text-[#C9A84C]">Staff attendance</div><h2 className="mt-1 text-xl font-black">Today’s staff attendance</h2><p className="mt-1 text-sm text-white/70">One simple roster: Present, Late, Absent and Excused. Fines are shown beside the person.</p></div>
+    <div className="flex flex-wrap gap-2"><input type="date" value={date} onChange={e=>setDate(e.target.value)} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-900"/><button onClick={load} className="rounded-lg bg-white/15 px-3 py-2 text-xs font-black">Refresh</button></div>
    </div>
-   <div><div className="mb-3 flex items-center justify-between"><h3 className="font-black text-slate-900">Fines</h3><span className="text-xs text-slate-400">{fines.length} records</span></div><div className="max-h-[460px] space-y-2 overflow-auto">
-    {fines.map(f=><div key={f.id} className="rounded-xl border p-3"><div className="flex items-start justify-between gap-3"><div><div className="text-sm font-black">{names[f.staff_id]||'Unknown staff'}</div><div className="text-[11px] text-slate-500">{f.reason}</div></div><div className="font-black text-slate-900">{money(f.amount)}</div></div><div className="mt-2 flex items-center justify-between"><span className="text-[10px] font-bold uppercase text-slate-400">{f.status} · {new Date(f.created_at).toLocaleDateString('en-GB')}</span><div className="flex gap-1">{f.status==='pending'&&<><button onClick={()=>updateFine(f.id,'paid')} className="rounded-lg bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-700">Mark paid</button><button onClick={()=>updateFine(f.id,'waived')} className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">Waive</button></>}</div></div></div>)}
-    {!fines.length&&<div className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-400">No fines recorded.</div>}
-   </div></div>
   </div>
- </section>
+  <div className="grid gap-3 p-5 sm:grid-cols-5">
+   {[['Present',summary?.present||0,'bg-emerald-50 text-emerald-800'],['Late',summary?.late||0,'bg-amber-50 text-amber-800'],['Absent',summary?.absent||0,'bg-rose-50 text-rose-800'],['Excused',summary?.excused||0,'bg-blue-50 text-blue-800'],['Pending fines',money(summary?.pendingAmount||0),'bg-violet-50 text-violet-800']].map(([l,v,c])=><div key={String(l)} className={'rounded-xl p-4 '+c}><div className="text-[10px] font-black uppercase tracking-wide opacity-70">{l}</div><div className="mt-1 text-2xl font-black">{v}</div></div>)}
+  </div>
+  {message&&<div className="mx-5 mb-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{message}</div>}
+  <div className="flex flex-col gap-3 border-t bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
+   <div><div className="font-black text-slate-900">Staff roster</div><div className="text-xs text-slate-500">Absent means no gate scan after the cutoff. Use Excused/Sick when a valid reason is approved.</div></div>
+   <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or staff ID…" className="rounded-lg border bg-white px-3 py-2 text-sm sm:w-64"/>
+  </div>
+  <div className="overflow-x-auto">
+   <table className="w-full min-w-[850px] text-left text-sm">
+    <thead className="bg-white text-[10px] uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Staff member</th><th className="px-3 py-3">Status</th><th className="px-3 py-3">Scan time</th><th className="px-3 py-3">Fine</th><th className="px-4 py-3 text-right">Action</th></tr></thead>
+    <tbody>
+     {loading?<tr><td colSpan={5} className="p-10 text-center text-slate-400">Loading staff attendance…</td></tr>:
+      filtered.map(r=><tr key={r.id} className="border-t hover:bg-slate-50/60">
+       <td className="px-5 py-3"><div className="font-black text-slate-900">{r.full_name}</div><div className="text-xs text-slate-400">{r.staff_id||'—'}</div></td>
+       <td className="px-3 py-3"><span className={'rounded-full px-3 py-1 text-[10px] font-black uppercase '+statusClass(r.status_code)}>{r.status_label}</span></td>
+       <td className="px-3 py-3 text-xs text-slate-500">{r.scanned_at?new Date(r.scanned_at).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true}):'—'}</td>
+       <td className="px-3 py-3">{r.fine_amount>0?<div><div className="font-black text-rose-700">{money(r.fine_amount)}</div><div className="text-[10px] uppercase font-bold text-slate-400">{r.fine_status||'expected'}</div></div>:r.expected_fine>0?<div><div className="font-black text-amber-700">{money(r.expected_fine)}</div><div className="text-[10px] text-slate-400">expected</div></div>:<span className="text-slate-300">—</span>}</td>
+       <td className="px-4 py-3"><div className="flex justify-end gap-2">
+        {(r.status_code==='absent'||r.status_code==='late')&&<button onClick={()=>{setAction(r);setReason('');}} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[10px] font-black text-blue-700">Has a reason?</button>}
+       </div></td>
+      </tr>)}
+     {!loading&&!filtered.length&&<tr><td colSpan={5} className="p-10 text-center text-slate-400">No staff found.</td></tr>}
+    </tbody>
+   </table>
+  </div>
+  <div className="border-t bg-slate-50 p-5">
+   <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div><div className="text-xs font-black uppercase tracking-wide text-slate-500">Fine payment</div><div className="mt-1 text-sm font-black text-slate-900">{account.bank||'School bank'} · {account.name}</div><div className="text-sm text-slate-700">{account.number||'Payment account has not been configured yet.'}</div></div>
+    <div className="text-xs text-slate-500 md:max-w-md">Staff should use the school account shown here and provide payment evidence to the school. Admin can mark the fine Paid or Waived after verification.</div>
+   </div>
+  </div>
+  {action&&<div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"><div className="text-lg font-black">Record a reason</div><p className="mt-1 text-sm text-slate-500">{action.full_name} is currently <b>{action.status_label}</b>. If there is a valid reason, record it and mark the attendance as Excused.</p><textarea value={reason} onChange={e=>setReason(e.target.value)} rows={3} placeholder="e.g. Approved medical leave, emergency, authorised absence…" className="mt-4 w-full rounded-xl border p-3 text-sm"/><div className="mt-4 flex justify-end gap-2"><button onClick={()=>setAction(null)} className="rounded-lg border px-4 py-2 text-sm font-bold">Cancel</button><button disabled={!reason.trim()||saving} onClick={()=>resolve(action,'excused')} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-black text-white disabled:opacity-40">{saving?'Saving…':'Mark Excused'}</button></div></div></div>}
+ </section>;
 }
