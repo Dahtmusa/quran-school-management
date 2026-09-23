@@ -14,7 +14,7 @@ export async function GET(req:NextRequest){
  const supabase=await adminClient(); if(!supabase)return NextResponse.json({error:'Forbidden'},{status:403});
  const url=new URL(req.url); const date=url.searchParams.get('date')||new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'});
  const [staffRes,recordsRes,finesRes,statusRes,settingsRes]=await Promise.all([
-  supabase.from('profiles').select('id,full_name,staff_id,role,employment_status').in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).eq('employment_status','active').order('full_name'),
+  supabase.from('profiles').select('id,full_name,staff_id,role,employment_status').in('role',['teacher','admin','super_admin','principal','finance','security','admissions','accountant']).eq('employment_status','active').order('full_name'),
   supabase.from('attendance_records').select('id,person_id,scanned_at,status_code,note,review_status').eq('person_type','staff').eq('attendance_date',date).eq('period','morning'),
   supabase.from('staff_attendance_fines').select('id,staff_id,attendance_record_id,amount,status,reason').order('created_at',{ascending:false}).limit(1000),
   supabase.from('attendance_statuses').select('code,label'),
