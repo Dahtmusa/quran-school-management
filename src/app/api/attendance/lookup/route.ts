@@ -75,23 +75,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  // Raw text fallback: search by admission_no or staff_id.
-  // Strip characters with special meaning in PostgREST filter syntax before
-  // splicing user input into a raw .or() filter string.
+  // Raw text fallback: accept the printed Student/Staff ID, and also legacy
+  // cards whose barcode may contain the canonical UUID.
   const safeQ = q.replace(/[,.()]/g, '');
+  const uuidLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(q);
   const [studentsRes, staffRes] = await Promise.all([
-    admin
-      .from('students')
-      .select('id,full_name,admission_no,section,photo_url,classes:class_id(name)')
-      .or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`)
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from('profiles')
-      .select('id,full_name,role,avatar_url,staff_id')
-      .or(`staff_id.eq.${safeQ}`)
-      .limit(1)
-      .maybeSingle(),
+    uuidLike
+      ? admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').eq('id', q).maybeSingle()
+      : admin.from('students').select('id,full_name,admission_no,section,photo_url,classes:class_id(name)').or(`admission_no.eq.${safeQ},student_id_number.eq.${safeQ}`).limit(1).maybeSingle(),
+    uuidLike
+      ? admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('id', q).maybeSingle()
+      : admin.from('profiles').select('id,full_name,role,avatar_url,staff_id').eq('staff_id', safeQ).maybeSingle(),
   ]);
 
   if (studentsRes.data) {
