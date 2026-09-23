@@ -18,8 +18,10 @@ export type AttendanceScanPoint = {
 
 export type TeacherBoardingAttendanceRow = {
   studentId:string;
-  studentName:string;
+  fullName:string;
+  studentName?:string;
   statusCode:string|null;
+  statusLabel?:string|null;
   attendanceDate:string;
 };
 
@@ -64,7 +66,15 @@ export async function loadTeacherBoardingAttendanceToday():Promise<TeacherBoardi
   const res=await fetch('/api/attendance/teacher',{cache:'no-store'});
   if(!res.ok) throw new Error((await res.json().catch(()=>({}))).error||'Could not load boarding attendance.');
   const body=await res.json();
-  return (body.rows||[]) as TeacherBoardingAttendanceRow[];
+  return (body.rows||[]).map((row:any)=>({
+    ...row,
+    studentId: row.studentId ?? row.student_id,
+    fullName: row.fullName ?? row.full_name ?? row.studentName ?? row.student_name ?? '',
+    studentName: row.studentName ?? row.student_name ?? row.fullName ?? row.full_name ?? '',
+    statusCode: row.statusCode ?? row.status_code ?? null,
+    statusLabel: row.statusLabel ?? row.status_label ?? null,
+    attendanceDate: row.attendanceDate ?? row.attendance_date ?? body.date,
+  })) as TeacherBoardingAttendanceRow[];
 }
 
 export async function recordTeacherBoardingAttendance(studentId:string,status:string):Promise<string> {
