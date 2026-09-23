@@ -227,7 +227,7 @@ function RecordRow({ record, onReview }: { record: AttendanceRecord; onReview: (
   );
 }
 
-type Tab = 'overview' | 'pending' | 'today' | 'staff' | 'reports' | 'settings';
+type Tab = 'overview' | 'pending' | 'students' | 'staff' | 'reports' | 'settings';
 
 /* ── SMS Settings panel ── */
 function SmsSettings() {
@@ -550,8 +550,8 @@ export default function AttendanceDashboard() {
   const [searchQ, setSearchQ] = useState('');
   const [flash, setFlash] = useState('');
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const refresh = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     const [sum, today, pending] = await Promise.all([
       loadAttendanceSummary(filterDate),
       loadTodayRecords(filterDate),
@@ -560,16 +560,12 @@ export default function AttendanceDashboard() {
     setSummary(sum);
     setTodayRecords(today);
     setPendingRecords(pending);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   }, [filterDate]);
 
   useEffect(() => {
-    refresh();
-    fetch('/api/attendance/finalize',{method:'POST'}).then(()=>refresh()).catch(()=>{});
-    // Keep the admin dashboard synchronized with the gate scanner without
-    // requiring the admin to press Refresh after every arrival.
-    const timer = window.setInterval(() => { refresh(); }, 5000);
-    return () => window.clearInterval(timer);
+    refresh(true);
+    fetch('/api/attendance/finalize',{method:'POST'}).catch(()=>{});
   }, [refresh]);
 
   const showFlash = (msg: string) => { setFlash(msg); setTimeout(() => setFlash(''), 3500); };
@@ -581,6 +577,7 @@ export default function AttendanceDashboard() {
   };
 
   const filteredToday = todayRecords.filter(r => {
+    if (tab === 'students' && r.personType !== 'student') return false;
     if (filterSection !== 'all' && r.personType !== filterSection) return false;
     if (searchQ) {
       const q = searchQ.toLowerCase();
@@ -594,7 +591,7 @@ export default function AttendanceDashboard() {
   const TABS: { key: Tab; label: string; badge?: number }[] = [
     { key: 'overview',  label: 'Overview' },
     { key: 'pending',   label: 'Pending Review', badge: pendingRecords.length },
-    { key: 'today',     label: 'All Records' },
+    { key: 'students',  label: 'Student Attendance' },
     { key: 'staff',     label: 'Staff & Fines' },
     { key: 'reports',   label: 'Reports' },
     { key: 'settings',  label: 'SMS Settings' },
@@ -786,28 +783,24 @@ export default function AttendanceDashboard() {
           </div>
         )}
 
-        {/* Pending tab */}
+        {/* Pending tab — clearly separated by person type */}
         {!loading && tab === 'pending' && (
-          <div style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 16, overflow: 'hidden' }}>
-            {pendingRecords.length === 0 ? (
-              <div style={{ padding: '40px 24px', textAlign: 'center', color: '#9ca3af', fontSize: 14 }}>
-                No records pending review.
-              </div>
-            ) : (
-              <>
-                <div style={{ padding: '12px 18px', borderBottom: '1px solid #f3f4f6', fontWeight: 800, fontSize: 12, letterSpacing: '.08em', textTransform: 'uppercase', color: '#6b7280' }}>
-                  {pendingRecords.length} pending
+          <div className="space-y-4">
+            {(['student','staff'] as const).map(type => {
+              const rows = pendingRecords.filter(r => r.personType === type);
+              return <div key={type} style={{ background:'#fff', border:'1.5px solid #e5e7eb', borderRadius:16, overflow:'hidden' }}>
+                <div style={{ padding:'12px 18px', borderBottom:'1px solid #f3f4f6', fontWeight:900, fontSize:12, letterSpacing:'.08em', textTransform:'uppercase', color:type==='student'?'#166534':'#92400e' }}>
+                  {type==='student'?'Student attendance — pending review':'Staff attendance — pending review'} <span style={{ marginLeft:6, padding:'2px 7px', borderRadius:99, background:type==='student'?'#dcfce7':'#fef3c7' }}>{rows.length}</span>
                 </div>
-                {pendingRecords.map(r => (
-                  <RecordRow key={r.id} record={r} onReview={setReviewTarget} />
-                ))}
-              </>
-            )}
+                {rows.length===0 ? <div style={{ padding:'24px', textAlign:'center', color:'#9ca3af', fontSize:13 }}>No {type} records pending review.</div> :
+                  rows.map(r=><RecordRow key={r.id} record={r} onReview={setReviewTarget}/>)}
+              </div>;
+            })}
           </div>
         )}
 
         {/* All records tab */}
-        {!loading && tab === 'today' && (
+        {!loading && tab === 'students' && (
           <div className="space-y-3">
             {/* Filters */}
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
