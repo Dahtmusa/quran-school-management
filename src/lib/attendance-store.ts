@@ -81,7 +81,7 @@ export async function loadScanPoints(): Promise<AttendanceScanPoint[]> {
 }
 
 export async function loadTodayRecords(date?: string): Promise<AttendanceRecord[]> {
-  const d = date || new Date().toISOString().slice(0, 10);
+  const d = date || new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
   const { data } = await supabase()
     .from('attendance_records')
     .select('id,person_id,person_type,scanned_at,attendance_date,status_code,period,review_status,note,is_offline_scan,scan_point_id,recorded_by')
@@ -95,7 +95,7 @@ export async function loadTodayRecords(date?: string): Promise<AttendanceRecord[
 
   const [studentsRes, staffRes, statusesRes] = await Promise.all([
     studentIds.length ? supabase().from('students').select('id,full_name,admission_no').in('id', studentIds) : Promise.resolve({ data: [] }),
-    staffIds.length   ? supabase().from('profiles').select('id,full_name').in('id', staffIds)               : Promise.resolve({ data: [] }),
+    staffIds.length   ? supabase().from('profiles').select('id,full_name,staff_id').in('id', staffIds)               : Promise.resolve({ data: [] }),
     supabase().from('attendance_statuses').select('code,label,color'),
   ]);
 
@@ -111,7 +111,7 @@ export async function loadTodayRecords(date?: string): Promise<AttendanceRecord[
       personId: r.person_id,
       personType: r.person_type as 'student' | 'staff',
       personName: person?.full_name || 'Unknown',
-      personAdmissionNo: (person as any)?.admission_no || null,
+      personAdmissionNo: (person as any)?.admission_no || (person as any)?.staff_id || null,
       scannedAt: r.scanned_at,
       attendanceDate: r.attendance_date,
       statusCode: r.status_code,
@@ -161,26 +161,31 @@ export async function loadPendingRecords(): Promise<AttendanceRecord[]> {
   if (!data || data.length === 0) return [];
 
   const studentIds = data.filter(r => r.person_type === 'student').map(r => r.person_id);
+  const staffIds = data.filter(r => r.person_type === 'staff').map(r => r.person_id);
 
-  const [studentsRes, statusesRes] = await Promise.all([
+  const [studentsRes, staffRes, statusesRes] = await Promise.all([
     studentIds.length
       ? supabase().from('students').select('id,full_name,admission_no').in('id', studentIds)
+      : Promise.resolve({ data: [] }),
+    staffIds.length
+      ? supabase().from('profiles').select('id,full_name,staff_id').in('id', staffIds)
       : Promise.resolve({ data: [] }),
     supabase().from('attendance_statuses').select('code,label,color'),
   ]);
 
   const studentMap = Object.fromEntries((studentsRes.data || []).map(s => [s.id, s]));
+  const staffMap = Object.fromEntries((staffRes.data || []).map(s => [s.id, s]));
   const statusMap = Object.fromEntries((statusesRes.data || []).map(s => [s.code, s]));
 
   return data.map(r => {
-    const person = r.person_type === 'student' ? studentMap[r.person_id] : null;
+    const person = r.person_type === 'student' ? studentMap[r.person_id] : staffMap[r.person_id];
     const st = statusMap[r.status_code];
     return {
       id: r.id,
       personId: r.person_id,
       personType: r.person_type as 'student' | 'staff',
       personName: person?.full_name || 'Unknown',
-      personAdmissionNo: person?.admission_no || null,
+      personAdmissionNo: (person as any)?.admission_no || (person as any)?.staff_id || null,
       scannedAt: r.scanned_at,
       attendanceDate: r.attendance_date,
       statusCode: r.status_code,
