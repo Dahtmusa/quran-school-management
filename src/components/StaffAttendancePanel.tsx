@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-type StaffRow={id:string;full_name:string;phone:string|null;role:string|null;employment_status:string|null;staff_number:string|null};
+type StaffRow={id:string;full_name:string;phone:string|null;role:string|null;employment_status:string|null;staff_id:string|null};
 type RecordRow={id:string;person_id:string;scanned_at:string;attendance_date:string;status_code:string;period:string;review_status:string};
 type Fine={id:string;staff_id:string;attendance_record_id:string|null;amount:number;reason:string;status:string;created_at:string;paid_at:string|null;notes:string|null};
 type Warning={id:string;staff_id:string;warning_type:string;reason:string;notes:string|null;issued_at:string;status:string};
