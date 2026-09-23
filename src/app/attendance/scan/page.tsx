@@ -27,8 +27,42 @@ export default function AttendanceScannerPage(){
  const [mainGateId,setMainGateId]=useState<string>('');
  useEffect(()=>{fetch('/api/attendance/scan-points').then(r=>r.json()).then(d=>{const p=(d.scanPoints||[]).find((x:any)=>String(x.name).toLowerCase()==='main gate');if(p)setMainGateId(p.id)}).catch(()=>{})},[]);
 
- useEffect(()=>{setSupported(typeof window!=='undefined' && 'BarcodeDetector' in window);return()=>stopCamera()},[]);
+ useEffect(()=>()=>{audioCtxRef.current?.close().catch(()=>{})},[]); useEffect(()=>{setSupported(typeof window!=='undefined' && 'BarcodeDetector' in window);return()=>stopCamera()},[]);
  const stopCamera=()=>{streamRef.current?.getTracks().forEach(t=>t.stop());streamRef.current=null;scanningRef.current=false;setCameraOn(false)};
+ const audioCtxRef=useRef<AudioContext|null>(null);
+ const unlockAudio=()=>{
+  try{
+   const AudioCtx=(window.AudioContext||((window as any).webkitAudioContext));
+   if(!AudioCtx)return null;
+   if(!audioCtxRef.current)audioCtxRef.current=new AudioCtx();
+   if(audioCtxRef.current.state==='suspended')audioCtxRef.current.resume().catch(()=>{});
+   return audioCtxRef.current;
+  }catch{return null}
+ };
+ const beep=(kind:'success'|'error')=>{
+  const ctx=unlockAudio(); if(!ctx)return;
+  const now=ctx.currentTime;
+  const gain=ctx.createGain();
+  gain.gain.setValueAtTime(0.0001,now);
+  gain.gain.exponentialRampToValueAtTime(kind==='success'?0.95:0.8,now+0.015);
+  gain.gain.exponentialRampToValueAtTime(0.0001,now+(kind==='success'?0.42:0.48));
+  gain.connect(ctx.destination);
+  const tone=(frequency:number,start:number,duration:number)=>{
+   const osc=ctx.createOscillator();
+   osc.type=kind==='success'?'square':'sawtooth';
+   osc.frequency.setValueAtTime(frequency,now+start);
+   const g=ctx.createGain();
+   g.gain.setValueAtTime(0.0001,now+start);
+   g.gain.exponentialRampToValueAtTime(kind==='success'?0.95:0.8,now+start+0.01);
+   g.gain.exponentialRampToValueAtTime(0.0001,now+start+duration);
+   osc.connect(g); g.connect(ctx.destination); osc.start(now+start); osc.stop(now+start+duration+0.02);
+  };
+  if(kind==='success'){
+   tone(880,0,0.16); tone(1320,0.19,0.2);
+  }else{
+   tone(220,0,0.22); tone(165,0.24,0.22);
+  }
+ };
  const scanValue=async(raw:string)=>{
   if(busy||raw===lastRawRef.current)return;
   lastRawRef.current=raw;setBusy(true);setResult(null);setMessage('Finding ID…');
@@ -42,7 +76,7 @@ export default function AttendanceScannerPage(){
    }
    setMessage('Recording attendance…');
    const res=await fetch('/api/attendance/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,period:'morning',scanPointId:mainGateId||undefined})});
-   const d=await res.json();setResult(d);
+   const d=await res.json();setResult(d); if(d.success) beep('success'); else beep('error');
    if(d.success){
     const t=new Date(d.scannedAt).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true});
     setMessage((d.statusCode==='late'?'LATE ARRIVAL':'ATTENDANCE RECORDED')+' · '+t);
@@ -53,6 +87,7 @@ export default function AttendanceScannerPage(){
   finally{setBusy(false);setTimeout(()=>{lastRawRef.current=''},2500)}
  };
  const startCamera=async()=>{
+  unlockAudio();
   if(!('BarcodeDetector' in window)){setMessage('Camera QR scanning is not supported by this browser. Use a USB QR scanner or enter the QR payload manually.');return}
   try{
    const detector=new (window as any).BarcodeDetector({formats:['qr_code']});
@@ -80,7 +115,7 @@ export default function AttendanceScannerPage(){
     </div>
    </section>
    <aside className="space-y-4">
-    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5"><div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">USB scanner fallback</div><h2 className="mt-1 text-lg font-black">Scan QR into this box</h2><p className="mt-2 text-xs leading-5 text-slate-500">Scan the QR/barcode or enter the printed Student/Staff ID number. The system resolves it to the correct school record before recording attendance.</p><input autoFocus value={manual} onChange={e=>setManual(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){scanValue(manual);setManual('')}}} placeholder='Scan QR code…' className="mt-4 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"/><button onClick={()=>{scanValue(manual);setManual('')}} disabled={!manual||busy} className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">Record scan</button></section>
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5"><div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">USB scanner fallback</div><h2 className="mt-1 text-lg font-black">Scan QR into this box</h2><p className="mt-2 text-xs leading-5 text-slate-500">Scan the QR/barcode or enter the printed Student/Staff ID number. The system resolves it to the correct school record before recording attendance.</p><input autoFocus value={manual} onChange={e=>setManual(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){unlockAudio();scanValue(manual);setManual('')}}} placeholder='Scan QR code…' className="mt-4 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600"/><button onClick={()=>{unlockAudio();scanValue(manual);setManual('')}} disabled={!manual||busy} className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">Record scan</button></section>
     {result?.success&&<section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recorded</div><div className="mt-2 text-2xl font-black">{result.statusCode==='late'?'LATE':'PRESENT'}</div><div className="mt-1 text-sm text-emerald-900">{result.scannedAt&&new Date(result.scannedAt).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true})}</div></section>}
     <section className="rounded-2xl bg-[#fffaf0] p-5 ring-1 ring-amber-100"><div className="text-xs font-black uppercase tracking-[.18em] text-amber-700">Attendance flow</div><ol className="mt-3 space-y-3 text-xs leading-5 text-slate-700"><li><b>1.</b> Scan the AMQM ID QR.</li><li><b>2.</b> Server verifies the person is active.</li><li><b>3.</b> Day students and staff are recorded at the main gate.</li><li><b>4.</b> Cutoff time determines Present or Late.</li><li><b>5.</b> After cutoff, missing day students/staff can be automatically marked Absent.</li></ol></section>
    </aside>
