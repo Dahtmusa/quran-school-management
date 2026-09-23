@@ -3,60 +3,52 @@ import { createClient } from '@/lib/supabase/server';
 
 async function adminClient(){
  const supabase=await createClient();
- const {data:{user}}=await supabase.auth.getUser();
- if(!user) return null;
+ const {data:{user}}=await supabase.auth.getUser(); if(!user)return null;
  const {data:p}=await supabase.from('profiles').select('role').eq('id',user.id).single();
- if(!['admin','super_admin','principal'].includes(p?.role||'')) return null;
+ if(!['admin','super_admin','principal'].includes(p?.role||''))return null;
  return supabase;
 }
+const label=(s:string)=>({present:'Present',late:'Late',absent:'Absent',excused:'Excused',sick:'Sick'} as Record<string,string>)[s]||s;
 
 export async function GET(req:NextRequest){
- const supabase=await adminClient(); if(!supabase) return NextResponse.json({error:'Forbidden'},{status:403});
- const url=new URL(req.url);
- const from=url.searchParams.get('from') || new Date(Date.now()-30*86400000).toISOString().slice(0,10);
- const to=url.searchParams.get('to') || new Date().toISOString().slice(0,10);
- const [{data:fines,error:fineError},{data:records,error:recordError},{data:staff,error:staffError},{data:warnings,error:warningError}]=await Promise.all([
-  supabase.from('staff_attendance_fines').select('id,staff_id,attendance_record_id,amount,reason,status,created_at,paid_at,notes').order('created_at',{ascending:false}).limit(500),
-  supabase.from('attendance_records').select('id,person_id,scanned_at,attendance_date,status_code,period,review_status').eq('person_type','staff').gte('attendance_date',from).lte('attendance_date',to).order('scanned_at',{ascending:false}).limit(2000),
-  supabase.from('profiles').select('id,full_name,phone,role,employment_status,staff_id').not('role','is',null).order('full_name'),
-  supabase.from('staff_attendance_warnings').select('id,staff_id,warning_type,reason,notes,issued_at,issued_by,status').order('issued_at',{ascending:false}).limit(500)
+ const supabase=await adminClient(); if(!supabase)return NextResponse.json({error:'Forbidden'},{status:403});
+ const url=new URL(req.url); const date=url.searchParams.get('date')||new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'});
+ const [staffRes,recordsRes,finesRes,statusRes,settingsRes]=await Promise.all([
+  supabase.from('profiles').select('id,full_name,staff_id,role,employment_status').in('role',['teacher','admin','super_admin','principal','finance','security','admissions','librarian','accountant']).eq('employment_status','active').order('full_name'),
+  supabase.from('attendance_records').select('id,person_id,scanned_at,status_code,note,review_status').eq('person_type','staff').eq('attendance_date',date).eq('period','morning'),
+  supabase.from('staff_attendance_fines').select('id,staff_id,attendance_record_id,amount,status,reason').order('created_at',{ascending:false}).limit(1000),
+  supabase.from('attendance_statuses').select('code,label'),
+  supabase.from('attendance_settings').select('key,value').in('key',['staff_late_fine_enabled','staff_late_fine_amount','staff_absent_fine_enabled','staff_absent_fine_amount','staff_fine_payment_account_name','staff_fine_payment_account_number','staff_fine_payment_bank'])
  ]);
- if(fineError||recordError||staffError||warningError) return NextResponse.json({error:fineError?.message||recordError?.message||staffError?.message||warningError?.message},{status:500});
- return NextResponse.json({fines:fines||[],records:records||[],staff:staff||[],warnings:warnings||[],from,to});
+ if(staffRes.error||recordsRes.error||finesRes.error||statusRes.error||settingsRes.error)return NextResponse.json({error:staffRes.error?.message||recordsRes.error?.message||finesRes.error?.message||settingsRes.error?.message},{status:500});
+ const settings:Object=Object.fromEntries((settingsRes.data||[]).map((x:any)=>[x.key,typeof x.value==='string'?x.value:JSON.stringify(x.value)]));
+ const clean=(v:any)=>String(v??'').replace(/^"|"$/g,'');
+ const lateEnabled=clean((settings as any).staff_late_fine_enabled)==='true'; const lateAmount=Number(clean((settings as any).staff_late_fine_amount)||0);
+ const absentEnabled=clean((settings as any).staff_absent_fine_enabled)==='true'; const absentAmount=Number(clean((settings as any).staff_absent_fine_amount)||0);
+ const recs=recordsRes.data||[]; const byPerson=new Map(recs.map((r:any)=>[r.person_id,r]));
+ const fineByRecord=new Map((finesRes.data||[]).filter((f:any)=>f.attendance_record_id).map((f:any)=>[f.attendance_record_id,f]));
+ const rows=(staffRes.data||[]).map((s:any)=>{
+   const r=byPerson.get(s.id); const status=r?.status_code||'absent'; const fine=r?fineByRecord.get(r.id):undefined;
+   const expectedFine=status==='late'&&lateEnabled?lateAmount:status==='absent'&&absentEnabled?absentAmount:0;
+   return {id:r?.id||`absent-${s.id}`,full_name:s.full_name,staff_id:s.staff_id,status_code:status,status_label:label(status),scanned_at:r?.scanned_at||null,note:r?.note||null,fine_amount:Number(fine?.amount||0),fine_status:fine?.status||null,expected_fine:expectedFine,fine_reason:fine?.reason||null};
+ });
+ const pendingFines=(finesRes.data||[]).filter((f:any)=>f.status==='pending');
+ const summary={total:rows.length,present:rows.filter(r=>r.status_code==='present').length,late:rows.filter(r=>r.status_code==='late').length,absent:rows.filter(r=>r.status_code==='absent').length,excused:rows.filter(r=>r.status_code==='excused').length,sick:rows.filter(r=>r.status_code==='sick').length,pendingFines:pendingFines.length,pendingAmount:pendingFines.reduce((a:number,f:any)=>a+Number(f.amount||0),0)};
+ return NextResponse.json({date,rows,summary,paymentAccount:{name:clean((settings as any).staff_fine_payment_account_name)||'AMQM School Account',number:clean((settings as any).staff_fine_payment_account_number),bank:clean((settings as any).staff_fine_payment_bank)}});
 }
 
 export async function POST(req:NextRequest){
- const supabase=await adminClient(); if(!supabase) return NextResponse.json({error:'Forbidden'},{status:403});
+ const supabase=await adminClient(); if(!supabase)return NextResponse.json({error:'Forbidden'},{status:403});
  const body=await req.json();
  if(body.action==='add_fine'){
-  const {staffId,amount,reason,attendanceRecordId,notes}=body;
-  const n=Number(amount);
-  if(!staffId||!Number.isFinite(n)||n<0||!String(reason||'').trim()) return NextResponse.json({error:'Staff, amount and reason are required'},{status:400});
-  const {error}=await supabase.from('staff_attendance_fines').insert({staff_id:staffId,attendance_record_id:attendanceRecordId||null,amount:n,reason:String(reason).trim(),notes:notes||null});
-  if(error) return NextResponse.json({error:error.message},{status:500});
-  return NextResponse.json({success:true});
- }
- if(body.action==='add_warning'){
-  const {staffId,reason,notes,warningType='attendance'}=body;
-  if(!staffId||!String(reason||'').trim()) return NextResponse.json({error:'Staff and warning reason are required'},{status:400});
-  const {data:{user}}=await supabase.auth.getUser();
-  const {error}=await supabase.from('staff_attendance_warnings').insert({staff_id:staffId,reason:String(reason).trim(),notes:notes||null,warning_type:String(warningType),issued_by:user?.id||null});
-  if(error) return NextResponse.json({error:error.message},{status:500});
-  return NextResponse.json({success:true});
- }
- if(body.action==='warning_status'){
-  const {id,status}=body;
-  if(!id||!['active','resolved','withdrawn'].includes(status)) return NextResponse.json({error:'Invalid warning update'},{status:400});
-  const {error}=await supabase.from('staff_attendance_warnings').update({status}).eq('id',id);
-  if(error) return NextResponse.json({error:error.message},{status:500});
-  return NextResponse.json({success:true});
+  const n=Number(body.amount); if(!body.staffId||!Number.isFinite(n)||n<0||!String(body.reason||'').trim())return NextResponse.json({error:'Staff, amount and reason are required'},{status:400});
+  const {error}=await supabase.from('staff_attendance_fines').insert({staff_id:body.staffId,attendance_record_id:body.attendanceRecordId||null,amount:n,reason:String(body.reason).trim(),notes:body.notes||null});
+  if(error)return NextResponse.json({error:error.message},{status:500}); return NextResponse.json({success:true});
  }
  if(body.action==='fine_status'){
-  const {id,status}=body;
-  if(!id||!['pending','paid','waived'].includes(status)) return NextResponse.json({error:'Invalid fine update'},{status:400});
-  const {error}=await supabase.from('staff_attendance_fines').update({status,paid_at:status==='paid'?new Date().toISOString():null}).eq('id',id);
-  if(error) return NextResponse.json({error:error.message},{status:500});
-  return NextResponse.json({success:true});
+  if(!body.id||!['pending','paid','waived'].includes(body.status))return NextResponse.json({error:'Invalid fine update'},{status:400});
+  const {error}=await supabase.from('staff_attendance_fines').update({status:body.status,paid_at:body.status==='paid'?new Date().toISOString():null}).eq('id',body.id);
+  if(error)return NextResponse.json({error:error.message},{status:500}); return NextResponse.json({success:true});
  }
- return NextResponse.json({error:'Unsupported action'},{status:400});
+ return NextResponse.json({error:'Use attendance review for reasons/status changes'},{status:400});
 }
