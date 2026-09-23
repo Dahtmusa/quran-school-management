@@ -543,7 +543,7 @@ export default function AttendanceDashboard() {
   const [pendingRecords, setPendingRecords] = useState<AttendanceRecord[]>([]);
   const [reviewTarget, setReviewTarget] = useState<AttendanceRecord | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+  const [filterDate, setFilterDate] = useState(new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }));
   const [bulkSending, setBulkSending] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ sent: number; skipped: number; failed: number; errors?: string[] } | null>(null);
   const [filterSection, setFilterSection] = useState('all');
