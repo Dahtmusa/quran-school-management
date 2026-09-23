@@ -9,7 +9,7 @@ const checks=[
   ['exact Arabic school name is defined', source.includes(`const ARABIC_SCHOOL_NAME='${exact}';`)],
   ['Arabic school name is rendered on front and back', (source.match(/\$\{ARABIC_SCHOOL_NAME\}/g)||[]).length === 2],
   ['same renderer supports student IDs', source.includes("type:'STUDENT'|'STAFF'")],
-  ['same renderer supports staff IDs', source.includes("input.type==='STUDENT'?'Student':'Staff'")],
+  ['same renderer supports staff IDs', source.includes("input.type==='STUDENT'?'Student':input.type==='MANAGEMENT'?'Management':'Staff'")],
   ['Arabic is explicitly RTL', source.includes('direction:rtl')],
   ['legacy Arabic variants are absent', legacy.every(value => !source.includes(value))],
 ];
