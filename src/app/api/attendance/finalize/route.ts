@@ -37,7 +37,7 @@ export async function POST(_req:NextRequest){
    if(absentFineEnabled && absentFineAmount>0){
      const staffMissing=missing.filter(x=>x.person_type==='staff');
      const {data:inserted}=await admin.from('attendance_records').select('id,person_id').eq('attendance_date',date).eq('period','morning').eq('status_code','absent').in('person_id',staffMissing.map(x=>x.person_id));
-     if(inserted?.length){
+     if(staffMissing.length && inserted?.length){
        await admin.from('staff_attendance_fines').upsert(inserted.map((x:any)=>({staff_id:x.person_id,attendance_record_id:x.id,amount:absentFineAmount,reason:'Unexcused staff absence',status:'pending'})),{onConflict:'attendance_record_id',ignoreDuplicates:true});
      }
    }
