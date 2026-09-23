@@ -225,6 +225,7 @@ export async function POST(req: NextRequest) {
     } catch (policyError: unknown) {
       staffLateWarning = { sent: false, error: policyError instanceof Error ? policyError.message : 'Staff late policy failed' };
     }
+    }
   }
 
   // Audit log
