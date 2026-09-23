@@ -136,13 +136,16 @@ export async function loadAttendanceSummary(date?: string): Promise<AttendanceSu
     .eq('period', 'morning');
 
   const rows = data || [];
+  const present = rows.filter(r => r.status_code === 'present').length;
+  const late = rows.filter(r => r.status_code === 'late').length;
   return {
     date: d,
     period: 'morning',
-    total: rows.length,
-    present: rows.filter(r => r.status_code === 'present').length,
+    // 'total' means actual gate scans. Automatically created Absent rows are not scans.
+    total: present + late,
+    present,
+    late,
     absent: rows.filter(r => r.status_code === 'absent').length,
-    late: rows.filter(r => r.status_code === 'late').length,
     excused: rows.filter(r => r.status_code === 'excused').length,
     sick: rows.filter(r => r.status_code === 'sick').length,
     pending: rows.filter(r => r.review_status === 'pending').length,
