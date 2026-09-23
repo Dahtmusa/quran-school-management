@@ -65,7 +65,7 @@ export default function AttendanceRosterPanel({type,date}:Props){
 
   <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
    <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
-    <div className="text-sm font-black text-slate-900">{selected==='all'?'Everyone':statuses.find(s=>s.key===selected)?.label+' staff/students'} <span className="ml-1 text-slate-400">({filtered.length})</span></div>
+    <div className="text-sm font-black text-slate-900">{selected==='all'?'Everyone':statuses.find(s=>s.key===selected)?.label+' list'} <span className="ml-1 text-slate-400">({filtered.length})</span></div>
     <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or ID…" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm md:w-72"/>
    </div>
    {error?<div className="p-8 text-center font-bold text-rose-600">{error}</div>:
