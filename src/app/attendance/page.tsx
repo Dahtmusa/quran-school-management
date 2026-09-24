@@ -6,7 +6,7 @@
 // scans and teacher marks show up without polling.
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminShell from '@/components/AdminShell';
 import {
   attendanceApi, subscribeToAttendance,
@@ -38,15 +38,44 @@ export default function AttendanceDashboard() {
   const [error, setError] = useState('');
   const [banner, setBanner] = useState('');
 
+  // Only show the full-page loading skeleton on the first fetch. Realtime
+  // refreshes after that update the data in-place without blanking the UI.
+  const isFirstLoad = useRef(true);
   const load = useCallback(async () => {
-    setLoading(true); setError('');
-    try { setSummary(await attendanceApi.summary(date)); }
-    catch (e: any) { setError(e?.message || 'Could not load attendance.'); }
-    finally { setLoading(false); }
+    if (isFirstLoad.current) setLoading(true);
+    setError('');
+    try {
+      const next = await attendanceApi.summary(date);
+      setSummary(next);
+    } catch (e: any) {
+      setError(e?.message || 'Could not load attendance.');
+    } finally {
+      isFirstLoad.current = false;
+      setLoading(false);
+    }
   }, [date]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { isFirstLoad.current = true; load(); }, [load]);
   useEffect(() => subscribeToAttendance(date, () => load()), [date, load]);
+
+  // Optimistic single-row patch: paints the change instantly so the admin
+  // doesn't watch the table blink while the API responds. Realtime will
+  // eventually reconcile counts + totals in the background.
+  const patchRow = useCallback((personId: string, patch: Partial<SummaryPerson>) => {
+    setSummary(prev => {
+      if (!prev) return prev;
+      const apply = (rows: SummaryPerson[]) =>
+        rows.map(r => r.id === personId ? { ...r, ...patch } : r);
+      return {
+        ...prev,
+        people: {
+          day: apply(prev.people.day),
+          boarding: apply(prev.people.boarding),
+          staff: apply(prev.people.staff),
+        },
+      };
+    });
+  }, []);
 
   return <AdminShell title="Attendance">
     <div className="space-y-5">
@@ -68,8 +97,9 @@ export default function AttendanceDashboard() {
           date={date}
           rows={summary.people[tab]}
           search={search} onSearch={setSearch}
-          onChange={(msg) => { setBanner(msg); load(); }}
-          onError={(msg) => setError(msg)}
+          onPatch={patchRow}
+          onBanner={setBanner}
+          onError={setError}
         />
       ) : null}
     </div>
@@ -134,10 +164,11 @@ function PeopleTable(props: {
   date: string;
   rows: SummaryPerson[];
   search: string; onSearch: (v: string) => void;
-  onChange: (msg: string) => void;
+  onPatch: (personId: string, patch: Partial<SummaryPerson>) => void;
+  onBanner: (msg: string) => void;
   onError: (msg: string) => void;
 }) {
-  const { tab, date, rows, search, onSearch, onChange, onError } = props;
+  const { tab, date, rows, search, onSearch, onPatch, onBanner, onError } = props;
   const [busy, setBusy] = useState('');
 
   const filtered = useMemo(() => rows.filter(r => {
@@ -147,14 +178,21 @@ function PeopleTable(props: {
       .some(v => String(v).toLowerCase().includes(q));
   }), [rows, search]);
 
+  // Optimistic status change: patch the row locally BEFORE the API returns
+  // so the pill flips instantly. Revert to the previous status on failure.
   const setStatus = async (row: SummaryPerson, status: AttendanceStatus) => {
     if (busy) return;
+    const prevStatus = row.status;
+    const prevSource = row.source;
     setBusy(row.id + ':' + status);
+    onPatch(row.id, { status, source: 'admin', scanned_at: new Date().toISOString() });
     try {
       await attendanceApi.setStatus(row.id, row.person_type, date, status);
-      onChange(`${row.full_name} marked ${status}.`);
-    } catch (e: any) { onError(e?.message || 'Could not update status.'); }
-    finally { setBusy(''); }
+      onBanner(`${row.full_name} marked ${status}.`);
+    } catch (e: any) {
+      onPatch(row.id, { status: prevStatus, source: prevSource });
+      onError(e?.message || 'Could not update status.');
+    } finally { setBusy(''); }
   };
 
   const sendSms = async (row: SummaryPerson, template: 'arrival' | 'late' | 'absent') => {
@@ -162,7 +200,7 @@ function PeopleTable(props: {
     setBusy(row.id + ':sms:' + template);
     try {
       const r = await attendanceApi.sendSms(row.id, template);
-      onChange(`SMS sent to ${r.to}.`);
+      onBanner(`SMS sent to ${r.to}.`);
     } catch (e: any) { onError(e?.message || 'SMS could not be sent.'); }
     finally { setBusy(''); }
   };

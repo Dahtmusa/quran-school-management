@@ -40,14 +40,51 @@ export default function TeacherAttendancePage() {
   }, [date]);
   useEffect(() => { load(); }, [load]);
 
+  // Optimistic per-row mark: paint the new status immediately, hit the API
+  // in the background, and revert only if the server rejects. No full-page
+  // reload, so the teacher sees no flicker.
   const mark = async (studentId: string, status: AttendanceStatus) => {
+    const before = rows;
     setSaving(studentId); setMessage('');
+    setRows(prev => prev.map(r =>
+      r.student_id === studentId
+        ? { ...r, status_code: status, scanned_at: new Date().toISOString() }
+        : r,
+    ));
     try {
       await attendanceApi.teacherMark(studentId, status, date);
-      await load();
-      setMessage('Attendance saved.');
-    } catch (e: any) { setMessage(e?.message || 'Could not save attendance.'); }
-    finally { setSaving(''); }
+    } catch (e: any) {
+      setRows(before);
+      setMessage(e?.message || 'Could not save attendance.');
+    } finally { setSaving(''); }
+  };
+
+  // Bulk: mark every unmarked boarding student as Present. Runs the API
+  // calls in parallel, optimistic first so the roster looks right at once.
+  const markAllPresent = async () => {
+    const unmarked = rows.filter(r => !r.status_code);
+    if (unmarked.length === 0) { setMessage('Everyone is already marked.'); return; }
+    if (!confirm(`Mark all ${unmarked.length} unmarked boarding students as Present?`)) return;
+    const before = rows;
+    setSaving('bulk'); setMessage('');
+    setRows(prev => prev.map(r =>
+      r.status_code ? r : { ...r, status_code: 'present', scanned_at: new Date().toISOString() },
+    ));
+    try {
+      const results = await Promise.allSettled(
+        unmarked.map(r => attendanceApi.teacherMark(r.student_id, 'present', date)),
+      );
+      const failed = results.filter(x => x.status === 'rejected').length;
+      if (failed) {
+        setMessage(`${unmarked.length - failed} saved · ${failed} failed. Refreshing…`);
+        await load();
+      } else {
+        setMessage(`Marked ${unmarked.length} boarding students as present.`);
+      }
+    } catch (e: any) {
+      setRows(before);
+      setMessage(e?.message || 'Bulk mark failed.');
+    } finally { setSaving(''); }
   };
 
   const filtered = useMemo(() => rows.filter(r => {
@@ -78,10 +115,23 @@ export default function TeacherAttendancePage() {
           <div>
             <div className="text-xs font-black uppercase tracking-wide text-slate-500">Attendance date</div>
             <div className="mt-1 text-lg font-black">{date}</div>
+            <div className="mt-1 text-xs text-slate-500">
+              {counts.unmarked > 0
+                ? `${counts.unmarked} still unmarked · ${rows.length} total`
+                : `All ${rows.length} students marked`}
+            </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <input type="date" value={date} max={todayLagos} onChange={e => setDate(e.target.value)} className="h-11 rounded-xl border border-slate-200 px-3" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student or class…" className="h-11 rounded-xl border border-slate-200 px-3" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" className="h-11 rounded-xl border border-slate-200 px-3" />
+            <button
+              onClick={markAllPresent}
+              disabled={saving === 'bulk' || counts.unmarked === 0}
+              className="h-11 rounded-xl bg-emerald-700 px-4 text-sm font-black text-white shadow disabled:bg-slate-200 disabled:text-slate-400"
+              title={counts.unmarked === 0 ? 'Everyone is already marked' : `Mark ${counts.unmarked} unmarked as Present`}
+            >
+              {saving === 'bulk' ? 'Marking…' : `✓ Mark all Present${counts.unmarked ? ` (${counts.unmarked})` : ''}`}
+            </button>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">

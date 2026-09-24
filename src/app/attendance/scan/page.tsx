@@ -240,30 +240,25 @@ export default function GateScannerPage() {
         </div>
       </section>
       <aside className="space-y-4">
-        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
-          <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">USB scanner / manual</div>
-          <h2 className="mt-1 text-lg font-black">Scan or type the ID</h2>
-          <p className="mt-2 text-xs leading-5 text-slate-500">USB barcode scanners behave like keyboards. They type the printed Admission No or Staff ID here and press Enter.</p>
-          <input autoFocus value={manual} onChange={e => setManual(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { record(manual); setManual(''); } }}
-            placeholder="e.g. AMQM/STF/2026/005"
-            className="mt-4 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600" />
-          <button onClick={() => { record(manual); setManual(''); }} disabled={!manual.trim()}
-            className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">
-            Record attendance
-          </button>
-        </section>
-        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+        <section className="rounded-2xl bg-white p-5 shadow-sm ring-2 ring-emerald-100">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recent scans today</div>
-            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">● Live</span>
+            <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recent scans · today</div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              Live
+            </span>
           </div>
           {recent.length === 0 ? (
-            <div className="mt-3 text-xs text-slate-400">No scans yet today.</div>
+            <div className="mt-3 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-400">
+              No scans yet today.<br />The last 10 will appear here as they happen.
+            </div>
           ) : (
             <ul className="mt-3 space-y-2">
-              {recent.map(r => (
-                <li key={r.id} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+              {recent.map((r, i) => (
+                <li key={r.id} className={
+                  'flex items-start justify-between gap-2 rounded-xl px-3 py-2 transition ' +
+                  (i === 0 ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-slate-50')
+                }>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-black">{r.full_name}</div>
                     <div className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-500">
@@ -278,6 +273,19 @@ export default function GateScannerPage() {
               ))}
             </ul>
           )}
+        </section>
+        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">USB scanner / manual</div>
+          <h2 className="mt-1 text-lg font-black">Scan or type the ID</h2>
+          <p className="mt-2 text-xs leading-5 text-slate-500">USB barcode scanners behave like keyboards. They type the printed Admission No or Staff ID here and press Enter.</p>
+          <input autoFocus value={manual} onChange={e => setManual(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { record(manual); setManual(''); } }}
+            placeholder="e.g. AMQM/STF/2026/005"
+            className="mt-4 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600" />
+          <button onClick={() => { record(manual); setManual(''); }} disabled={!manual.trim()}
+            className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">
+            Record attendance
+          </button>
         </section>
         <section className="rounded-2xl bg-[#fffaf0] p-5 ring-1 ring-amber-100">
           <div className="text-xs font-black uppercase tracking-[.18em] text-amber-700">Gate rules</div>
