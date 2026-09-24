@@ -65,44 +65,72 @@ function nextAcademicYearName(value: string) {
 export default function CalendarAdmin() {
   const [plan,setPlan]=useState<YearPlan>(blankPlan());
   const [current,setCurrent]=useState<any>(null);
+  const [savedYears,setSavedYears]=useState<any[]>([]);
   const [savedTerms,setSavedTerms]=useState<any[]>([]);
   const [events,setEvents]=useState<any[]>([]);
+  const [selectedYearId,setSelectedYearId]=useState<string>('');
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
 
-  const refresh=async()=>{
+  // Turn the raw rows for a specific year into the editor's YearPlan shape.
+  const buildPlanForYear=(year:any, allTerms:any[], allEvents:any[]):YearPlan=>{
+    const yearTerms=(allTerms||[]).filter((t:any)=>t.academic_year_id===year?.id);
+    const yearEvents=(allEvents||[]).filter((e:any)=>e.academic_year_id===year?.id);
+    return {
+      yearName:year?.name || '',
+      yearStart:year?.starts_on || '',
+      yearEnd:year?.ends_on || '',
+      terms:[1,2,3].map(number=>{
+        const t=yearTerms.find((x:any)=>Number(x.term_number)===number);
+        return {
+          number:number as 1|2|3,
+          name:TERM_NAMES[number-1],
+          start:t?.starts_on || '',
+          end:t?.ends_on || '',
+          evals:[1,2,3].map(n=>{
+            const e=yearEvents.find((x:any)=>x.term_id===t?.id && Number(x.evaluation_number)===n);
+            return {open:toLocalInput(e?.starts_at),close:toLocalInput(e?.ends_at)};
+          }),
+        };
+      }),
+    };
+  };
+
+  const refresh=async(preferredYearId?:string)=>{
     setError('');
     const [cfg,cur]=await Promise.all([loadSchoolCalendarConfig(),loadCurrentAcademicTerm()]);
     setCurrent(cur);
+    setSavedYears(cfg.years);
     setSavedTerms(cfg.terms);
     setEvents(cfg.events);
-    const year=cfg.years.find((y:any)=>y.is_current) || cfg.years[0];
-    const yearTerms=(cfg.terms||[]).filter((t:any)=>t.academic_year_id===year?.id);
-    const yearEvents=(cfg.events||[]).filter((e:any)=>e.academic_year_id===year?.id);
-    if(year){
-      setPlan({
-        yearName:year.name || '',
-        yearStart:year.starts_on || '',
-        yearEnd:year.ends_on || '',
-        terms:[1,2,3].map(number=>{
-          const t=yearTerms.find((x:any)=>Number(x.term_number)===number);
-          return {
-            number:number as 1|2|3,
-            name:TERM_NAMES[number-1],
-            start:t?.starts_on || '',
-            end:t?.ends_on || '',
-            evals:[1,2,3].map(n=>{
-              const e=yearEvents.find((x:any)=>x.term_id===t?.id && Number(x.evaluation_number)===n);
-              return {open:toLocalInput(e?.starts_at),close:toLocalInput(e?.ends_at)};
-            }),
-          };
-        }),
-      });
+    // Prefer whatever year the admin last picked, else the current session,
+    // else the newest one. Falls back to a blank plan when nothing is saved
+    // so the form is still editable on a fresh install.
+    const pick =
+      (preferredYearId && cfg.years.find((y:any)=>y.id===preferredYearId)) ||
+      cfg.years.find((y:any)=>y.is_current) ||
+      cfg.years[0];
+    if(pick){
+      setSelectedYearId(pick.id);
+      setPlan(buildPlanForYear(pick, cfg.terms, cfg.events));
+    } else {
+      setSelectedYearId('');
+      setPlan(blankPlan());
     }
   };
 
   useEffect(()=>{refresh().catch(e=>setError(e?.message||'Unable to load the school calendar.'));},[]);
+
+  // Switch the editor to a different saved year without a full round-trip.
+  const loadYearIntoEditor=(yearId:string)=>{
+    const y = savedYears.find((x:any)=>x.id===yearId);
+    if(!y) return;
+    setSelectedYearId(yearId);
+    setPlan(buildPlanForYear(y, savedTerms, events));
+    setMessage(`Loaded ${y.name} into the editor.`);
+    setError('');
+  };
 
   const nextTerm=useMemo(()=>{
     const future=plan.terms.filter(t=>t.start && t.start>new Date().toISOString().slice(0,10));
@@ -179,7 +207,7 @@ export default function CalendarAdmin() {
       // eslint-disable-next-line no-console
       console.log('[calendar] save RPC returned', result);
       try {
-        await refresh();
+        await refresh(result?.academic_year_id || selectedYearId);
       } catch (refreshErr: any) {
         // Save actually persisted; only the reload after failed. Tell the
         // user the save worked so they don't retry (which would just fail
@@ -258,12 +286,37 @@ export default function CalendarAdmin() {
           ))}
         </section>
 
+        {savedYears.length > 1 && (
+          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">Editing</div>
+                <div className="text-base font-black text-slate-900">Pick a school year to view or edit</div>
+                <div className="text-xs text-slate-500">All {savedYears.length} configured session{savedYears.length === 1 ? '' : 's'} are listed below the editor.</div>
+              </div>
+              <select
+                className="input h-11 min-w-[220px]"
+                value={selectedYearId}
+                onChange={e => loadYearIntoEditor(e.target.value)}
+              >
+                {savedYears.map((y:any) => (
+                  <option key={y.id} value={y.id}>
+                    {y.name}{y.is_current ? ' · current' : ''} ({displayDate(y.starts_on)} → {displayDate(y.ends_on)})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </section>
+        )}
+
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 border-b bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">One place for dates</div>
               <h2 className="mt-1 text-xl font-black text-slate-900">School year calendar</h2>
-              <p className="mt-1 text-sm text-slate-500">No programme builder here. The system already knows the Hifz journey.</p>
+              <p className="mt-1 text-sm text-slate-500">
+                Editing <b>{plan.yearName || 'a new session'}</b>. Change any field and press Save.
+              </p>
             </div>
             <button type="button" className="btn btn-primary px-5 py-3" disabled={busy} onClick={save}>{busy?'Saving…':'Save dates'}</button>
           </div>
@@ -317,6 +370,14 @@ export default function CalendarAdmin() {
           ))}
         </div>
 
+        <ConfiguredSessions
+          years={savedYears}
+          terms={savedTerms}
+          events={events}
+          selectedYearId={selectedYearId}
+          onEdit={loadYearIntoEditor}
+        />
+
         <section className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
           <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">Next school year</div>
           <h2 className="mt-1 text-xl font-black text-emerald-950">Create the next year without moving existing students.</h2>
@@ -348,5 +409,106 @@ export default function CalendarAdmin() {
         </div>
       </div>
     </AdminShell>
+  );
+}
+
+// Read-only summary of every school session already saved in the database.
+// Each session card lists its three terms and the three evaluation windows
+// under each term, so the admin can see at a glance what dates are already
+// configured for the current year, the next year, and any past years —
+// without touching the editor above and risking accidental changes.
+function ConfiguredSessions({
+  years, terms, events, selectedYearId, onEdit,
+}: {
+  years: any[]; terms: any[]; events: any[];
+  selectedYearId: string;
+  onEdit: (yearId: string) => void;
+}) {
+  if (!years || years.length === 0) return null;
+
+  const displayDay = (v?: string | null) =>
+    v ? new Date(v + (v.length === 10 ? 'T00:00:00' : '')).toLocaleDateString('en-NG', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+  const displayDayTime = (v?: string | null) =>
+    v ? new Date(v).toLocaleString('en-NG', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true }) : '—';
+
+  const sorted = [...years].sort((a: any, b: any) =>
+    String(b.starts_on || '').localeCompare(String(a.starts_on || '')),
+  );
+
+  return (
+    <section className="rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="border-b bg-slate-50 p-5">
+        <div className="text-[10px] font-black uppercase tracking-[.16em] text-emerald-700">Already configured</div>
+        <h2 className="mt-1 text-xl font-black text-slate-900">All school sessions on record</h2>
+        <p className="mt-1 text-sm text-slate-500">{years.length} session{years.length === 1 ? '' : 's'} · click any session to load its dates into the editor above.</p>
+      </div>
+
+      <div className="grid gap-4 p-5 lg:grid-cols-2">
+        {sorted.map((y: any) => {
+          const yTerms = terms.filter((t: any) => t.academic_year_id === y.id).sort((a: any, b: any) => (a.term_number || 0) - (b.term_number || 0));
+          const yEvals = events.filter((e: any) => e.academic_year_id === y.id && String(e.event_type || '').startsWith('evaluation_'));
+          const isSelected = y.id === selectedYearId;
+
+          return (
+            <article key={y.id} className={'rounded-2xl border p-4 ' + (isSelected ? 'border-emerald-500 bg-emerald-50/60' : 'border-slate-200 bg-white')}>
+              <header className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="text-base font-black">{y.name}</div>
+                    {y.is_current && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-800">Current</span>}
+                    {y.lifecycle_status && !y.is_current && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black uppercase text-slate-600">{y.lifecycle_status}</span>
+                    )}
+                  </div>
+                  <div className="mt-0.5 text-xs text-slate-500">{displayDay(y.starts_on)} → {displayDay(y.ends_on)}</div>
+                </div>
+                <button type="button" onClick={() => onEdit(y.id)} disabled={isSelected}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-slate-700 hover:border-emerald-400 hover:text-emerald-800 disabled:opacity-40">
+                  {isSelected ? 'In editor' : 'Load in editor'}
+                </button>
+              </header>
+
+              {yTerms.length === 0 ? (
+                <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">No terms saved for this session yet.</div>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {yTerms.map((t: any) => {
+                    const tEvals = yEvals
+                      .filter((e: any) => e.term_id === t.id)
+                      .sort((a: any, b: any) => (a.evaluation_number || 0) - (b.evaluation_number || 0));
+                    return (
+                      <li key={t.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-black text-slate-800">T{t.term_number} · {t.name}</div>
+                          <div className="text-[11px] font-bold text-slate-500">{displayDay(t.starts_on)} → {displayDay(t.ends_on)}</div>
+                        </div>
+                        <div className="mt-2 grid gap-1 sm:grid-cols-3">
+                          {[1,2,3].map(n => {
+                            const ev = tEvals.find((e: any) => e.evaluation_number === n);
+                            return (
+                              <div key={n} className={'rounded-lg border px-2 py-1.5 text-[10px] ' + (ev ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white text-slate-400')}>
+                                <div className="font-black uppercase tracking-wide">Eval {n}</div>
+                                {ev ? (
+                                  <>
+                                    <div className="mt-0.5 text-slate-600">Opens: {displayDayTime(ev.starts_at)}</div>
+                                    <div className="text-slate-600">Closes: {displayDayTime(ev.ends_at)}</div>
+                                  </>
+                                ) : (
+                                  <div className="mt-0.5">Not set</div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
   );
 }
