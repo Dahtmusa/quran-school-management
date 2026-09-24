@@ -92,7 +92,13 @@ export type TeacherBoardingRow = {
 
 async function json<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.error || 'Request failed');
+  if (!res.ok) {
+    // Prefer the specific detail the server included (e.g. the SMS gateway's
+    // own rejection message) over the generic "Request failed" fallback so
+    // the UI can show something actionable.
+    const detail = body?.detail ? ` — ${typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail)}` : '';
+    throw new Error((body?.error || 'Request failed') + detail);
+  }
   return body as T;
 }
 

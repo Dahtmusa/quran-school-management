@@ -217,63 +217,105 @@ function PeopleTable(props: {
         className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
     </div>
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[900px] text-left text-sm">
+      <table className="w-full min-w-[720px] text-left text-sm">
         <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
           <tr>
             <th className="px-5 py-3">Person</th>
-            <th>ID</th>
             <th>{tab === 'staff' ? 'Role' : 'Class'}</th>
             <th>Status</th>
             <th>Time</th>
-            <th className="px-5 py-3 text-right">Actions</th>
+            {tab === 'day' && <th className="px-5 py-3 text-right">SMS</th>}
           </tr>
         </thead>
         <tbody>
           {filtered.length === 0 ? (
-            <tr><td colSpan={6} className="p-10 text-center text-slate-400">No matching people.</td></tr>
+            <tr><td colSpan={tab === 'day' ? 5 : 4} className="p-10 text-center text-slate-400">No matching people.</td></tr>
           ) : filtered.map(r => (
-            <tr key={r.id} className="border-t align-top">
-              <td className="px-5 py-4">
-                <div className="font-black">{r.full_name}</div>
-                {tab === 'day' && r.parent_phone && <div className="text-xs text-slate-400">Parent: {r.parent_phone}</div>}
-              </td>
-              <td className="font-semibold text-slate-600">{r.identifier || '—'}</td>
-              <td className="text-slate-500">{r.class_name || r.job_title || '—'}</td>
-              <td>
-                <span className={'inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase ' + (STATUS_STYLES[r.status || ''] || 'bg-slate-100 text-slate-500')}>
-                  {r.status || 'Not marked'}
-                </span>
-                {r.source === 'gate_scan' && <div className="mt-1 text-[10px] text-slate-400">Gate scan</div>}
-                {r.source === 'teacher'   && <div className="mt-1 text-[10px] text-slate-400">Teacher</div>}
-                {r.source === 'admin'     && <div className="mt-1 text-[10px] text-slate-400">Admin override</div>}
-              </td>
-              <td className="text-xs text-slate-500">{fmtTime(r.scanned_at)}</td>
+            <tr key={r.id} className="border-t align-middle hover:bg-slate-50/60">
               <td className="px-5 py-3">
-                <div className="flex flex-wrap justify-end gap-2">
-                  {(['present','late','absent','excused'] as AttendanceStatus[]).map(s => (
-                    <button key={s} disabled={!!busy} onClick={() => setStatus(r, s)}
-                      className="rounded-lg bg-[#062d2a] px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">
-                      {s}
-                    </button>
-                  ))}
-                  {tab === 'day' && r.parent_phone && (
-                    <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
-                      <button disabled={!!busy} onClick={() => sendSms(r, 'arrival')} title="SMS parent: arrived"
-                        className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Arrival</button>
-                      <button disabled={!!busy} onClick={() => sendSms(r, 'late')} title="SMS parent: late"
-                        className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Late</button>
-                      <button disabled={!!busy} onClick={() => sendSms(r, 'absent')} title="SMS parent: absent"
-                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Absent</button>
-                    </div>
-                  )}
+                <div className="font-black">{r.full_name}</div>
+                <div className="text-[11px] text-slate-400">
+                  {r.identifier || '—'}
+                  {tab === 'day' && r.parent_phone && <> · Parent {r.parent_phone}</>}
                 </div>
               </td>
+              <td className="text-slate-500">{r.class_name || r.job_title || '—'}</td>
+              <td>
+                <StatusPicker row={r} busy={busy} onPick={setStatus} />
+              </td>
+              <td className="text-xs text-slate-500">
+                {fmtTime(r.scanned_at)}
+                {r.source && r.source !== 'awaiting_gate' && r.source !== 'awaiting_teacher' && (
+                  <div className="text-[10px] text-slate-400">
+                    {r.source === 'gate_scan' ? 'Gate' : r.source === 'teacher' ? 'Teacher' : 'Admin'}
+                  </div>
+                )}
+              </td>
+              {tab === 'day' && (
+                <td className="px-5 py-3 text-right">
+                  <SmsMenu row={r} busy={busy} onSend={sendSms} />
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   </section>;
+}
+
+// Native <select> styled as a pill. One dropdown replaces the four status
+// buttons; the current status is what's shown, changing it fires the API.
+function StatusPicker({ row, busy, onPick }: {
+  row: SummaryPerson; busy: string; onPick: (row: SummaryPerson, s: AttendanceStatus) => void;
+}) {
+  const current = row.status || '';
+  const cls = STATUS_STYLES[current] || 'bg-slate-100 text-slate-500';
+  return (
+    <div className={'relative inline-flex items-center rounded-full pl-3 pr-7 py-1 text-[11px] font-black uppercase ' + cls}>
+      <span>{current || 'Not marked'}</span>
+      <select
+        aria-label="Change status"
+        disabled={!!busy}
+        value={current}
+        onChange={e => onPick(row, e.target.value as AttendanceStatus)}
+        className="absolute inset-0 cursor-pointer opacity-0"
+      >
+        <option value="" disabled>Change to…</option>
+        <option value="present">Present</option>
+        <option value="late">Late</option>
+        <option value="absent">Absent</option>
+        <option value="excused">Excused</option>
+      </select>
+      <svg className="pointer-events-none absolute right-2 h-3 w-3 opacity-70" viewBox="0 0 20 20" fill="currentColor"><path d="M5.23 7.21a.75.75 0 011.06.02L10 11.06l3.71-3.83a.75.75 0 111.08 1.04l-4.24 4.38a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z"/></svg>
+    </div>
+  );
+}
+
+// Single "Notify parent" button; a native <details> reveals the three
+// template choices only when the admin actually needs them.
+function SmsMenu({ row, busy, onSend }: {
+  row: SummaryPerson; busy: string;
+  onSend: (row: SummaryPerson, template: 'arrival' | 'late' | 'absent') => void;
+}) {
+  if (!row.parent_phone) {
+    return <span className="text-[10px] font-bold uppercase text-slate-300">no phone</span>;
+  }
+  return (
+    <details className="group relative inline-block text-left">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-black uppercase text-white shadow-sm hover:bg-emerald-700">
+        📱 Notify
+      </summary>
+      <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-xl bg-white shadow-lg ring-1 ring-black/10">
+        <button disabled={!!busy} onClick={e => { e.preventDefault(); onSend(row, 'arrival'); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-3 py-2 text-left text-xs font-bold text-emerald-800 hover:bg-emerald-50 disabled:opacity-40">Arrival</button>
+        <button disabled={!!busy} onClick={e => { e.preventDefault(); onSend(row, 'late'); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-3 py-2 text-left text-xs font-bold text-amber-800 hover:bg-amber-50 disabled:opacity-40">Late</button>
+        <button disabled={!!busy} onClick={e => { e.preventDefault(); onSend(row, 'absent'); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-3 py-2 text-left text-xs font-bold text-rose-800 hover:bg-rose-50 disabled:opacity-40">Absent</button>
+      </div>
+    </details>
+  );
 }
 
 function FinesPanel() {
