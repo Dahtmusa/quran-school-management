@@ -27,7 +27,7 @@ export const teacherLinks: NavLink[] = [
 export const parentLinks: NavLink[] = [['/parent', 'My Children', '⌂'], ['/reports', 'Reports', '▤']];
 export const financeLinks: NavLink[] = [['/fees', 'Finance & Fees', '₦'], ['/fees/bulk-documents', 'Invoices & Receipts', '▤']];
 export const admissionsLinks: NavLink[] = [['/admissions/manage', 'Admissions', '▣'], ['/students', 'Students', '◉']];
-export const securityLinks: NavLink[] = [['/security', 'Scanner', '✓']];
+export const securityLinks: NavLink[] = [['/attendance/scan', 'Scanner', '✓']];
 
 export function roleLinks(role: string): NavLink[] {
   switch (role) {

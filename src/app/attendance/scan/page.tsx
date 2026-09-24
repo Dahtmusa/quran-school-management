@@ -5,10 +5,21 @@
 // (they behave as keyboards).
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { attendanceApi } from '@/lib/attendance/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { attendanceApi, subscribeToAttendance, type RecentScanRow } from '@/lib/attendance/api';
 
 type ScanResult = Awaited<ReturnType<typeof attendanceApi.gateScan>> & { time?: string };
+
+const STATUS_PILL: Record<string, string> = {
+  present: 'bg-emerald-100 text-emerald-800',
+  late:    'bg-amber-100 text-amber-800',
+  absent:  'bg-rose-100 text-rose-800',
+  excused: 'bg-sky-100 text-sky-800',
+  sick:    'bg-violet-100 text-violet-800',
+};
+const fmtClock = (iso: string) => new Intl.DateTimeFormat('en-NG', {
+  timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true,
+}).format(new Date(iso));
 
 export default function GateScannerPage() {
   const videoRef  = useRef<HTMLVideoElement | null>(null);
@@ -20,6 +31,14 @@ export default function GateScannerPage() {
   const [manual, setManual] = useState('');
   const [message, setMessage] = useState('Ready — scan an AMQM Student or Staff ID.');
   const [result,  setResult]  = useState<ScanResult | null>(null);
+  const [recent,  setRecent]  = useState<RecentScanRow[]>([]);
+
+  const todayLagos = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const loadRecent = useCallback(async () => {
+    try { setRecent((await attendanceApi.recentScans(10)).rows); } catch {}
+  }, []);
+  useEffect(() => { loadRecent(); }, [loadRecent]);
+  useEffect(() => subscribeToAttendance(todayLagos, loadRecent), [todayLagos, loadRecent]);
 
   const stopCamera = () => {
     scanningRef.current = false;
@@ -145,6 +164,32 @@ export default function GateScannerPage() {
             className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">
             Record attendance
           </button>
+        </section>
+        <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
+          <div className="flex items-center justify-between">
+            <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recent scans today</div>
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">● Live</span>
+          </div>
+          {recent.length === 0 ? (
+            <div className="mt-3 text-xs text-slate-400">No scans yet today.</div>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {recent.map(r => (
+                <li key={r.id} className="flex items-start justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-black">{r.full_name}</div>
+                    <div className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                      {r.identifier || '—'} · {r.person_type === 'staff' ? (r.role_or_class || 'Staff') : (r.section === 'boarding' ? 'Boarding' : 'Day')}
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={'rounded-full px-2 py-0.5 text-[9px] font-black uppercase ' + (STATUS_PILL[r.status_code] || 'bg-slate-100 text-slate-600')}>{r.status_code}</span>
+                    <span className="text-[10px] font-bold text-slate-500">{fmtClock(r.scanned_at)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
         <section className="rounded-2xl bg-[#fffaf0] p-5 ring-1 ring-amber-100">
           <div className="text-xs font-black uppercase tracking-[.18em] text-amber-700">Gate rules</div>

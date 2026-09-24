@@ -69,6 +69,18 @@ export type AttendanceSettings = {
   sms_absent_template: string;
 };
 
+export type RecentScanRow = {
+  id: string;
+  person_id: string;
+  person_type: PersonType;
+  full_name: string;
+  identifier: string | null;
+  section: 'day' | 'boarding' | 'staff' | string;
+  role_or_class: string | null;
+  status_code: AttendanceStatus;
+  scanned_at: string;
+};
+
 export type TeacherBoardingRow = {
   student_id: string;
   full_name: string;
@@ -121,6 +133,9 @@ export const attendanceApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId, status, date }),
     }).then(json<{ id: string }>),
+  recentScans: (limit = 10) =>
+    fetch('/api/attendance/recent-scans?limit=' + limit, { cache: 'no-store' })
+      .then(json<{ date: string; rows: RecentScanRow[] }>),
   gateScan: (value: string) =>
     fetch('/api/attendance/scan', {
       method: 'POST',
