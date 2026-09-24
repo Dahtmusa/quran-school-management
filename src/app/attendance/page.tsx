@@ -91,6 +91,15 @@ export default function AttendanceDashboard() {
         <FinesPanel />
       ) : loading && !summary ? (
         <div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">Loading attendance…</div>
+      ) : summary && tab === 'boarding' ? (
+        <BoardingByClass
+          date={date}
+          rows={summary.people.boarding}
+          search={search} onSearch={setSearch}
+          onPatch={patchRow}
+          onBanner={setBanner}
+          onError={setError}
+        />
       ) : summary ? (
         <PeopleTable
           tab={tab}
@@ -267,6 +276,126 @@ function PeopleTable(props: {
         </tbody>
       </table>
     </div>
+  </section>;
+}
+
+// Boarding view: two levels. First a grid of class cards (name, headcount,
+// present/late/absent counts). Clicking a card drills into just that class
+// as a normal per-row table. Admin can go back to the class grid at any time.
+function BoardingByClass(props: {
+  date: string;
+  rows: SummaryPerson[];
+  search: string; onSearch: (v: string) => void;
+  onPatch: (personId: string, patch: Partial<SummaryPerson>) => void;
+  onBanner: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const { date, rows, search, onSearch, onPatch, onBanner, onError } = props;
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, SummaryPerson[]>();
+    for (const r of rows) {
+      const key = r.class_name || 'Unassigned';
+      const list = map.get(key) || [];
+      list.push(r);
+      map.set(key, list);
+    }
+    return Array.from(map.entries())
+      .map(([name, list]) => {
+        const c = {
+          name, total: list.length,
+          present: list.filter(r => r.status === 'present').length,
+          late:    list.filter(r => r.status === 'late').length,
+          absent:  list.filter(r => r.status === 'absent').length,
+          excused: list.filter(r => r.status === 'excused').length,
+          notMarked: list.filter(r => !r.status).length,
+        };
+        return c;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [rows]);
+
+  if (selected) {
+    const classRows = rows.filter(r => (r.class_name || 'Unassigned') === selected);
+    return <>
+      <div className="mb-3 flex items-center justify-between">
+        <button onClick={() => setSelected(null)}
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-black uppercase tracking-wide text-slate-600 hover:bg-slate-50">
+          ← All boarding classes
+        </button>
+        <div className="text-xs font-bold text-slate-500">
+          Boarding · <span className="font-black text-slate-900">{selected}</span> · {classRows.length} student{classRows.length === 1 ? '' : 's'}
+        </div>
+      </div>
+      <PeopleTable
+        tab="boarding"
+        date={date}
+        rows={classRows}
+        search={search} onSearch={onSearch}
+        onPatch={onPatch} onBanner={onBanner} onError={onError}
+      />
+    </>;
+  }
+
+  const filteredGroups = search.trim()
+    ? groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase().trim()))
+    : groups;
+
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-end md:justify-between">
+      <div>
+        <div className="text-xs font-black uppercase tracking-wide text-slate-500">Boarding by class</div>
+        <div className="mt-1 text-lg font-black">{groups.length} class{groups.length === 1 ? '' : 'es'} · {rows.length} boarding students</div>
+        <div className="text-xs text-slate-500">Click a class to see and mark that class's attendance.</div>
+      </div>
+      <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search class…"
+        className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+    </div>
+
+    {filteredGroups.length === 0 ? (
+      <div className="p-10 text-center text-sm text-slate-400">No matching classes.</div>
+    ) : (
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {filteredGroups.map(g => {
+          const done = g.total - g.notMarked;
+          const pct = g.total > 0 ? Math.round((done / g.total) * 100) : 0;
+          return (
+            <button key={g.name} onClick={() => setSelected(g.name)}
+              className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-emerald-300 hover:shadow-md">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Class</div>
+                  <div className="truncate text-base font-black">{g.name}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-black leading-none">{g.total}</div>
+                  <div className="text-[10px] font-bold uppercase text-slate-400">students</div>
+                </div>
+              </div>
+
+              <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div className="h-full bg-emerald-500 transition-all" style={{ width: pct + '%' }} />
+              </div>
+              <div className="mt-1 flex items-center justify-between text-[10px] font-bold text-slate-500">
+                <span>{done}/{g.total} marked</span>
+                <span className="text-emerald-700">{pct}%</span>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-black uppercase">
+                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700">{g.present} present</span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">{g.late} late</span>
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 text-rose-700">{g.absent} absent</span>
+                {g.excused > 0 && <span className="rounded-full bg-sky-50 px-2 py-0.5 text-sky-700">{g.excused} excused</span>}
+                {g.notMarked > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{g.notMarked} not marked</span>}
+              </div>
+
+              <div className="mt-3 text-right text-[11px] font-black uppercase text-emerald-700 group-hover:underline">Open →</div>
+            </button>
+          );
+        })}
+      </div>
+    )}
   </section>;
 }
 
