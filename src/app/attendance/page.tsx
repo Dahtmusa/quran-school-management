@@ -11,7 +11,7 @@ import AdminShell from '@/components/AdminShell';
 import {
   attendanceApi, subscribeToAttendance,
   type AttendanceSummary, type AttendanceStatus, type SummaryPerson,
-  type StaffFineRow, type AttendanceSettings,
+  type StaffFineRow, type AttendanceSettings, type FinesPayload,
 } from '@/lib/attendance/api';
 
 type Tab = 'day' | 'boarding' | 'staff' | 'fines' | 'settings';
@@ -425,12 +425,12 @@ function FinesPanel() {
     <div className="mt-4 overflow-x-auto">
       {loading ? <div className="p-8 text-center text-sm text-slate-400">Loading fines…</div> :
        rows.length === 0 ? <div className="p-8 text-center text-sm text-slate-400">No fines in this range.</div> :
-      <table className="w-full min-w-[720px] text-left text-sm">
+      <table className="w-full min-w-[820px] text-left text-sm">
         <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
-          <tr><th className="px-5 py-3">Staff</th><th>Role</th><th>Late</th><th>Absent</th><th>Late ₦</th><th>Absent ₦</th><th className="px-5 py-3 text-right">Total</th></tr>
+          <tr><th className="px-5 py-3">Staff</th><th>Role</th><th>Late</th><th>Absent</th><th>Late ₦</th><th>Absent ₦</th><th className="px-5 py-3 text-right">Total</th><th className="px-5 py-3 text-right">Action</th></tr>
         </thead>
         <tbody>
-          {rows.map(r => <tr key={r.staff_id} className="border-t">
+          {rows.map(r => <tr key={r.staff_id} className="border-t align-top">
             <td className="px-5 py-3"><div className="font-black">{r.full_name}</div><div className="text-xs text-slate-400">{r.staff_no || '—'}</div></td>
             <td className="text-slate-500">{r.job_title || '—'}</td>
             <td className="text-amber-700 font-bold">{r.late_count}</td>
@@ -438,11 +438,125 @@ function FinesPanel() {
             <td>{naira(r.late_fine_ngn)}</td>
             <td>{naira(r.absent_fine_ngn)}</td>
             <td className="px-5 py-3 text-right font-black">{naira(r.total_ngn)}</td>
+            <td className="px-5 py-3 text-right">
+              <StaffFineDrilldown staffId={r.staff_id} staffName={r.full_name} onSaved={load} />
+            </td>
           </tr>)}
         </tbody>
       </table>}
     </div>
   </section>;
+}
+
+// Admin drill-down for a single staff row: shows the same "my fines"
+// payload as the teacher sees, plus a Record Payment form.
+function StaffFineDrilldown({ staffId, staffName, onSaved }: { staffId: string; staffName: string; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [payload, setPayload] = useState<FinesPayload | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [amount, setAmount] = useState('');
+  const [method, setMethod] = useState('transfer');
+  const [note,   setNote]   = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true); setErr('');
+    try { setPayload(await attendanceApi.staffFinesDetail(staffId)); }
+    catch (e: any) { setErr(e?.message || 'Could not load.'); }
+    finally { setLoading(false); }
+  }, [staffId]);
+  useEffect(() => { if (open) load(); }, [open, load]);
+
+  const record = async () => {
+    const n = Number(amount);
+    if (!Number.isFinite(n) || n <= 0) { setErr('Enter an amount greater than zero.'); return; }
+    setSaving(true); setErr('');
+    try {
+      await attendanceApi.recordStaffPayment(staffId, n, { method, note: note || undefined });
+      setAmount(''); setNote('');
+      await load();
+      onSaved();
+    } catch (e: any) { setErr(e?.message || 'Payment could not be recorded.'); }
+    finally { setSaving(false); }
+  };
+
+  return <>
+    <button onClick={() => setOpen(true)} className="rounded-lg bg-[#062d2a] px-3 py-1.5 text-[11px] font-black uppercase text-white">Details</button>
+    {open && (
+      <div className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 p-4 pt-16" onClick={() => setOpen(false)}>
+        <div className="w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between border-b bg-slate-50 p-4">
+            <div>
+              <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Staff fines</div>
+              <div className="text-lg font-black">{staffName}</div>
+            </div>
+            <button onClick={() => setOpen(false)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-bold">Close</button>
+          </div>
+
+          {err && <div className="m-4 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
+
+          {loading && !payload ? <div className="p-10 text-center text-sm text-slate-400">Loading…</div>
+          : payload ? <div className="max-h-[70vh] overflow-y-auto p-4">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-rose-50 p-3"><div className="text-[10px] font-black uppercase text-rose-700">Fines</div><div className="text-lg font-black">{naira(payload.totals.fines_ngn)}</div></div>
+              <div className="rounded-xl bg-emerald-50 p-3"><div className="text-[10px] font-black uppercase text-emerald-700">Paid</div><div className="text-lg font-black">{naira(payload.totals.payments_ngn)}</div></div>
+              <div className="rounded-xl bg-slate-900 p-3 text-white"><div className="text-[10px] font-black uppercase text-slate-300">Balance</div><div className="text-lg font-black">{naira(payload.totals.balance_ngn)}</div></div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <div className="text-[10px] font-black uppercase text-emerald-800">Record a payment</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} placeholder="Amount ₦"
+                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm min-w-[140px]" />
+                <select value={method} onChange={e => setMethod(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+                  <option value="transfer">Bank transfer</option>
+                  <option value="cash">Cash</option>
+                  <option value="pos">POS</option>
+                  <option value="salary_deduction">Salary deduction</option>
+                </select>
+                <input value={note} onChange={e => setNote(e.target.value)} placeholder="Note (optional)"
+                  className="h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm min-w-[160px]" />
+                <button disabled={saving} onClick={record}
+                  className="h-10 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white disabled:opacity-40">
+                  {saving ? 'Saving…' : 'Record'}
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-slate-200">
+                <div className="border-b bg-slate-50 p-3 text-[10px] font-black uppercase text-slate-500">Fines ({payload.fines.length})</div>
+                {payload.fines.length === 0 ? <div className="p-4 text-xs text-slate-400">No fines.</div>
+                : <ul className="divide-y">
+                    {payload.fines.map(f => <li key={f.id} className="flex items-center justify-between p-3 text-xs">
+                      <div>
+                        <div className="font-bold">{f.attendance_date}</div>
+                        <div className="text-[10px] uppercase text-slate-500">{f.status_code}</div>
+                      </div>
+                      <div className="font-black">{naira(f.amount_ngn)}</div>
+                    </li>)}
+                  </ul>}
+              </div>
+              <div className="rounded-xl border border-slate-200">
+                <div className="border-b bg-slate-50 p-3 text-[10px] font-black uppercase text-slate-500">Payments ({payload.payments.length})</div>
+                {payload.payments.length === 0 ? <div className="p-4 text-xs text-slate-400">No payments.</div>
+                : <ul className="divide-y">
+                    {payload.payments.map(p => <li key={p.id} className="p-3 text-xs">
+                      <div className="flex items-center justify-between">
+                        <div className="font-black">{naira(p.amount_ngn)}</div>
+                        <div className="text-[10px] text-slate-500">{p.paid_on}</div>
+                      </div>
+                      <div className="mt-0.5 text-[10px] text-slate-500">{p.method || '—'}{p.note && <> · {p.note}</>}</div>
+                    </li>)}
+                  </ul>}
+              </div>
+            </div>
+          </div> : null}
+        </div>
+      </div>
+    )}
+  </>;
 }
 
 function SettingsPanel({ onSaved }: { onSaved: () => void }) {
@@ -476,8 +590,12 @@ function SettingsPanel({ onSaved }: { onSaved: () => void }) {
       <Field label="SMS · arrival template" full><textarea rows={3} value={s.sms_arrival_template} onChange={e => set('sms_arrival_template', e.target.value)} className={TEXTAREA} /></Field>
       <Field label="SMS · late template" full><textarea rows={3} value={s.sms_late_template} onChange={e => set('sms_late_template', e.target.value)} className={TEXTAREA} /></Field>
       <Field label="SMS · absent template" full><textarea rows={3} value={s.sms_absent_template} onChange={e => set('sms_absent_template', e.target.value)} className={TEXTAREA} /></Field>
+      <Field label="School payment account (shown to staff on their fines dashboard)" full>
+        <textarea rows={5} value={s.school_payment_account} onChange={e => set('school_payment_account', e.target.value)} className={TEXTAREA}
+          placeholder={'Bank: <bank name>\nAccount Number: <account number>\nAccount Name: <account name>\nRef: use your Staff ID as narration'} />
+      </Field>
     </div>
-    <div className="mt-3 text-xs text-slate-500">Available placeholders: <code>{'{student_name}'}</code>, <code>{'{time}'}</code>, <code>{'{date}'}</code>.</div>
+    <div className="mt-3 text-xs text-slate-500">Placeholders (SMS templates only): <code>{'{student_name}'}</code>, <code>{'{time}'}</code>, <code>{'{date}'}</code>.</div>
     <div className="mt-5"><button onClick={save} disabled={saving} className="rounded-xl bg-[#062d2a] px-5 py-3 text-sm font-black text-white disabled:opacity-40">{saving ? 'Saving…' : 'Save settings'}</button></div>
   </section>;
 }

@@ -14,6 +14,7 @@ const KEYS = [
   'sms_arrival_template',
   'sms_late_template',
   'sms_absent_template',
+  'school_payment_account',
 ] as const;
 type Key = typeof KEYS[number];
 
@@ -47,6 +48,7 @@ export async function GET(_req: NextRequest) {
     sms_arrival_template: '',
     sms_late_template: '',
     sms_absent_template: '',
+    school_payment_account: '',
   };
   for (const row of data || []) out[row.key] = unwrap(row.value);
   return NextResponse.json(out);

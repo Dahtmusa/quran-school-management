@@ -23,6 +23,7 @@ export const teacherLinks: NavLink[] = [
   ['/teacher', 'My Dashboard', '⌂'],
   ['/teacher/students', 'My Students', '◉'],
   ['/teacher/attendance', 'Attendance', '✓'],
+  ['/teacher/fines', 'My Fines', '₦'],
 ];
 export const parentLinks: NavLink[] = [['/parent', 'My Children', '⌂'], ['/reports', 'Reports', '▤']];
 export const financeLinks: NavLink[] = [['/fees', 'Finance & Fees', '₦'], ['/fees/bulk-documents', 'Invoices & Receipts', '▤']];

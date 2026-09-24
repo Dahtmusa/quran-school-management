@@ -67,6 +67,36 @@ export type AttendanceSettings = {
   sms_arrival_template: string;
   sms_late_template: string;
   sms_absent_template: string;
+  school_payment_account: string;
+};
+
+export type FineOccurrence = {
+  id: string;
+  attendance_date: string;
+  scanned_at: string;
+  status_code: 'late' | 'absent';
+  amount_ngn: number;
+};
+export type FinePayment = {
+  id: string;
+  amount_ngn: number;
+  paid_on: string;
+  method: string | null;
+  note: string | null;
+  created_at: string;
+};
+export type FinesPayload = {
+  staff: { id: string; full_name: string; staff_no: string | null; job_title: string | null };
+  fines: FineOccurrence[];
+  payments: FinePayment[];
+  totals: {
+    fines_ngn: number;
+    payments_ngn: number;
+    balance_ngn: number;
+    late_ngn: number;
+    absent_ngn: number;
+  };
+  account: string;
 };
 
 export type RecentScanRow = {
@@ -133,6 +163,18 @@ export const attendanceApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     }).then(json<AttendanceSettings>),
+  myFines: () =>
+    fetch('/api/attendance/my-fines', { cache: 'no-store' })
+      .then(json<FinesPayload>),
+  staffFinesDetail: (staffId: string) =>
+    fetch('/api/attendance/staff-fine-payments?staffId=' + encodeURIComponent(staffId), { cache: 'no-store' })
+      .then(json<FinesPayload>),
+  recordStaffPayment: (staffId: string, amount: number, opts: { paidOn?: string; method?: string; note?: string } = {}) =>
+    fetch('/api/attendance/staff-fine-payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId, amount, ...opts }),
+    }).then(json<{ id: string }>),
   staffFines: (from: string, to: string) =>
     fetch(`/api/attendance/staff-fines?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, { cache: 'no-store' })
       .then(json<{ from: string; to: string; rows: StaffFineRow[]; totals: { late: number; absent: number; grand: number } }>),
