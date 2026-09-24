@@ -1,14 +1,17 @@
-// BestBulkSMS (bestbulksms.com) HTTP API adapter.
-// Configured via environment variables so no credentials live in the repo:
-//   BESTBULKSMS_USER     — portal username
-//   BESTBULKSMS_PASSWORD — portal password
-//   BESTBULKSMS_SENDER   — approved alphanumeric sender ID (e.g. "AMQM")
-//   BESTBULKSMS_ENDPOINT — optional override (defaults to the plain-text endpoint)
+// BestBulkSMS (bestbulksms.com.ng) — JSON-over-HTTPS API with Bearer auth.
+// Docs: https://bestbulksms.com.ng/app/user/developer
 //
-// The gateway returns a short body like "OK: <messageId>" on success or
-// "ERROR: <reason>" on failure. We surface that raw response for the audit log.
+// Env vars:
+//   BESTBULKSMS_API_KEY    — bearer token from the Developer / API Center page
+//   BESTBULKSMS_SENDER     — approved sender ID (e.g. "AMQM")
+//   BESTBULKSMS_ROUTE      — optional; defaults to "standard"
+//   BESTBULKSMS_SOURCE_URL — optional; the provider asks production
+//                            integrations to send a stable source_url so
+//                            requests aren't flagged by their abuse review.
+//   BESTBULKSMS_ENDPOINT   — optional override of the send endpoint.
 
-const DEFAULT_ENDPOINT = 'https://portal.bestbulksms.com/api/sendsms/plain';
+const DEFAULT_ENDPOINT   = 'https://www.bestbulksms.com.ng/api/sms/send';
+const DEFAULT_SOURCE_URL = 'https://amqm.school/attendance/parent-notification';
 
 export type SmsResult = {
   ok: boolean;
@@ -27,33 +30,51 @@ export function normalizeNigerianPhone(raw: string): string | null {
 }
 
 export async function sendBestBulkSms(to: string, message: string): Promise<SmsResult> {
-  const user   = process.env.BESTBULKSMS_USER || '';
-  const pass   = process.env.BESTBULKSMS_PASSWORD || '';
-  const sender = process.env.BESTBULKSMS_SENDER || 'AMQM';
-  const endpoint = process.env.BESTBULKSMS_ENDPOINT || DEFAULT_ENDPOINT;
+  const apiKey    = process.env.BESTBULKSMS_API_KEY || '';
+  const senderId  = process.env.BESTBULKSMS_SENDER  || 'AMQM';
+  const route     = process.env.BESTBULKSMS_ROUTE   || 'standard';
+  const sourceUrl = process.env.BESTBULKSMS_SOURCE_URL || DEFAULT_SOURCE_URL;
+  const endpoint  = process.env.BESTBULKSMS_ENDPOINT   || DEFAULT_ENDPOINT;
 
   const phone = normalizeNigerianPhone(to);
   if (!phone) return { ok: false, providerResponse: 'Invalid recipient phone.', to, message };
 
-  if (!user || !pass) {
-    // Stub mode: no credentials configured yet. Log and return a soft-success
-    // so the admin UI keeps working during development.
-    console.warn('[bestbulksms] credentials missing; logging only.', { phone, message });
-    return { ok: true, providerResponse: 'stub: BESTBULKSMS_USER/PASSWORD not set', to: phone, message };
+  if (!apiKey) {
+    // Stub mode: no API key configured yet. Log and return a soft-success so
+    // the admin UI keeps working during development without spending credits.
+    console.warn('[bestbulksms] BESTBULKSMS_API_KEY not set; logging only.', { phone, message });
+    return { ok: true, providerResponse: 'stub: BESTBULKSMS_API_KEY not set', to: phone, message };
   }
 
-  const url = new URL(endpoint);
-  url.searchParams.set('user', user);
-  url.searchParams.set('password', pass);
-  url.searchParams.set('sender', sender);
-  url.searchParams.set('mobiles', phone);
-  url.searchParams.set('message', message);
-
   try {
-    const res = await fetch(url.toString(), { method: 'GET' });
-    const body = (await res.text()).trim();
-    const ok = res.ok && /^ok/i.test(body);
-    return { ok, providerResponse: body || `HTTP ${res.status}`, to: phone, message };
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type':  'application/json',
+        'Accept':        'application/json',
+      },
+      body: JSON.stringify({
+        sender_id:  senderId,
+        to:         [phone],
+        message,
+        route,
+        source_url: sourceUrl,
+      }),
+    });
+    const text = await res.text();
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch {}
+    const providerResponse = parsed
+      ? JSON.stringify({
+          status: parsed.status,
+          sms_message_id: parsed.sms_message_id,
+          error: parsed.error || parsed.message,
+          invalid_recipients: parsed.invalid_recipients,
+        })
+      : text || `HTTP ${res.status}`;
+    const ok = res.ok && (parsed?.status ? parsed.status === 'success' : true);
+    return { ok, providerResponse, to: phone, message };
   } catch (err: any) {
     return { ok: false, providerResponse: err?.message || 'SMS gateway unreachable.', to: phone, message };
   }
