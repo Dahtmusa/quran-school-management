@@ -153,9 +153,14 @@ export default function CalendarAdmin() {
   }
 
   async function save(){
+    // Cheap breadcrumb so if the save silently disappears in production the
+    // browser console still tells us what happened.
+    // eslint-disable-next-line no-console
+    console.log('[calendar] save clicked', { yearName: plan.yearName, yearStart: plan.yearStart, yearEnd: plan.yearEnd });
+
     const v=validate();
     if(v){setError(v);setMessage('');return;}
-    setBusy(true);setError('');setMessage('');
+    setBusy(true);setError('');setMessage('Saving school calendar…');
     try{
       const payload=plan.terms.map(t=>({
         term_number:t.number,start:t.start,end:t.end,
@@ -171,9 +176,25 @@ export default function CalendarAdmin() {
         yearEnd:plan.yearEnd,
         terms:payload,
       });
-      await refresh();
+      // eslint-disable-next-line no-console
+      console.log('[calendar] save RPC returned', result);
+      try {
+        await refresh();
+      } catch (refreshErr: any) {
+        // Save actually persisted; only the reload after failed. Tell the
+        // user the save worked so they don't retry (which would just fail
+        // the reload again).
+        // eslint-disable-next-line no-console
+        console.error('[calendar] refresh after save failed', refreshErr);
+      }
       setMessage(`Saved. ${result?.terms_saved||0} term(s) and ${result?.evaluation_windows_saved||0} evaluation window(s) are now connected to the school.`);
-    }catch(e:any){setError(e?.message||'The calendar could not be saved.');}
+    }catch(e:any){
+      // eslint-disable-next-line no-console
+      console.error('[calendar] save failed', e);
+      const detail = e?.message || e?.hint || e?.details || (typeof e === 'string' ? e : JSON.stringify(e || {}));
+      setError('The calendar could not be saved. ' + (detail || 'Unknown error — check the browser console.'));
+      setMessage('');
+    }
     finally{setBusy(false);}
   }
 
@@ -244,7 +265,7 @@ export default function CalendarAdmin() {
               <h2 className="mt-1 text-xl font-black text-slate-900">School year calendar</h2>
               <p className="mt-1 text-sm text-slate-500">No programme builder here. The system already knows the Hifz journey.</p>
             </div>
-            <button className="btn btn-primary px-5 py-3" disabled={busy} onClick={save}>{busy?'Saving…':'Save dates'}</button>
+            <button type="button" className="btn btn-primary px-5 py-3" disabled={busy} onClick={save}>{busy?'Saving…':'Save dates'}</button>
           </div>
           <div className="grid gap-4 p-5 sm:grid-cols-3">
             <label className="text-xs font-black text-slate-600">School year
@@ -302,7 +323,7 @@ export default function CalendarAdmin() {
           <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-900/75">The new school year is only a calendar. Existing students keep their class, Quran position, evaluations, attendance and payments until they complete their Hifz journey.</p>
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-emerald-200 bg-white/80 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div><div className="text-xs font-black uppercase tracking-wide text-slate-500">Suggested next year</div><div className="mt-1 text-xl font-black">{suggestedNextYear||'—'}</div></div>
-            <button className="btn bg-emerald-800 px-5 py-3 font-black text-white" disabled={busy || !suggestedNextYear || !current?.academic_year_id} onClick={createNextYear}>+ Create next school year</button>
+            <button type="button" className="btn bg-emerald-800 px-5 py-3 font-black text-white" disabled={busy || !suggestedNextYear || !current?.academic_year_id} onClick={createNextYear}>+ Create next school year</button>
           </div>
         </section>
 
@@ -321,8 +342,8 @@ export default function CalendarAdmin() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="text-xs text-slate-400">Existing database records loaded: {savedTerms.length} terms · {events.length} calendar events.</div>
           <div className="flex flex-wrap gap-2">
-            <button className="btn bg-slate-100 text-slate-800" disabled={busy} onClick={()=>refresh().catch(e=>setError(e?.message||'Refresh failed.'))}>↻ Reload</button>
-            <button className="btn bg-amber-100 text-amber-900" disabled={busy} onClick={repair}>Repair &amp; sync</button>
+            <button type="button" className="btn bg-slate-100 text-slate-800" disabled={busy} onClick={()=>refresh().catch(e=>setError(e?.message||'Refresh failed.'))}>↻ Reload</button>
+            <button type="button" className="btn bg-amber-100 text-amber-900" disabled={busy} onClick={repair}>Repair &amp; sync</button>
           </div>
         </div>
       </div>
