@@ -24,9 +24,11 @@ const fmtClock = (iso: string) => new Intl.DateTimeFormat('en-NG', {
 export default function GateScannerPage() {
   const videoRef  = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<any>(null);
   const scanningRef = useRef(false);
   const busyRef   = useRef(false);
   const lastRef   = useRef('');
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const [camera, setCamera] = useState(false);
   const [manual, setManual] = useState('');
   const [message, setMessage] = useState('Ready — scan an AMQM Student or Staff ID.');
@@ -40,15 +42,54 @@ export default function GateScannerPage() {
   useEffect(() => { loadRecent(); }, [loadRecent]);
   useEffect(() => subscribeToAttendance(todayLagos, loadRecent), [todayLagos, loadRecent]);
 
-  const stopCamera = () => {
+  // Loud audio feedback. Two very different tones so the gateman can tell
+  // success from failure without looking at the screen. Uses the Web Audio
+  // API so no sound files are needed.
+  const beep = useCallback((kind: 'success' | 'error') => {
+    try {
+      const AC: typeof AudioContext =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!AC) return;
+      const ctx = audioCtxRef.current ?? new AC();
+      audioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      const play = (freq: number, duration: number, delay = 0, gain = 0.6) => {
+        const t0 = ctx.currentTime + delay;
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = kind === 'success' ? 'square' : 'sawtooth';
+        osc.frequency.setValueAtTime(freq, t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(gain, t0 + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+        osc.connect(g); g.connect(ctx.destination);
+        osc.start(t0); osc.stop(t0 + duration + 0.02);
+      };
+
+      if (kind === 'success') {
+        // Bright two-tone chirp — like a supermarket scanner.
+        play(1600, 0.12, 0.0, 0.65);
+        play(2100, 0.14, 0.13, 0.7);
+      } else {
+        // Low buzz, longer — clearly a rejection.
+        play(220, 0.28, 0.0, 0.7);
+        play(180, 0.32, 0.30, 0.7);
+      }
+    } catch {}
+  }, []);
+
+  const stopCamera = useCallback(() => {
     scanningRef.current = false;
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
+    detectorRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
     setCamera(false);
-  };
-  useEffect(() => () => stopCamera(), []);
+  }, []);
+  useEffect(() => () => stopCamera(), [stopCamera]);
 
-  const record = async (value: string) => {
+  const record = useCallback(async (value: string) => {
     const raw = value.trim();
     if (!raw || busyRef.current || raw === lastRef.current) return;
     lastRef.current = raw; busyRef.current = true;
@@ -60,44 +101,91 @@ export default function GateScannerPage() {
       }).format(new Date(data.scannedAt));
       setResult({ ...data, time });
       setMessage((data.statusCode === 'late' ? 'LATE ARRIVAL' : 'ATTENDANCE RECORDED') + ' · ' + time);
+      beep('success');
     } catch (e: any) {
       setMessage(e?.message || 'ID could not be verified.');
+      beep('error');
     } finally {
       busyRef.current = false;
       setTimeout(() => { lastRef.current = ''; }, 1500);
     }
-  };
+  }, [beep]);
+
+  // Attach the stream once the <video> element is mounted. Doing it inside a
+  // useEffect keyed on `camera` guarantees videoRef.current exists.
+  useEffect(() => {
+    if (!camera) return;
+    const el = videoRef.current;
+    const stream = streamRef.current;
+    if (!el || !stream) return;
+    el.srcObject = stream;
+    el.play().catch(() => { /* iOS autoplay quirks — user gesture already granted */ });
+
+    scanningRef.current = true;
+    const loop = async () => {
+      if (!scanningRef.current || !videoRef.current || !detectorRef.current) return;
+      try {
+        const codes = await detectorRef.current.detect(videoRef.current);
+        const v = codes?.[0]?.rawValue;
+        if (v) await record(v);
+      } catch {}
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
+  }, [camera, record]);
 
   const startCamera = async () => {
-    if (typeof window === 'undefined' || !('BarcodeDetector' in window)) {
-      setMessage('Camera scanning is unavailable in this browser. Use the USB scanner or type the ID.');
+    if (typeof window === 'undefined') return;
+
+    // 1. Warm up the audio context inside this user gesture so beeps work
+    //    on Safari / iOS where audio otherwise stays suspended.
+    try {
+      const AC: typeof AudioContext =
+        (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AC && !audioCtxRef.current) audioCtxRef.current = new AC();
+      audioCtxRef.current?.resume().catch(() => {});
+    } catch {}
+
+    // 2. Feature check. BarcodeDetector ships in Chrome / Edge / Android
+    //    Chrome; Safari does not have it. If missing, the gate should use
+    //    the USB scanner input on the right.
+    if (!('BarcodeDetector' in window)) {
+      setMessage('Camera scanning is not supported in this browser (try Chrome / Edge, or use the USB scanner).');
       return;
     }
+
+    // 3. Request the camera. Log the exact reason on failure so it's
+    //    obvious whether it's permissions, no camera, or HTTPS.
+    let stream: MediaStream;
     try {
-      const Detector = (window as any).BarcodeDetector;
-      const detector = new Detector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13'] });
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
-      streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
-      scanningRef.current = true;
-      setCamera(true);
-      setMessage('Point the camera at the QR code or barcode.');
-      const loop = async () => {
-        if (!scanningRef.current || !videoRef.current) return;
-        try {
-          const codes = await detector.detect(videoRef.current);
-          const value = codes?.[0]?.rawValue;
-          if (value) await record(value);
-        } catch {}
-        requestAnimationFrame(loop);
-      };
-      requestAnimationFrame(loop);
-    } catch {
-      setMessage('Camera access denied. Use the USB scanner instead.');
+    } catch (err: any) {
+      const name = err?.name || '';
+      if (name === 'NotAllowedError' || name === 'SecurityError')
+        setMessage('Camera permission was blocked. Click the camera icon in the browser address bar and allow, then try again.');
+      else if (name === 'NotFoundError' || name === 'OverconstrainedError')
+        setMessage('No usable camera found on this device.');
+      else if (name === 'NotReadableError')
+        setMessage('The camera is busy — close other apps using it and try again.');
+      else
+        setMessage('Camera failed: ' + (err?.message || name || 'unknown error'));
+      return;
     }
+
+    // 4. Set up the detector, stash the stream, then flip camera → true.
+    //    The useEffect above binds the stream to the <video> once mounted.
+    try {
+      const Detector = (window as any).BarcodeDetector;
+      detectorRef.current = new Detector({ formats: ['qr_code', 'code_128', 'code_39', 'ean_13'] });
+    } catch {
+      detectorRef.current = new (window as any).BarcodeDetector();
+    }
+    streamRef.current = stream;
+    setCamera(true);
+    setMessage('Point the camera at the QR code or barcode.');
   };
 
   return <main className="min-h-screen bg-[#eef3f0] text-[#062d2a]">
