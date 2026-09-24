@@ -20,16 +20,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get('limit')) || 10));
+  const limit = Math.min(50, Math.max(1, Number(req.nextUrl.searchParams.get('limit')) || 5));
   const admin = createAdminClient();
   const date  = todayLagos();
 
+  // Fetch more than `limit` so we still have `limit` rows after we drop
+  // boarding-student marks (which belong to the teacher view, not the gate).
+  const overFetch = Math.max(limit * 4, 40);
   const { data: records, error } = await admin
     .from('attendance_records')
     .select('id,person_id,person_type,status_code,scanned_at')
     .eq('attendance_date', date)
     .order('scanned_at', { ascending: false })
-    .limit(limit);
+    .limit(overFetch);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const studentIds = (records || []).filter(r => r.person_type === 'student').map(r => r.person_id);
@@ -45,19 +48,24 @@ export async function GET(req: NextRequest) {
   const students = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
   const staff    = new Map((staffRes.data    || []).map((s: any) => [s.id, s]));
 
-  const rows = (records || []).map((r: any) => {
+  const rows: any[] = [];
+  for (const r of (records || [])) {
     const s = r.person_type === 'student' ? students.get(r.person_id) : staff.get(r.person_id);
-    return {
+    const section = r.person_type === 'student' ? String(s?.section || '').toLowerCase() : 'staff';
+    // Gate feed only: skip boarding-student marks; those are teacher-only.
+    if (r.person_type === 'student' && section !== 'day') continue;
+    rows.push({
       id: r.id,
       person_id: r.person_id,
       person_type: r.person_type,
       full_name: s?.full_name || 'Unknown',
       identifier: r.person_type === 'student' ? (s?.admission_no || null) : (s?.staff_id || null),
-      section: r.person_type === 'student' ? String(s?.section || '').toLowerCase() : 'staff',
+      section,
       role_or_class: r.person_type === 'staff' ? (s?.job_title || null) : null,
       status_code: r.status_code,
       scanned_at: r.scanned_at,
-    };
-  });
+    });
+    if (rows.length >= limit) break;
+  }
   return NextResponse.json({ date, rows });
 }

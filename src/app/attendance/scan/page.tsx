@@ -37,7 +37,7 @@ export default function GateScannerPage() {
 
   const todayLagos = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
   const loadRecent = useCallback(async () => {
-    try { setRecent((await attendanceApi.recentScans(10)).rows); } catch {}
+    try { setRecent((await attendanceApi.recentScans(5)).rows); } catch {}
   }, []);
   useEffect(() => { loadRecent(); }, [loadRecent]);
   useEffect(() => subscribeToAttendance(todayLagos, loadRecent), [todayLagos, loadRecent]);
@@ -242,7 +242,7 @@ export default function GateScannerPage() {
       <aside className="space-y-4">
         <section className="rounded-2xl bg-white p-5 shadow-sm ring-2 ring-emerald-100">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recent scans · today</div>
+            <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">Recent gate scans · today</div>
             <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-700">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
               Live
@@ -250,7 +250,7 @@ export default function GateScannerPage() {
           </div>
           {recent.length === 0 ? (
             <div className="mt-3 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-400">
-              No scans yet today.<br />The last 10 will appear here as they happen.
+              No gate scans yet today.<br />The last 5 day-student & staff scans will appear here.
             </div>
           ) : (
             <ul className="mt-3 space-y-2">
