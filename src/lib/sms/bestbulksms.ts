@@ -73,7 +73,16 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
           invalid_recipients: parsed.invalid_recipients,
         })
       : text || `HTTP ${res.status}`;
-    const ok = res.ok && (parsed?.status ? parsed.status === 'success' : true);
+    // BestBulkSMS returns different positive tokens depending on where the
+    // message sits in their pipeline: "success" (docs), "sent" (live API),
+    // sometimes "queued" / "accepted". Anything not explicitly negative is
+    // treated as success as long as the HTTP status was 2xx.
+    const status = String(parsed?.status || '').toLowerCase();
+    const positive = new Set(['success','sent','queued','accepted','ok','delivered']);
+    const negative = new Set(['error','failed','rejected','invalid']);
+    const ok = res.ok
+      && !negative.has(status)
+      && (positive.has(status) || (!status && !parsed?.error));
     return { ok, providerResponse, to: phone, message };
   } catch (err: any) {
     return { ok: false, providerResponse: err?.message || 'SMS gateway unreachable.', to: phone, message };
