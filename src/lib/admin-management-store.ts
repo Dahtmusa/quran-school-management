@@ -41,27 +41,78 @@ export async function deletePublicMedia(media: { id?: string; storage_path: stri
   if (error) throw error;
 }
 
-export async function loadFinanceSummary() {
+/**
+ * Load the finance snapshot for a given term. When no `termId` is passed the
+ * loader picks the best available term instead of the previous behaviour of
+ * returning empty arrays:
+ *   1. the term flagged `is_current = true`, else
+ *   2. the most recently ENDED term (so between-term periods still show the
+ *      last term's figures), else
+ *   3. the earliest upcoming term, else
+ *   4. any configured term.
+ * Previously this function short-circuited to empty when no term was marked
+ * current — which happens between terms, causing every finance figure on
+ * /fees to render as 0 even when the underlying data existed.
+ */
+export async function loadFinanceSummary(termId?: string | null) {
   const client = db();
-  const { data: currentTerm } = await client.from('terms').select('id').eq('is_current', true).order('starts_on', { ascending: false }).limit(1).maybeSingle();
-  const termId = currentTerm?.id || null;
+  let resolvedTermId = termId || null;
+
+  if (!resolvedTermId) {
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+
+    const { data: currentTerm } = await client
+      .from('terms').select('id')
+      .eq('is_current', true)
+      .order('starts_on', { ascending: false }).limit(1).maybeSingle();
+
+    if (currentTerm?.id) {
+      resolvedTermId = currentTerm.id;
+    } else {
+      const { data: recentEnded } = await client
+        .from('terms').select('id,ends_on')
+        .lte('ends_on', today)
+        .order('ends_on', { ascending: false }).limit(1).maybeSingle();
+      if (recentEnded?.id) resolvedTermId = recentEnded.id;
+    }
+
+    if (!resolvedTermId) {
+      const { data: upcoming } = await client
+        .from('terms').select('id,starts_on')
+        .gte('starts_on', today)
+        .order('starts_on', { ascending: true }).limit(1).maybeSingle();
+      if (upcoming?.id) resolvedTermId = upcoming.id;
+    }
+
+    if (!resolvedTermId) {
+      const { data: any1 } = await client
+        .from('terms').select('id')
+        .order('starts_on', { ascending: false }).limit(1).maybeSingle();
+      if (any1?.id) resolvedTermId = any1.id;
+    }
+  }
+
   // Supabase's .eq() does not translate a JS null into SQL NULL — it sends
   // the literal text "null", which Postgres then fails to cast into the
-  // uuid term_id column ("invalid input syntax for type uuid"). When no
-  // term is marked current yet, there is no meaningful "current" finance
-  // snapshot to show, so return empty results instead of querying with a
-  // bogus filter.
-  if (!termId) return { structures: [], fees: [], payments: [] };
+  // uuid term_id column. If we still have no term (empty database), return
+  // empty rather than issuing a bogus filter.
+  if (!resolvedTermId) return { structures: [], fees: [], payments: [], termId: null };
+
   const results = await Promise.all([
-    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)').eq('term_id', termId),
-    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id!inner(full_name,admission_no,section,status),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', termId).eq('students.status','active'),
-    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id!inner(full_name,admission_no,status)').eq('term_id', termId).eq('students.status','active').order('paid_on', { ascending: false }),
+    client.from('fee_structures').select('*,academic_years:academic_year_id(name),terms:term_id(name,term_number)').eq('term_id', resolvedTermId),
+    client.from('student_fees').select('id,student_id,fee_structure_id,amount_due,amount_paid,students:student_id!inner(full_name,admission_no,section,status),fee_structures:fee_structure_id(id,term_id,academic_year_id,section,name,terms:term_id(name,term_number,starts_on,ends_on),academic_years:academic_year_id(name,starts_on,is_current))').eq('fee_structures.term_id', resolvedTermId).eq('students.status','active'),
+    client.from('payments').select('id,student_id,term_id,amount,paid_on,method,reference,notes,students:student_id!inner(full_name,admission_no,status)').eq('term_id', resolvedTermId).eq('students.status','active').order('paid_on', { ascending: false }),
   ]);
   const [structuresResult, feesResult, paymentsResult] = results;
   if (structuresResult.error) throw structuresResult.error;
   if (feesResult.error) throw feesResult.error;
   if (paymentsResult.error) throw paymentsResult.error;
-  return { structures: structuresResult.data || [], fees: feesResult.data || [], payments: paymentsResult.data || [] };
+  return {
+    structures: structuresResult.data || [],
+    fees: feesResult.data || [],
+    payments: paymentsResult.data || [],
+    termId: resolvedTermId,
+  };
 }
 
 export async function loadFeeStructures() {

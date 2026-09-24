@@ -253,12 +253,18 @@ export default function Fees() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatingInvoices, setGeneratingInvoices] = useState(false);
 
-  async function refresh() {
+  async function refresh(overrideTermId?: string) {
     const requestId = ++refreshSeq.current;
     if (mountedRef.current) setRefreshing(true);
     try {
+      // Ask the finance loader for THIS term specifically — the admin may
+      // be viewing a term that isn't the currently-active one (e.g. sitting
+      // in the gap between First and Second Term). Previously the loader
+      // hardcoded is_current=true and returned empty, which made every
+      // total on the page render as zero.
+      const termIdForSummary = overrideTermId ?? selectedTermId ?? null;
       const [s, fs, sm, cms, cur, y, t, siteMeta] = await Promise.all([
-        loadStudents(), loadFeeStructures(), loadFinanceSummary(), loadCMSSettings(), loadCurrentAcademicTerm(),
+        loadStudents(), loadFeeStructures(), loadFinanceSummary(termIdForSummary), loadCMSSettings(), loadCurrentAcademicTerm(),
         createClient().from('academic_years').select('id,name,is_current').order('starts_on', { ascending: false }).then(r => { if (r.error) throw r.error; return r.data || []; }),
         createClient().from('terms').select('id,name,term_number,academic_year_id,starts_on,ends_on,academic_years:academic_year_id(name,is_current)').order('starts_on', { ascending: false }).then(r => { if (r.error) throw r.error; return r.data || []; }),
         createClient().from('site_settings').select('key,value').then(r => { if (r.error) throw r.error; return r.data || []; }),
@@ -283,13 +289,39 @@ export default function Fees() {
       // Always establish a valid term selection. The finance page must never
       // render against an empty term id because that makes all term-scoped
       // figures appear as zero even though the database contains the data.
-      // Preserve an existing user selection during background refreshes, but
-      // fall back to the operational term returned by the RPC, then the first
-      // configured term if the RPC is temporarily unavailable.
-      const fallbackTermId = cur?.term_id || (t || []).find((term: any) => term.id === cur?.term_id)?.id || (t || []).find((term: any) => term.term_number === 1)?.id || (t || [])[0]?.id || '';
+      // Preserve an existing user selection during background refreshes.
+      // Otherwise fall back to (in order):
+      //   1. the operational RPC's current term,
+      //   2. the term whose date range contains today,
+      //   3. the most recently ended term (so between-term periods still
+      //      show the last term's figures),
+      //   4. the next upcoming term,
+      //   5. the first configured term.
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+      const allTerms = t || [];
+      const containsToday = allTerms.find((term: any) =>
+        term.starts_on && term.ends_on && String(term.starts_on) <= today && today <= String(term.ends_on));
+      const mostRecentEnded = allTerms
+        .filter((term: any) => term.ends_on && String(term.ends_on) < today)
+        .sort((a: any, b: any) => String(b.ends_on).localeCompare(String(a.ends_on)))[0];
+      const nextUpcoming = allTerms
+        .filter((term: any) => term.starts_on && String(term.starts_on) > today)
+        .sort((a: any, b: any) => String(a.starts_on).localeCompare(String(b.starts_on)))[0];
+      const fallbackTermId =
+        cur?.term_id
+        || containsToday?.id
+        || mostRecentEnded?.id
+        || nextUpcoming?.id
+        || allTerms.find((term: any) => term.term_number === 1)?.id
+        || allTerms[0]?.id
+        || '';
+      // If the summary returned a resolved termId (because we passed no
+      // override on cold-start), sync the selection to it so downstream
+      // memos filter against the same term.
+      const resolvedFromSummary = (sm as any)?.termId as string | undefined;
       setSelectedTermId(prev => {
-        if (prev && (t || []).some((term: any) => term.id === prev)) return prev;
-        return fallbackTermId;
+        if (prev && allTerms.some((term: any) => term.id === prev)) return prev;
+        return resolvedFromSummary || fallbackTermId;
       });
     } catch (e: any) {
       if (mountedRef.current) setMessage(e?.message || 'Unable to refresh finance data. Existing data was kept.');
@@ -328,14 +360,23 @@ export default function Fees() {
   }, []);
 
   useEffect(() => {
-    if (!selectedTermId || loading || syncedTermsRef.current.has(selectedTermId)) return;
-    syncedTermsRef.current.add(selectedTermId);
-    syncStudentFeeAllocations(selectedTermId)
-      .then(() => refresh())
-      .catch((e: any) => {
-        syncedTermsRef.current.delete(selectedTermId);
-        setMessage(e?.message || 'Unable to synchronize student fee allocations.');
-      });
+    if (!selectedTermId || loading) return;
+    // First time we see this term in the session: sync allocations so every
+    // active student has a student_fees row for the term's fee structures.
+    if (!syncedTermsRef.current.has(selectedTermId)) {
+      syncedTermsRef.current.add(selectedTermId);
+      syncStudentFeeAllocations(selectedTermId)
+        .then(() => refresh(selectedTermId))
+        .catch((e: any) => {
+          syncedTermsRef.current.delete(selectedTermId);
+          setMessage(e?.message || 'Unable to synchronize student fee allocations.');
+          // Still refresh so the page picks up whatever exists for the term.
+          refresh(selectedTermId);
+        });
+    } else {
+      // Term already synced this session — just refetch the summary for it.
+      refresh(selectedTermId);
+    }
   }, [selectedTermId, loading]);
 
   const currentTerm = useMemo(() => terms.find(t => t.id === selectedTermId) || null, [terms, selectedTermId]);
