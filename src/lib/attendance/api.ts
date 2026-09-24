@@ -118,6 +118,12 @@ export const attendanceApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId, template, overrideMessage }),
     }).then(json<{ sent: boolean; to: string; message: string }>),
+  bulkSms: (template: 'arrival' | 'late' | 'absent', date: string, opts: { markUnmarkedAbsent?: boolean } = {}) =>
+    fetch('/api/attendance/bulk-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ template, date, ...opts }),
+    }).then(json<{ requested: number; sent: number; failed: number; skipped_no_phone: number }>),
   settings: () =>
     fetch('/api/attendance/settings', { cache: 'no-store' })
       .then(json<AttendanceSettings>),

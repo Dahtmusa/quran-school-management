@@ -211,10 +211,16 @@ function PeopleTable(props: {
         <div className="font-black">
           {tab === 'day' ? 'Day Students' : tab === 'boarding' ? 'Boarding Students' : 'Staff'}
         </div>
-        <div className="text-xs text-slate-500">{date} · {rows.length} people</div>
+        <div className="text-xs text-slate-500">
+          {date} · {rows.length} people
+          {tab === 'day' && <> · <span className="text-emerald-700 font-bold">Late scans auto-SMS parents</span></>}
+        </div>
       </div>
-      <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search name, ID, class…"
-        className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+      <div className="flex flex-wrap items-center gap-2">
+        <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search name, ID, class…"
+          className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+        {tab === 'day' && <BulkSmsMenu date={date} onBanner={onBanner} onError={onError} />}
+      </div>
     </div>
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-left text-sm">
@@ -262,6 +268,64 @@ function PeopleTable(props: {
       </table>
     </div>
   </section>;
+}
+
+// Bulk parent notification. Three templates: Arrival to all present,
+// Late to all late, Absent to all currently-absent (plus an option to
+// mark every still-unmarked day student as Absent first so the SMS
+// covers everyone who never showed up).
+function BulkSmsMenu({ date, onBanner, onError }: {
+  date: string;
+  onBanner: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const [busy, setBusy] = useState('');
+  const run = async (
+    template: 'arrival' | 'late' | 'absent',
+    opts: { markUnmarkedAbsent?: boolean; label: string; confirm?: string } ,
+  ) => {
+    if (opts.confirm && !confirm(opts.confirm)) return;
+    setBusy(template);
+    try {
+      const r = await attendanceApi.bulkSms(template, date, { markUnmarkedAbsent: opts.markUnmarkedAbsent });
+      onBanner(
+        `${opts.label}: sent ${r.sent} · failed ${r.failed}` +
+        (r.skipped_no_phone ? ` · ${r.skipped_no_phone} without phone skipped` : ''),
+      );
+    } catch (e: any) { onError(e?.message || 'Bulk SMS failed.'); }
+    finally { setBusy(''); }
+  };
+  return (
+    <details className="group relative inline-block text-left">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg bg-[#062d2a] px-3 py-2 text-xs font-black uppercase text-white shadow-sm hover:bg-[#0a4b40]">
+        📣 SMS all…
+      </summary>
+      <div className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-xl bg-white shadow-xl ring-1 ring-black/10">
+        <button disabled={!!busy}
+          onClick={e => { e.preventDefault(); run('arrival', { label: 'Arrival SMS' }); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-4 py-3 text-left text-xs font-bold hover:bg-emerald-50 disabled:opacity-40">
+          <div className="text-emerald-800">Arrival to all present</div>
+          <div className="mt-0.5 text-[10px] font-medium text-slate-500">Sends the Arrival template to every day-student parent whose child is currently marked Present.</div>
+        </button>
+        <button disabled={!!busy}
+          onClick={e => { e.preventDefault(); run('late', { label: 'Late SMS' }); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-4 py-3 text-left text-xs font-bold hover:bg-amber-50 disabled:opacity-40">
+          <div className="text-amber-800">Late to all late arrivals</div>
+          <div className="mt-0.5 text-[10px] font-medium text-slate-500">Late scans are auto-notified; use this to re-send.</div>
+        </button>
+        <button disabled={!!busy}
+          onClick={e => { e.preventDefault(); run('absent', {
+            label: 'Absent SMS',
+            markUnmarkedAbsent: true,
+            confirm: 'This will mark every still-unmarked day student for today as Absent and SMS their parents. Continue?',
+          }); (e.currentTarget.closest('details') as HTMLDetailsElement).open = false; }}
+          className="block w-full px-4 py-3 text-left text-xs font-bold hover:bg-rose-50 disabled:opacity-40">
+          <div className="text-rose-800">Mark unmarked absent + SMS parents</div>
+          <div className="mt-0.5 text-[10px] font-medium text-slate-500">Everyone who never scanned gets set to Absent and their parent notified.</div>
+        </button>
+      </div>
+    </details>
+  );
 }
 
 // Native <select> styled as a pill. One dropdown replaces the four status
