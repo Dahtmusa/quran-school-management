@@ -1,67 +1,349 @@
 'use client';
 
+// AMQM Attendance v3 — admin dashboard.
+// Tabs: Day students, Boarding students, Staff, Fines, Settings.
+// Live: subscribes to attendance_records changes for the selected date so
+// scans and teacher marks show up without polling.
+
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import AdminShell from '@/components/AdminShell';
+import {
+  attendanceApi, subscribeToAttendance,
+  type AttendanceSummary, type AttendanceStatus, type SummaryPerson,
+  type StaffFineRow, type AttendanceSettings,
+} from '@/lib/attendance/api';
 
-type Person={id:string;full_name:string;admission_no?:string;staff_id?:string;section?:string;job_title?:string;status:string|null;scanned_at:string|null;source:string};
+type Tab = 'day' | 'boarding' | 'staff' | 'fines' | 'settings';
+const STATUS_STYLES: Record<string, string> = {
+  present: 'bg-emerald-50 text-emerald-700',
+  late:    'bg-amber-50 text-amber-700',
+  absent:  'bg-rose-50 text-rose-700',
+  excused: 'bg-sky-50 text-sky-700',
+  sick:    'bg-violet-50 text-violet-700',
+};
 
-export default function AttendanceDashboard(){
- const today=new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Lagos'});
- const [date,setDate]=useState(today);
- const [data,setData]=useState<any>(null);
- const [tab,setTab]=useState<'day'|'boarding'|'staff'>('day');
- const [search,setSearch]=useState('');
- const [loading,setLoading]=useState(true);
- const [error,setError]=useState('');
+const fmtTime = (iso: string | null) => iso
+  ? new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(iso))
+  : '—';
+const naira = (n: number) => '₦' + Number(n || 0).toLocaleString('en-NG');
 
- async function load(){
-  setLoading(true);setError('');
-  try{const r=await fetch('/api/attendance/summary?date='+encodeURIComponent(date),{cache:'no-store'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Could not load attendance');setData(d)}
-  catch(e:any){setError(e?.message||'Could not load attendance')}finally{setLoading(false)}
- }
- useEffect(()=>{load()},[date]);
+export default function AttendanceDashboard() {
+  const todayLagos = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const [date, setDate] = useState(todayLagos);
+  const [tab, setTab] = useState<Tab>('day');
+  const [summary, setSummary] = useState<AttendanceSummary | null>(null);
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [banner, setBanner] = useState('');
 
- const rows:Person[]=useMemo(()=>data?(tab==='day'?data.students.day:tab==='boarding'?data.students.boarding:data.staff):[],[data,tab]);
- const filtered=useMemo(()=>rows.filter(r=>{const q=search.toLowerCase().trim();return !q||[r.full_name,r.admission_no,r.staff_id,r.job_title,r.section].filter(Boolean).some(v=>String(v).toLowerCase().includes(q))}),[rows,search]);
+  const load = useCallback(async () => {
+    setLoading(true); setError('');
+    try { setSummary(await attendanceApi.summary(date)); }
+    catch (e: any) { setError(e?.message || 'Could not load attendance.'); }
+    finally { setLoading(false); }
+  }, [date]);
 
- const k=(key:'day'|'boarding'|'staff')=>data?.counts?.[key]||{total:0,present:0,late:0,absent:0,not_marked:0};
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => subscribeToAttendance(date, () => load()), [date, load]);
 
- return <AdminShell title="Attendance">
-  <div className="space-y-5">
-   <section className="rounded-[2rem] bg-[#062d2a] p-6 text-white">
+  return <AdminShell title="Attendance">
+    <div className="space-y-5">
+      <Hero date={date} todayMax={todayLagos} onDate={setDate} live={!loading && !error} />
+      {banner && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{banner}</div>}
+      {error && <div className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>}
+
+      <TabBar tab={tab} onTab={setTab} summary={summary} />
+
+      {tab === 'settings' ? (
+        <SettingsPanel onSaved={() => setBanner('Settings saved.')} />
+      ) : tab === 'fines' ? (
+        <FinesPanel />
+      ) : loading && !summary ? (
+        <div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">Loading attendance…</div>
+      ) : summary ? (
+        <PeopleTable
+          tab={tab}
+          date={date}
+          rows={summary.people[tab]}
+          search={search} onSearch={setSearch}
+          onChange={(msg) => { setBanner(msg); load(); }}
+          onError={(msg) => setError(msg)}
+        />
+      ) : null}
+    </div>
+  </AdminShell>;
+}
+
+function Hero({ date, todayMax, onDate, live }: { date: string; todayMax: string; onDate: (v: string) => void; live: boolean }) {
+  return <section className="rounded-[2rem] bg-[#062d2a] p-6 text-white">
     <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-     <div><div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e3c36b]">AMQM Attendance</div><h1 className="mt-2 text-3xl font-black">Simple, clear attendance</h1><p className="mt-2 text-sm text-emerald-50/80">Day students and ordinary staff scan at the main gate. Boarding students are marked by their assigned teachers.</p></div>
-     <div className="flex gap-2"><input type="date" value={date} max={today} onChange={e=>setDate(e.target.value)} className="h-11 rounded-xl border-0 bg-white px-3 text-sm font-bold text-slate-900"/><Link href="/attendance/scan" className="rounded-xl bg-[#e3c36b] px-4 py-3 text-sm font-black text-[#062d2a]">Open Gate Scanner</Link></div>
+      <div>
+        <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e3c36b]">AMQM Attendance</div>
+        <h1 className="mt-2 text-3xl font-black">One clear view of who is here</h1>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">
+          Day students &amp; ordinary staff scan at the main gate. Boarding students are marked by their assigned teachers.
+          {live && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-100">● Live</span>}
+        </p>
+      </div>
+      <div className="flex gap-2">
+        <input type="date" value={date} max={todayMax} onChange={e => onDate(e.target.value)}
+          className="h-11 rounded-xl border-0 bg-white px-3 text-sm font-bold text-slate-900" />
+        <Link href="/attendance/scan" className="rounded-xl bg-[#e3c36b] px-4 py-3 text-sm font-black text-[#062d2a]">
+          Open Gate Scanner
+        </Link>
+      </div>
     </div>
-   </section>
+  </section>;
+}
 
-   {error&&<div className="rounded-xl bg-rose-50 p-4 text-sm font-bold text-rose-700">{error}</div>}
-   {loading&&!data?<div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">Loading attendance…</div>:data&&<>
-    <div className="grid gap-3 md:grid-cols-3">
-     {([['day','Day students'],['boarding','Boarding students'],['staff','Staff']] as const).map(([key,label])=>{const c=k(key);return <button key={key} onClick={()=>setTab(key)} className={'rounded-2xl border p-5 text-left '+(tab===key?'border-emerald-700 bg-emerald-50':'border-slate-200 bg-white')}>
-      <div className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</div><div className="mt-1 text-3xl font-black">{c.total}</div>
-      <div className="mt-2 flex gap-3 text-xs font-bold"><span className="text-emerald-700">{c.present} present</span><span className="text-amber-700">{c.late} late</span><span className="text-rose-700">{c.absent} absent</span></div>
-     </button>})}
+function TabBar({ tab, onTab, summary }: { tab: Tab; onTab: (t: Tab) => void; summary: AttendanceSummary | null }) {
+  const k = (key: 'day' | 'boarding' | 'staff') =>
+    summary?.counts?.[key] || { total: 0, present: 0, late: 0, absent: 0, excused: 0, not_marked: 0 };
+  const groups: [Tab, string][] = [['day','Day students'], ['boarding','Boarding students'], ['staff','Staff']];
+  return <div className="grid gap-3 md:grid-cols-5">
+    {groups.map(([key, label]) => {
+      const c = k(key as any);
+      const active = tab === key;
+      return <button key={key} onClick={() => onTab(key)} className={'rounded-2xl border p-4 text-left ' + (active ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white')}>
+        <div className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="mt-1 text-2xl font-black">{c.total}</div>
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-bold">
+          <span className="text-emerald-700">{c.present} present</span>
+          <span className="text-amber-700">{c.late} late</span>
+          <span className="text-rose-700">{c.absent} absent</span>
+        </div>
+      </button>;
+    })}
+    {(['fines','settings'] as Tab[]).map(t => (
+      <button key={t} onClick={() => onTab(t)}
+        className={'rounded-2xl border p-4 text-left ' + (tab === t ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white')}>
+        <div className="text-xs font-black uppercase tracking-wide text-slate-500">{t === 'fines' ? 'Staff Fines' : 'Settings'}</div>
+        <div className="mt-1 text-2xl font-black">{t === 'fines' ? '₦' : '⚙'}</div>
+        <div className="mt-2 text-[11px] font-bold text-slate-500">
+          {t === 'fines' ? 'Late & absent penalties' : 'Cutoff · fines · SMS'}
+        </div>
+      </button>
+    ))}
+  </div>;
+}
+
+function PeopleTable(props: {
+  tab: Exclude<Tab, 'fines' | 'settings'>;
+  date: string;
+  rows: SummaryPerson[];
+  search: string; onSearch: (v: string) => void;
+  onChange: (msg: string) => void;
+  onError: (msg: string) => void;
+}) {
+  const { tab, date, rows, search, onSearch, onChange, onError } = props;
+  const [busy, setBusy] = useState('');
+
+  const filtered = useMemo(() => rows.filter(r => {
+    const q = search.toLowerCase().trim();
+    if (!q) return true;
+    return [r.full_name, r.identifier, r.class_name, r.job_title].filter(Boolean)
+      .some(v => String(v).toLowerCase().includes(q));
+  }), [rows, search]);
+
+  const setStatus = async (row: SummaryPerson, status: AttendanceStatus) => {
+    if (busy) return;
+    setBusy(row.id + ':' + status);
+    try {
+      await attendanceApi.setStatus(row.id, row.person_type, date, status);
+      onChange(`${row.full_name} marked ${status}.`);
+    } catch (e: any) { onError(e?.message || 'Could not update status.'); }
+    finally { setBusy(''); }
+  };
+
+  const sendSms = async (row: SummaryPerson, template: 'arrival' | 'late' | 'absent') => {
+    if (busy || !row.parent_phone) return;
+    setBusy(row.id + ':sms:' + template);
+    try {
+      const r = await attendanceApi.sendSms(row.id, template);
+      onChange(`SMS sent to ${r.to}.`);
+    } catch (e: any) { onError(e?.message || 'SMS could not be sent.'); }
+    finally { setBusy(''); }
+  };
+
+  return <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+      <div>
+        <div className="font-black">
+          {tab === 'day' ? 'Day Students' : tab === 'boarding' ? 'Boarding Students' : 'Staff'}
+        </div>
+        <div className="text-xs text-slate-500">{date} · {rows.length} people</div>
+      </div>
+      <input value={search} onChange={e => onSearch(e.target.value)} placeholder="Search name, ID, class…"
+        className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
     </div>
+    <div className="overflow-x-auto">
+      <table className="w-full min-w-[900px] text-left text-sm">
+        <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
+          <tr>
+            <th className="px-5 py-3">Person</th>
+            <th>ID</th>
+            <th>{tab === 'staff' ? 'Role' : 'Class'}</th>
+            <th>Status</th>
+            <th>Time</th>
+            <th className="px-5 py-3 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.length === 0 ? (
+            <tr><td colSpan={6} className="p-10 text-center text-slate-400">No matching people.</td></tr>
+          ) : filtered.map(r => (
+            <tr key={r.id} className="border-t align-top">
+              <td className="px-5 py-4">
+                <div className="font-black">{r.full_name}</div>
+                {tab === 'day' && r.parent_phone && <div className="text-xs text-slate-400">Parent: {r.parent_phone}</div>}
+              </td>
+              <td className="font-semibold text-slate-600">{r.identifier || '—'}</td>
+              <td className="text-slate-500">{r.class_name || r.job_title || '—'}</td>
+              <td>
+                <span className={'inline-block rounded-full px-3 py-1 text-[10px] font-black uppercase ' + (STATUS_STYLES[r.status || ''] || 'bg-slate-100 text-slate-500')}>
+                  {r.status || 'Not marked'}
+                </span>
+                {r.source === 'gate_scan' && <div className="mt-1 text-[10px] text-slate-400">Gate scan</div>}
+                {r.source === 'teacher'   && <div className="mt-1 text-[10px] text-slate-400">Teacher</div>}
+                {r.source === 'admin'     && <div className="mt-1 text-[10px] text-slate-400">Admin override</div>}
+              </td>
+              <td className="text-xs text-slate-500">{fmtTime(r.scanned_at)}</td>
+              <td className="px-5 py-3">
+                <div className="flex flex-wrap justify-end gap-2">
+                  {(['present','late','absent','excused'] as AttendanceStatus[]).map(s => (
+                    <button key={s} disabled={!!busy} onClick={() => setStatus(r, s)}
+                      className="rounded-lg bg-[#062d2a] px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">
+                      {s}
+                    </button>
+                  ))}
+                  {tab === 'day' && r.parent_phone && (
+                    <div className="flex items-center gap-1 border-l border-slate-200 pl-2">
+                      <button disabled={!!busy} onClick={() => sendSms(r, 'arrival')} title="SMS parent: arrived"
+                        className="rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Arrival</button>
+                      <button disabled={!!busy} onClick={() => sendSms(r, 'late')} title="SMS parent: late"
+                        className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Late</button>
+                      <button disabled={!!busy} onClick={() => sendSms(r, 'absent')} title="SMS parent: absent"
+                        className="rounded-lg bg-rose-600 px-2.5 py-1.5 text-[10px] font-black uppercase text-white disabled:opacity-40">SMS Absent</button>
+                    </div>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>;
+}
 
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-     <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
-      <div><div className="font-black">{tab==='day'?'Day Students':tab==='boarding'?'Boarding Students':'Staff'}</div><div className="text-xs text-slate-500">{date} · {rows.length} people</div></div>
-      <div className="flex gap-2"><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search name or ID…" className="h-10 rounded-lg border border-slate-200 px-3 text-sm"/><button onClick={load} className="rounded-lg border border-slate-200 px-4 text-xs font-black">Refresh</button></div>
-     </div>
-     <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm">
-      <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400"><tr><th className="px-5 py-3">Person</th><th>ID</th><th>Attendance</th><th>Recorded at</th><th>Source</th></tr></thead>
-      <tbody>{filtered.length===0?<tr><td colSpan={5} className="p-10 text-center text-slate-400">No matching people.</td></tr>:filtered.map(r=><tr key={r.id} className="border-t">
-       <td className="px-5 py-4"><div className="font-black">{r.full_name}</div><div className="text-xs text-slate-400">{r.job_title||r.section||''}</div></td>
-       <td className="font-semibold text-slate-600">{r.admission_no||r.staff_id||'—'}</td>
-       <td><span className={'rounded-full px-3 py-1 text-[10px] font-black uppercase '+(r.status==='present'?'bg-emerald-50 text-emerald-700':r.status==='late'?'bg-amber-50 text-amber-700':r.status==='absent'?'bg-rose-50 text-rose-700':'bg-slate-100 text-slate-500')}>{r.status||'Not marked'}</span></td>
-       <td className="text-xs text-slate-500">{r.scanned_at?new Date(r.scanned_at).toLocaleTimeString('en-NG',{hour:'2-digit',minute:'2-digit',hour12:true}):'—'}</td>
-       <td className="text-xs font-semibold text-slate-500">{r.source==='record'?(tab==='boarding'?'Teacher':'Gate scanner'):tab==='boarding'?'Waiting for teacher':'Waiting for gate scan'}</td>
-      </tr>)}</tbody>
-     </table></div>
-    </section>
-   </>}
-  </div>
- </AdminShell>
+function FinesPanel() {
+  const todayLagos = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const monthStart = new Date(); monthStart.setDate(1);
+  const from0 = monthStart.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const [from, setFrom] = useState(from0);
+  const [to, setTo] = useState(todayLagos);
+  const [rows, setRows] = useState<StaffFineRow[]>([]);
+  const [totals, setTotals] = useState({ late: 0, absent: 0, grand: 0 });
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true); setErr('');
+    try {
+      const r = await attendanceApi.staffFines(from, to);
+      setRows(r.rows); setTotals(r.totals);
+    } catch (e: any) { setErr(e?.message || 'Could not load fines.'); }
+    finally { setLoading(false); }
+  }, [from, to]);
+  useEffect(() => { load(); }, [load]);
+
+  return <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+      <div>
+        <div className="text-xs font-black uppercase tracking-wide text-slate-500">Staff Attendance Fines</div>
+        <div className="mt-1 text-lg font-black">Late &amp; Absent penalties</div>
+        <div className="text-xs text-slate-500">Amounts come from Attendance Settings (flat per occurrence).</div>
+      </div>
+      <div className="flex gap-2">
+        <input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} className="h-11 rounded-xl border border-slate-200 px-3" />
+        <span className="self-center text-xs font-bold text-slate-400">to</span>
+        <input type="date" value={to} min={from} max={todayLagos} onChange={e => setTo(e.target.value)} className="h-11 rounded-xl border border-slate-200 px-3" />
+      </div>
+    </div>
+    {err && <div className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
+    <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-3">
+      <div className="rounded-xl bg-amber-50 p-3"><div className="text-[10px] font-black uppercase text-amber-700">Late fines</div><div className="text-lg font-black">{naira(totals.late)}</div></div>
+      <div className="rounded-xl bg-rose-50 p-3"><div className="text-[10px] font-black uppercase text-rose-700">Absent fines</div><div className="text-lg font-black">{naira(totals.absent)}</div></div>
+      <div className="rounded-xl bg-slate-900 p-3 text-white"><div className="text-[10px] font-black uppercase text-slate-300">Grand total</div><div className="text-lg font-black">{naira(totals.grand)}</div></div>
+    </div>
+    <div className="mt-4 overflow-x-auto">
+      {loading ? <div className="p-8 text-center text-sm text-slate-400">Loading fines…</div> :
+       rows.length === 0 ? <div className="p-8 text-center text-sm text-slate-400">No fines in this range.</div> :
+      <table className="w-full min-w-[720px] text-left text-sm">
+        <thead className="text-[10px] uppercase tracking-[.12em] text-slate-400">
+          <tr><th className="px-5 py-3">Staff</th><th>Role</th><th>Late</th><th>Absent</th><th>Late ₦</th><th>Absent ₦</th><th className="px-5 py-3 text-right">Total</th></tr>
+        </thead>
+        <tbody>
+          {rows.map(r => <tr key={r.staff_id} className="border-t">
+            <td className="px-5 py-3"><div className="font-black">{r.full_name}</div><div className="text-xs text-slate-400">{r.staff_no || '—'}</div></td>
+            <td className="text-slate-500">{r.job_title || '—'}</td>
+            <td className="text-amber-700 font-bold">{r.late_count}</td>
+            <td className="text-rose-700 font-bold">{r.absent_count}</td>
+            <td>{naira(r.late_fine_ngn)}</td>
+            <td>{naira(r.absent_fine_ngn)}</td>
+            <td className="px-5 py-3 text-right font-black">{naira(r.total_ngn)}</td>
+          </tr>)}
+        </tbody>
+      </table>}
+    </div>
+  </section>;
+}
+
+function SettingsPanel({ onSaved }: { onSaved: () => void }) {
+  const [s, setS] = useState<AttendanceSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+
+  useEffect(() => { attendanceApi.settings().then(setS).catch(e => setErr(e?.message || 'Load failed.')); }, []);
+
+  const save = async () => {
+    if (!s) return;
+    setSaving(true); setErr('');
+    try {
+      const next = await attendanceApi.saveSettings(s);
+      setS(next); onSaved();
+    } catch (e: any) { setErr(e?.message || 'Save failed.'); }
+    finally { setSaving(false); }
+  };
+  if (!s) return <div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">Loading settings…</div>;
+
+  const set = <K extends keyof AttendanceSettings>(k: K, v: AttendanceSettings[K]) => setS({ ...s, [k]: v });
+  return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="text-xs font-black uppercase tracking-wide text-slate-500">Attendance Settings</div>
+    <div className="mt-1 text-lg font-black">Cutoff, staff fines, SMS templates</div>
+    {err && <div className="mt-3 rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{err}</div>}
+    <div className="mt-5 grid gap-5 md:grid-cols-2">
+      <Field label="Morning cutoff (HH:MM, Africa/Lagos)"><input value={s.morning_cutoff_time} onChange={e => set('morning_cutoff_time', e.target.value)} className={INPUT} /></Field>
+      <Field label="SMS enabled"><label className="flex items-center gap-2 pt-2"><input type="checkbox" checked={s.sms_enabled} onChange={e => set('sms_enabled', e.target.checked)} /> Send SMS to parents</label></Field>
+      <Field label="Staff LATE fine (₦, flat)"><input type="number" min={0} value={s.staff_late_fine_ngn} onChange={e => set('staff_late_fine_ngn', Number(e.target.value) || 0)} className={INPUT} /></Field>
+      <Field label="Staff ABSENT fine (₦, flat)"><input type="number" min={0} value={s.staff_absent_fine_ngn} onChange={e => set('staff_absent_fine_ngn', Number(e.target.value) || 0)} className={INPUT} /></Field>
+      <Field label="SMS · arrival template" full><textarea rows={3} value={s.sms_arrival_template} onChange={e => set('sms_arrival_template', e.target.value)} className={TEXTAREA} /></Field>
+      <Field label="SMS · late template" full><textarea rows={3} value={s.sms_late_template} onChange={e => set('sms_late_template', e.target.value)} className={TEXTAREA} /></Field>
+      <Field label="SMS · absent template" full><textarea rows={3} value={s.sms_absent_template} onChange={e => set('sms_absent_template', e.target.value)} className={TEXTAREA} /></Field>
+    </div>
+    <div className="mt-3 text-xs text-slate-500">Available placeholders: <code>{'{student_name}'}</code>, <code>{'{time}'}</code>, <code>{'{date}'}</code>.</div>
+    <div className="mt-5"><button onClick={save} disabled={saving} className="rounded-xl bg-[#062d2a] px-5 py-3 text-sm font-black text-white disabled:opacity-40">{saving ? 'Saving…' : 'Save settings'}</button></div>
+  </section>;
+}
+
+const INPUT    = 'w-full h-11 rounded-xl border border-slate-200 px-3 text-sm';
+const TEXTAREA = 'w-full min-h-[5rem] rounded-xl border border-slate-200 px-3 py-2 text-sm leading-snug';
+
+function Field({ label, full, children }: { label: string; full?: boolean; children: React.ReactNode }) {
+  return <div className={full ? 'md:col-span-2' : ''}>
+    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="mt-1">{children}</div>
+  </div>;
 }
