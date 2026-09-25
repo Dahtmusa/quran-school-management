@@ -3,15 +3,76 @@
 import AdminShell from '@/components/AdminShell';
 import {loadAdmissionApplications,updateAdmissionApplication,enrollAdmissionApplication,loadClasses,scheduleAdmissionScreening,saveAdmissionScreening} from '@/lib/live-store';
 import {loadCMSSettings,saveCMSSetting} from '@/lib/cms-live-store';
+import {printAdmissionLetter} from '@/lib/admission-letter';
 import {useEffect,useMemo,useState} from 'react';
+
+const DEFAULT_ADMISSION_SETTINGS = {
+  application_fee_ngn: 5000,
+  application_form_price_ngn: 2000,
+  registration_fee_ngn: 25000,
+  opening_date: '',
+  closing_date: '',
+  screening_from: '',
+  screening_to: '',
+  requirements: [
+    'Birth certificate (photocopy)',
+    'Immunization card (photocopy)',
+    'Previous school report card',
+    'Two passport photographs of the child',
+    'Parent/guardian valid ID',
+  ] as string[],
+  letter_body_template: '',
+  sms_screening_success: '',
+  sms_screening_fail: '',
+  sms_admission_offered: '',
+  sms_registered: '',
+};
+type AdmissionSettings = typeof DEFAULT_ADMISSION_SETTINGS;
+
+async function notifyParent(applicationId: string, kind: 'screening_success'|'screening_fail'|'admission_offered'|'registered') {
+  const res = await fetch('/api/admissions/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ applicationId, kind }),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error((body?.error || 'SMS failed') + (body?.detail ? ' — ' + body.detail : ''));
+  return body as { sent: boolean; to: string; message: string };
+}
 
 export default function AdmissionsManage(){
  const [items,setItems]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]),[settings,setSettings]=useState<any>({}),[selected,setSelected]=useState<any|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [scheduleAt,setScheduleAt]=useState('');
- const refresh=async()=>{const [a,c,s]=await Promise.all([loadAdmissionApplications(),loadClasses(),loadCMSSettings()]);setItems(a);setClasses(c);setSettings(s)};
+ const [admissionSettings,setAdmissionSettings]=useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS);
+ const [reqDraft,setReqDraft]=useState('');
+ const refresh=async()=>{const [a,c,s]=await Promise.all([loadAdmissionApplications(),loadClasses(),loadCMSSettings()]);setItems(a);setClasses(c);setSettings(s);const saved:any=s.admission_settings||{};setAdmissionSettings({...DEFAULT_ADMISSION_SETTINGS,...saved,requirements:Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements});setReqDraft((Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements).join('\n'))};
  useEffect(()=>{refresh()},[]);
  const portal=settings.admission_portal||{};
  const payment=settings.school_payment||{};
+
+ async function saveAdmissionSettings(){
+   setBusy(true);
+   try{
+     const cleanedReq=reqDraft.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+     const next={...admissionSettings,requirements:cleanedReq,application_fee_ngn:Number(admissionSettings.application_fee_ngn)||0,application_form_price_ngn:Number(admissionSettings.application_form_price_ngn)||0,registration_fee_ngn:Number(admissionSettings.registration_fee_ngn)||0};
+     await saveCMSSetting('admission_settings',next);
+     setMessage('Admission settings saved.');
+     await refresh();
+   }catch(e:any){setMessage(e?.message||'Unable to save admission settings.');}
+   finally{setBusy(false);}
+ }
+
+ async function printLetter(a:any){
+   const cls=classes.find((c:any)=>c.id===a.class_id);
+   printAdmissionLetter({applicant_name:a.applicant_name,application_no:a.application_no,class_name:cls?.name||a.class_id||null,section:a.requested_section||a.section||null,parent_name:a.parent_name,starting_surah:a.starting_surah,starting_ayah:a.starting_ayah,screening_score:a.screening_score},admissionSettings,settings);
+ }
+ async function sendNotify(a:any,kind:'screening_success'|'screening_fail'|'admission_offered'|'registered'){
+   setBusy(true);
+   try{const r=await notifyParent(a.id,kind);setMessage(`SMS sent to ${r.to}.`);}
+   catch(e:any){setMessage(e?.message||'SMS could not be sent.');}
+   finally{setBusy(false);}
+ }
+ const setS=<K extends keyof AdmissionSettings>(k:K,v:AdmissionSettings[K])=>setAdmissionSettings(prev=>({...prev,[k]:v}));
  const virtualCount=useMemo(()=>items.filter(a=>a.screening_mode==='virtual').length,[items]);
 
  async function savePortal(){
@@ -34,8 +95,59 @@ export default function AdmissionsManage(){
    <div className="card p-5 lg:col-span-2"><h2 className="font-black">Admission portal</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={!!portal.enabled} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,enabled:e.target.checked}}))}/> Portal open for applications</label><label className="text-sm font-semibold">Opening date<input className="input mt-1" type="date" value={portal.opening_date||''} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,opening_date:e.target.value}}))}/></label><label className="text-sm font-semibold">Closing date<input className="input mt-1" type="date" value={portal.closing_date||''} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,closing_date:e.target.value}}))}/></label></div><button disabled={busy} onClick={savePortal} className="btn btn-primary mt-4">Save admissions settings</button></div>
    <div className="card p-5"><div className="text-xs font-black uppercase tracking-widest text-emerald-700">Virtual screenings</div><div className="mt-2 text-4xl font-black">{virtualCount}</div><p className="mt-1 text-xs text-slate-500">Applications from outside Adamawa requiring an online interview.</p></div>
   </section>
+
+  <details className="card overflow-hidden" open>
+    <summary className="cursor-pointer border-b bg-slate-50 p-5 select-none">
+      <div className="inline-flex items-center gap-3">
+        <span className="text-xs font-black uppercase tracking-widest text-emerald-700">Admission settings</span>
+        <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black uppercase text-emerald-800">Configurable</span>
+      </div>
+      <div className="mt-1 text-sm font-black text-slate-800">Fees · Requirements · Letter template · SMS templates</div>
+      <div className="text-xs text-slate-500">Everything the applicant sees on the website and everything the parent gets from the school comes from here.</div>
+    </summary>
+    <div className="grid gap-4 p-5 lg:grid-cols-2">
+      <label className="text-xs font-black text-slate-600">Application fee (₦) — pays to submit application
+        <input type="number" className="input mt-1 w-full" value={admissionSettings.application_fee_ngn} onChange={e=>setS('application_fee_ngn',Number(e.target.value)||0 as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600">Application form price (₦) — used later when Phase 2 ships
+        <input type="number" className="input mt-1 w-full" value={admissionSettings.application_form_price_ngn} onChange={e=>setS('application_form_price_ngn',Number(e.target.value)||0 as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600">Registration fee (₦) — paid before class enrollment
+        <input type="number" className="input mt-1 w-full" value={admissionSettings.registration_fee_ngn} onChange={e=>setS('registration_fee_ngn',Number(e.target.value)||0 as any)} />
+      </label>
+      <div />
+      <label className="text-xs font-black text-slate-600">Screening period · from
+        <input type="date" className="input mt-1 w-full" value={admissionSettings.screening_from||''} onChange={e=>setS('screening_from',e.target.value as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600">Screening period · to
+        <input type="date" className="input mt-1 w-full" value={admissionSettings.screening_to||''} onChange={e=>setS('screening_to',e.target.value as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">Requirements checklist (one per line — shown on the public page and printed on the admission letter)
+        <textarea rows={5} className="input mt-1 w-full" value={reqDraft} onChange={e=>setReqDraft(e.target.value)} placeholder={'Birth certificate\nImmunization card\n…'} />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">Admission letter body (placeholders: {'{applicant_name} · {parent_name} · {application_no} · {class_name} · {section} · {starting_position} · {registration_fee} · {screening_score} · {date} · {school_name}'})
+        <textarea rows={8} className="input mt-1 w-full" value={admissionSettings.letter_body_template||''} onChange={e=>setS('letter_body_template',e.target.value as any)} placeholder="Dear {parent_name}, we are pleased to offer {applicant_name} admission to {school_name} ..." />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Successful screening (placeholders: {'{applicant_name} · {parent_name} · {application_no}'})
+        <textarea rows={2} className="input mt-1 w-full" value={admissionSettings.sms_screening_success||''} onChange={e=>setS('sms_screening_success',e.target.value as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Unsuccessful screening
+        <textarea rows={2} className="input mt-1 w-full" value={admissionSettings.sms_screening_fail||''} onChange={e=>setS('sms_screening_fail',e.target.value as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Admission letter offered
+        <textarea rows={2} className="input mt-1 w-full" value={admissionSettings.sms_admission_offered||''} onChange={e=>setS('sms_admission_offered',e.target.value as any)} />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Registration completed
+        <textarea rows={2} className="input mt-1 w-full" value={admissionSettings.sms_registered||''} onChange={e=>setS('sms_registered',e.target.value as any)} />
+      </label>
+    </div>
+    <div className="border-t bg-slate-50 p-4 text-right">
+      <button type="button" disabled={busy} onClick={saveAdmissionSettings} className="btn btn-primary">Save admission settings</button>
+    </div>
+  </details>
+
   <section className="card overflow-hidden"><div className="border-b p-5"><h2 className="font-black">Application queue</h2><p className="text-xs text-slate-500">Submitted → payment verified → screening scheduled → successful / unsuccessful / further assessment → enrolled.</p></div><div className="divide-y">
-   {items.map(a=><div key={a.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{a.applicant_name}</h3><span className="pill bg-slate-100">{a.status}</span><span className="pill bg-amber-50 text-amber-800">{a.payment_status}</span><span className="pill bg-emerald-50 text-emerald-800">{a.screening_mode||'—'}</span></div><div className="mt-1 text-xs text-slate-500">{a.application_no} · {a.state||'—'} · {a.lga||'—'} · {a.parent_phone}</div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2"><div><b>Quran start:</b> {a.starting_surah?'Surah '+a.starting_surah+' : Ayah '+(a.starting_ayah||1):'Assign after screening'}</div><div><b>Screening:</b> {a.screening_scheduled_at?new Date(a.screening_scheduled_at).toLocaleString():a.screening_outcome||'Not scheduled'}</div></div>{a.screening_mode==='virtual'&&a.screening_token&&<div className="mt-2 break-all text-xs text-emerald-700">Applicant link: /admissions/screening/{a.screening_token}</div>}</div><div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end"><button className="btn bg-slate-100" onClick={()=>setSelected(a)}>Details</button>{a.payment_status!=='verified'&&<button className="btn btn-green" onClick={()=>verify(a)}>Verify payment</button>}{a.payment_status==='verified'&&a.screening_outcome!=='successful'&&a.screening_outcome!=='unsuccessful'&&<button className="btn bg-amber-100 text-amber-900" onClick={()=>{setSelected(a);setScheduleAt(a.screening_scheduled_at?new Date(a.screening_scheduled_at).toISOString().slice(0,16):'')}}>Schedule screening</button>}{a.screening_outcome==='successful'&&a.status==='accepted'&&<button className="btn btn-primary" onClick={()=>enroll(a)}>Enroll student</button>}{a.screening_mode==='virtual'&&a.screening_token&&<a className="btn bg-emerald-100 text-emerald-900" target="_blank" rel="noreferrer" href={'/admissions/screening/'+a.screening_token+'?role=interviewer'}>Open video room</a>}</div></div></div>)}
+   {items.map(a=><div key={a.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{a.applicant_name}</h3><span className="pill bg-slate-100">{a.status}</span><span className="pill bg-amber-50 text-amber-800">{a.payment_status}</span><span className="pill bg-emerald-50 text-emerald-800">{a.screening_mode||'—'}</span></div><div className="mt-1 text-xs text-slate-500">{a.application_no} · {a.state||'—'} · {a.lga||'—'} · {a.parent_phone}</div><div className="mt-3 grid gap-2 text-sm sm:grid-cols-2"><div><b>Quran start:</b> {a.starting_surah?'Surah '+a.starting_surah+' : Ayah '+(a.starting_ayah||1):'Assign after screening'}</div><div><b>Screening:</b> {a.screening_scheduled_at?new Date(a.screening_scheduled_at).toLocaleString():a.screening_outcome||'Not scheduled'}</div></div>{a.screening_mode==='virtual'&&a.screening_token&&<div className="mt-2 break-all text-xs text-emerald-700">Applicant link: /admissions/screening/{a.screening_token}</div>}</div><div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end"><button className="btn bg-slate-100" onClick={()=>setSelected(a)}>Details</button>{a.payment_status!=='verified'&&<button className="btn btn-green" onClick={()=>verify(a)}>Verify payment</button>}{a.payment_status==='verified'&&a.screening_outcome!=='successful'&&a.screening_outcome!=='unsuccessful'&&<button className="btn bg-amber-100 text-amber-900" onClick={()=>{setSelected(a);setScheduleAt(a.screening_scheduled_at?new Date(a.screening_scheduled_at).toISOString().slice(0,16):'')}}>Schedule screening</button>}{a.screening_outcome==='successful'&&a.status==='accepted'&&<button className="btn btn-primary" onClick={()=>enroll(a)}>Enroll student</button>}{a.screening_mode==='virtual'&&a.screening_token&&<a className="btn bg-emerald-100 text-emerald-900" target="_blank" rel="noreferrer" href={'/admissions/screening/'+a.screening_token+'?role=interviewer'}>Open video room</a>}{a.screening_outcome==='successful'&&<button className="btn bg-amber-50 text-amber-900" onClick={()=>printLetter(a)} title="Print admission letter">▤ Letter</button>}{(a.parent_phone||a.guardian_phone)&&<div className="inline-flex gap-1"><button disabled={busy||a.screening_outcome!=='successful'} className="btn bg-emerald-50 text-emerald-800 text-[11px]" onClick={()=>sendNotify(a,'screening_success')} title="SMS parent: screening successful">SMS ✓</button><button disabled={busy||a.screening_outcome!=='unsuccessful'} className="btn bg-rose-50 text-rose-800 text-[11px]" onClick={()=>sendNotify(a,'screening_fail')} title="SMS parent: screening unsuccessful">SMS ✗</button><button disabled={busy||a.screening_outcome!=='successful'} className="btn bg-sky-50 text-sky-800 text-[11px]" onClick={()=>sendNotify(a,'admission_offered')} title="SMS parent: admission letter issued">SMS letter</button></div>}</div></div></div>)}
    {!items.length&&<div className="p-10 text-center text-sm text-slate-500">No applications yet.</div>}
   </div></section>
   {selected&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-5" onClick={()=>setSelected(null)}><div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl" onClick={e=>e.stopPropagation()}>
