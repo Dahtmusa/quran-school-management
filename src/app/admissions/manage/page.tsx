@@ -42,8 +42,20 @@ export default function AdmissionsManage(){
  const [items,setItems]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]),[settings,setSettings]=useState<any>({}),[selected,setSelected]=useState<any|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [scheduleAt,setScheduleAt]=useState('');
  const [admissionSettings,setAdmissionSettings]=useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS);
+ const [savedSnapshot,setSavedSnapshot]=useState<AdmissionSettings|null>(null);
+ const [savedAt,setSavedAt]=useState<string|null>(null);
  const [reqDraft,setReqDraft]=useState('');
- const refresh=async()=>{const [a,c,s]=await Promise.all([loadAdmissionApplications(),loadClasses(),loadCMSSettings()]);setItems(a);setClasses(c);setSettings(s);const saved:any=s.admission_settings||{};setAdmissionSettings({...DEFAULT_ADMISSION_SETTINGS,...saved,requirements:Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements});setReqDraft((Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements).join('\n'))};
+ const refresh=async()=>{
+   const [a,c,s]=await Promise.all([loadAdmissionApplications(),loadClasses(),loadCMSSettings()]);
+   setItems(a);setClasses(c);setSettings(s);
+   const rawSaved:any=s.admission_settings||null;
+   const saved:any=rawSaved||{};
+   const merged={...DEFAULT_ADMISSION_SETTINGS,...saved,requirements:Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements};
+   setAdmissionSettings(merged);
+   setSavedSnapshot(rawSaved?merged:null);
+   setReqDraft((Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements).join('\n'));
+   try{const {data:row}=await (await import('@/lib/supabase/client')).createClient().from('site_settings').select('updated_at').eq('key','admission_settings').maybeSingle();setSavedAt((row as any)?.updated_at||null);}catch{setSavedAt(null);}
+ };
  useEffect(()=>{refresh()},[]);
  const portal=settings.admission_portal||{};
  const payment=settings.school_payment||{};
@@ -122,6 +134,41 @@ export default function AdmissionsManage(){
       <div className="mt-1 text-sm font-black text-slate-800">Fees · Requirements · Letter template · SMS templates</div>
       <div className="text-xs text-slate-500">Everything the applicant sees on the website and everything the parent gets from the school comes from here.</div>
     </summary>
+    {savedSnapshot ? (
+      <div className="border-b bg-emerald-50/60 p-5">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div className="text-[10px] font-black uppercase tracking-widest text-emerald-800">Currently saved</div>
+            <div className="mt-0.5 text-sm font-black text-emerald-950">These are the values on the public site right now.</div>
+          </div>
+          <div className="text-[11px] font-bold text-emerald-800/80">
+            {savedAt ? `Last saved: ${new Date(savedAt).toLocaleString('en-NG', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true})}` : ''}
+          </div>
+        </div>
+        <div className="mt-4 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <SavedTile label="Admission fee">₦{Number(savedSnapshot.admission_fee_ngn||0).toLocaleString('en-NG')}</SavedTile>
+          <SavedTile label="Portal opens">{savedSnapshot.opening_date||<i className="text-slate-400">Not set</i>}</SavedTile>
+          <SavedTile label="Portal closes">{savedSnapshot.closing_date||<i className="text-slate-400">Not set</i>}</SavedTile>
+          <SavedTile label="Screening period">{savedSnapshot.screening_from||savedSnapshot.screening_to?`${savedSnapshot.screening_from||'—'} → ${savedSnapshot.screening_to||'—'}`:<i className="text-slate-400">Not set</i>}</SavedTile>
+          <SavedTile label="Requirements">{savedSnapshot.requirements?.length?`${savedSnapshot.requirements.length} item${savedSnapshot.requirements.length===1?'':'s'}`:<i className="text-slate-400">None</i>}</SavedTile>
+          <SavedTile label="Letter template">{savedSnapshot.letter_body_template?.trim()?`${savedSnapshot.letter_body_template.split(/\r?\n/).filter(Boolean).length} lines`:<i className="text-slate-400">Default</i>}</SavedTile>
+          <SavedTile label="SMS templates set">{['sms_screening_success','sms_screening_fail','sms_admission_offered','sms_registered'].filter(k=>(savedSnapshot as any)[k]?.trim()).length} of 4</SavedTile>
+          <SavedTile label="Portal state">{(()=>{const today=new Date().toISOString().slice(0,10);const o=savedSnapshot.opening_date;const c=savedSnapshot.closing_date;if(!o) return <span className="text-slate-500">Not scheduled</span>; if(today<o) return <span className="text-amber-700">Opens {o}</span>; if(c&&today>c) return <span className="text-rose-700">Closed</span>; return <span className="text-emerald-700 font-black">OPEN</span>;})()}</SavedTile>
+        </div>
+        {Array.isArray(savedSnapshot.requirements) && savedSnapshot.requirements.length > 0 && (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-[11px] font-black uppercase tracking-wide text-emerald-800">Show saved requirements list</summary>
+            <ol className="mt-2 space-y-1 rounded-xl bg-white p-3 text-xs text-slate-700">{savedSnapshot.requirements.map((r,i)=><li key={i}>{i+1}. {r}</li>)}</ol>
+          </details>
+        )}
+      </div>
+    ) : (
+      <div className="border-b bg-amber-50 p-5">
+        <div className="text-[10px] font-black uppercase tracking-widest text-amber-800">Nothing saved yet</div>
+        <div className="mt-0.5 text-sm font-black text-amber-900">Fill in the fields below and press Save to publish these to the site.</div>
+      </div>
+    )}
+
     <div className="grid gap-4 p-5 lg:grid-cols-2">
       <label className="text-xs font-black text-slate-600 lg:col-span-2">Admission fee (₦) — one-time, non-refundable
         <input type="number" className="input mt-1 w-full" value={admissionSettings.admission_fee_ngn} onChange={e=>setS('admission_fee_ngn',Number(e.target.value)||0 as any)} />
@@ -178,4 +225,11 @@ export default function AdmissionsManage(){
    <div className="mt-6 border-t pt-5"><div className="text-xs font-black uppercase tracking-widest text-slate-500">After successful screening</div><p className="mt-2 text-sm text-slate-500">Assign the class and Quran starting Surah/Ayah, then enroll. The student's Quran journey starts from that position and continues across future school years.</p></div>
   </div></div>}
  </div></AdminShell>
+}
+
+function SavedTile({label,children}:{label:string;children:React.ReactNode}){
+  return <div className="rounded-xl border border-emerald-100 bg-white p-3">
+    <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">{label}</div>
+    <div className="mt-1 text-sm font-black text-slate-900">{children}</div>
+  </div>;
 }
