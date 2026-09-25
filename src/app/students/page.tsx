@@ -21,6 +21,103 @@ type ExtProfile = {
 
 const blankExt: ExtProfile = {blood_group:null,genotype:null,home_address:null,nationality:'Nigerian',state_of_origin:null,local_government:null,parent_name:null,parent_phone:null,parent_email:null,guardian_name:null,guardian_phone:null,guardian_email:null,guardian_relationship:null,emergency_contact_name:null,emergency_contact_phone:null,date_of_birth:null,gender:null};
 
+// Print-friendly roster grouped by section. Uses the browser's own
+// Print → Save-as-PDF flow (same pattern as the receipt printer in /fees)
+// so we don't need any PDF library at all.
+function printRoster(students: Student[], logoUrl: string | null) {
+  const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] as string));
+
+  const day      = students.filter(s => String(s.section).toLowerCase() === 'day').sort((a,b) => a.name.localeCompare(b.name));
+  const boarding = students.filter(s => String(s.section).toLowerCase() === 'boarding').sort((a,b) => a.name.localeCompare(b.name));
+
+  const today = new Date().toLocaleDateString('en-NG', { day:'2-digit', month:'long', year:'numeric' });
+
+  const section = (title: string, rows: Student[]) => rows.length ? `
+    <section class="grp">
+      <div class="grp-h">
+        <h2>${esc(title)}</h2>
+        <span class="count">${rows.length} student${rows.length === 1 ? '' : 's'}</span>
+      </div>
+      <table>
+        <thead><tr><th class="c-num">#</th><th>Full Name</th><th class="c-adm">Admission No</th><th>Class</th></tr></thead>
+        <tbody>
+          ${rows.map((s, i) => `<tr>
+            <td class="c-num">${i + 1}</td>
+            <td>${esc(s.name)}</td>
+            <td class="c-adm">${esc(s.admissionNo)}</td>
+            <td>${esc(s.className || 'Unassigned')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </section>
+  ` : '';
+
+  const w = window.open('', '_blank', 'width=900,height=1200');
+  if (!w) { alert('Could not open the print window. Allow pop-ups for this site.'); return; }
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Student Roster — ${esc(today)}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#111;padding:24px;font-size:12px;background:#fff}
+    .top{display:flex;align-items:center;gap:14px;border-bottom:3px solid #062d2a;padding-bottom:12px;margin-bottom:16px}
+    .top img{height:56px;max-width:180px;object-fit:contain}
+    .top .name{font-size:15px;font-weight:800;letter-spacing:-.01em}
+    .top .sub{font-size:11px;color:#555;margin-top:2px}
+    .top .meta{margin-left:auto;text-align:right;font-size:11px;color:#555}
+    .badge{display:inline-block;background:#062d2a;color:#fff;padding:3px 10px;border-radius:16px;font-size:10px;font-weight:700;letter-spacing:.08em;margin-top:4px}
+    .totals{background:#062d2a;color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:16px;display:flex;gap:22px;align-items:center;font-size:11px;font-weight:700;letter-spacing:.06em}
+    .totals b{font-size:18px;letter-spacing:-.01em}
+    .totals span{opacity:.75;text-transform:uppercase;letter-spacing:.14em;font-size:9px}
+    .grp{margin-bottom:22px;page-break-inside:auto}
+    .grp-h{display:flex;justify-content:space-between;align-items:baseline;padding:6px 8px;background:#f1f5f4;border-left:4px solid #062d2a;margin-bottom:6px}
+    .grp-h h2{font-size:14px;letter-spacing:-.01em}
+    .grp-h .count{font-size:10px;color:#555;font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+    table{width:100%;border-collapse:collapse}
+    thead th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#555;padding:6px 8px;border-bottom:1px solid #ccc;background:#fafafa}
+    tbody td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top}
+    tbody tr:nth-child(even){background:#fbfcfc}
+    .c-num{width:32px;text-align:right;color:#666;font-variant-numeric:tabular-nums}
+    .c-adm{white-space:nowrap;font-variant-numeric:tabular-nums;color:#333}
+    .foot{margin-top:24px;padding-top:8px;border-top:1px solid #ddd;font-size:10px;color:#777;text-align:center}
+    .empty{padding:20px;text-align:center;color:#999;font-style:italic}
+    @media print{
+      body{padding:12px}
+      .grp{page-break-inside:auto}
+      thead{display:table-header-group}
+      tr{page-break-inside:avoid}
+      .noprint{display:none}
+    }
+  </style></head><body>
+    <div class="top">
+      ${logoUrl ? `<img src="${esc(logoUrl)}" alt="logo">` : ''}
+      <div>
+        <div class="name">Aliyu &amp; Maimuna Center for Qur'anic Memorization</div>
+        <div class="sub">Student Roster</div>
+        <div class="badge">STUDENT ROSTER</div>
+      </div>
+      <div class="meta">Generated ${esc(today)}<br>Time ${esc(new Date().toLocaleTimeString('en-NG', { hour:'2-digit', minute:'2-digit', hour12:true }))}</div>
+    </div>
+
+    <div class="totals">
+      <div><b>${students.length}</b> <span>Total Active</span></div>
+      <div><b>${day.length}</b> <span>Day</span></div>
+      <div><b>${boarding.length}</b> <span>Boarding</span></div>
+    </div>
+
+    ${section('Day Students', day)}
+    ${section('Boarding Students', boarding)}
+    ${students.length === 0 ? '<div class="empty">No active students to list.</div>' : ''}
+
+    <div class="foot">This roster reflects active students only, generated on ${esc(today)}.</div>
+
+    <div class="noprint" style="text-align:center;margin-top:20px">
+      <button onclick="window.print()" style="padding:10px 24px;font-weight:800;background:#062d2a;color:#fff;border:0;border-radius:8px;cursor:pointer">🖨️ Print / Save as PDF</button>
+    </div>
+    <script>window.addEventListener('load',()=>setTimeout(()=>window.print(),400));</script>
+  </body></html>`);
+  w.document.close();
+}
+
 export default function Students(){
  const [all,setAll]=useState<Student[]>([]),[classes,setClasses]=useState<LiveClass[]>([]),[surahs,setSurahs]=useState<any[]>([]),[q,setQ]=useState(''),[section,setSection]=useState('All'),[gender,setGender]=useState('All'),[classFilter,setClassFilter]=useState('All');
  const [logoUrl,setLogoUrl]=useState<string|null>(null);
@@ -148,7 +245,10 @@ export default function Students(){
          </button>
        ))}
      </div>
-     {pageTab==='active'&&<button className="btn btn-primary" onClick={()=>setShowCreate(true)}>+ Add Student</button>}
+     {pageTab==='active'&&<div className="flex gap-2">
+       <button className="btn bg-slate-100 text-slate-800" onClick={()=>printRoster(all,logoUrl)}>▤ Print Roster PDF</button>
+       <button className="btn btn-primary" onClick={()=>setShowCreate(true)}>+ Add Student</button>
+     </div>}
    </div>
 
    {/* ── Active students tab ── */}
