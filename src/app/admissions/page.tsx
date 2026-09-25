@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadCMSSettings, type CMSSettings } from '@/lib/cms-live-store';
 import { submitAdmissionApplication } from '@/lib/live-store';
+import { SURAHS } from '@/lib/quran';
 
 const initialForm = {
   applicantName: '', dateOfBirth: '', gender: '',
@@ -278,9 +279,30 @@ export default function PublicAdmissions() {
                 <select className="input" value={form.section} onChange={e => set('section', e.target.value)}>
                   <option value="day">Day</option><option value="boarding">Boarding</option>
                 </select>
-                <input className="input" placeholder="Current Qur'an level" value={form.quranLevel} onChange={e => set('quranLevel', e.target.value)} />
-                <input className="input" type="number" min={1} max={114} placeholder="Starting Surah (if known)" value={form.startingSurah} onChange={e => set('startingSurah', e.target.value)} />
-                <input className="input" type="number" min={1} placeholder="Starting Ayah (if known)" value={form.startingAyah} onChange={e => set('startingAyah', e.target.value)} />
+                <label className="text-xs font-black text-slate-500">Current Qur'an level (Hizb)
+                  <select className="input mt-1 w-full" value={form.quranLevel} onChange={e => set('quranLevel', e.target.value)}>
+                    <option value="">— Select Hizb —</option>
+                    <option value="new">New to Qur'an memorization</option>
+                    {Array.from({ length: 60 }, (_, i) => i + 1).map(h => (
+                      <option key={h} value={'Hizb ' + h}>Hizb {h}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-black text-slate-500">Current Surah (if known)
+                  <select className="input mt-1 w-full" value={form.startingSurah}
+                    onChange={e => { const nextSurah = e.target.value; const max = SURAHS.find(s => String(s.id) === nextSurah)?.ayahs || 0; const currentAyah = Number(form.startingAyah) || 0; setForm(x => ({ ...x, startingSurah: nextSurah, startingAyah: currentAyah > max ? '' : x.startingAyah })); }}>
+                    <option value="">— Select Surah —</option>
+                    {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name} ({s.ayahs} ayahs)</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-black text-slate-500">Current Ayah (if known)
+                  <input className="input mt-1 w-full" type="number" min={1}
+                    max={form.startingSurah ? SURAHS.find(s => String(s.id) === form.startingSurah)?.ayahs || undefined : undefined}
+                    placeholder={form.startingSurah ? `1 – ${SURAHS.find(s => String(s.id) === form.startingSurah)?.ayahs}` : 'Pick a Surah first'}
+                    disabled={!form.startingSurah}
+                    value={form.startingAyah}
+                    onChange={e => set('startingAyah', e.target.value)} />
+                </label>
               </div>
             </div>
 
