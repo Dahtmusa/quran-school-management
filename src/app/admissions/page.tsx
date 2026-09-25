@@ -164,19 +164,14 @@ export default function PublicAdmissions() {
 
   // --- Closed portal ------------------------------------------------------
   if (!portalState.open) {
-    return <main className="min-h-screen bg-[#f7f5ef] p-5">
-      <div className="mx-auto max-w-md pt-12">
-        <div className="card p-8 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-2xl">🔒</div>
-          <h1 className="mt-4 text-2xl font-black">Admissions portal is closed</h1>
-          <p className="mx-auto mt-2 max-w-sm text-sm text-slate-500">{portalState.reason}</p>
-          <div className="mt-6 flex justify-center gap-2">
-            <Link href="/admissions/track" className="btn bg-emerald-50 text-emerald-900">Track an existing application</Link>
-            <Link href="/" className="btn btn-primary">Back to website</Link>
-          </div>
-        </div>
-      </div>
-    </main>;
+    return <ClosedPortalView
+      schoolName={settings.school_name?.value || 'AMQM'}
+      openDate={openDate}
+      closeDate={closeDate}
+      reason={portalState.reason}
+      feeDisplay={feeDisplay}
+      requirements={requirements}
+    />;
   }
 
   // --- Application form ---------------------------------------------------
@@ -304,4 +299,123 @@ export default function PublicAdmissions() {
       </div>
     </div>
   </main>;
+}
+
+// Shown when the portal is not currently accepting applications: either
+// scheduled for a future date, or has already closed. Visitors still get
+// the school's admission info -- fee, requirements, and a live countdown
+// to the opening date when one is set -- so they can prepare before the
+// portal opens.
+function ClosedPortalView({
+  schoolName, openDate, closeDate, reason, feeDisplay, requirements,
+}: {
+  schoolName: string;
+  openDate: string;
+  closeDate: string;
+  reason: string;
+  feeDisplay: string;
+  requirements: string[];
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const opensAt = openDate ? new Date(openDate + 'T00:00:00').getTime() : 0;
+  const beforeOpening = opensAt > 0 && now < opensAt;
+  const totalSec = Math.max(0, Math.floor((opensAt - now) / 1000));
+  const days    = Math.floor(totalSec / 86400);
+  const hours   = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600)  / 60);
+  const seconds = totalSec % 60;
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  return <main className="min-h-screen bg-gradient-to-br from-[#f7f5ef] via-white to-emerald-50">
+    <header className="border-b bg-white/90">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+        <Link href="/" className="font-serif text-xl font-black text-emerald-950">{schoolName}</Link>
+        <div className="flex gap-2">
+          <Link href="/admissions/track" className="btn bg-slate-100">Track application</Link>
+          <Link href="/auth/login" className="btn bg-slate-100">Login</Link>
+        </div>
+      </div>
+    </header>
+
+    <div className="mx-auto max-w-4xl px-5 py-10">
+      <section className="rounded-3xl bg-gradient-to-br from-emerald-950 via-emerald-900 to-[#7a5b18] p-7 text-white shadow-xl md:p-10">
+        <div className="text-xs font-bold uppercase tracking-[.24em] text-amber-300">Admissions</div>
+        <h1 className="mt-3 text-3xl font-black md:text-4xl">
+          {beforeOpening ? 'Applications open soon' : 'Applications are currently closed'}
+        </h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-emerald-50/85">{reason}</p>
+
+        {beforeOpening && (
+          <div className="mt-6 rounded-2xl bg-white/10 p-5 ring-1 ring-white/15">
+            <div className="text-xs font-bold uppercase tracking-widest text-amber-200">Portal opens in</div>
+            <div className="mt-3 grid grid-cols-4 gap-3">
+              <TimeBlock value={days}    label="Days" />
+              <TimeBlock value={hours}   label="Hours"   pad={pad} />
+              <TimeBlock value={minutes} label="Minutes" pad={pad} />
+              <TimeBlock value={seconds} label="Seconds" pad={pad} />
+            </div>
+            <div className="mt-3 text-xs text-amber-100">
+              Opens on <b>{new Date(openDate + 'T00:00:00').toLocaleDateString('en-NG', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</b>
+              {closeDate && <> · Closes on <b>{new Date(closeDate + 'T00:00:00').toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' })}</b></>}
+            </div>
+          </div>
+        )}
+      </section>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-[.9fr_1.1fr]">
+        <section className="card p-6">
+          <div className="text-xs font-bold uppercase tracking-widest text-emerald-700">Admission fee</div>
+          <div className="mt-2 text-4xl font-black text-emerald-950">{feeDisplay}</div>
+          <div className="mt-1 text-xs text-slate-500">One-time, non-refundable. Payable using your application number as the transfer reference.</div>
+
+          <div className="mt-6 border-t pt-5">
+            <div className="text-xs font-bold uppercase tracking-widest text-emerald-700">Screening</div>
+            <div className="mt-2 text-sm text-slate-700">
+              Applicants inside <b>Adamawa State</b> are screened physically at the school. Applicants from other states are screened <b>virtually</b> through a secure video room — a unique link is issued after payment is verified.
+            </div>
+          </div>
+
+          {beforeOpening && <Link href="/admissions/track" className="btn bg-slate-100 mt-6 inline-block">Already applied? Track your application</Link>}
+        </section>
+
+        <section className="card p-6">
+          <div className="text-xs font-bold uppercase tracking-widest text-emerald-700">What you need to apply</div>
+          <h2 className="mt-1 text-xl font-black">Requirements checklist</h2>
+          {requirements.length === 0 ? (
+            <p className="mt-3 text-sm text-slate-500">The school will publish the requirements list closer to the opening date.</p>
+          ) : (
+            <ol className="mt-4 space-y-3">
+              {requirements.map((r, i) => (
+                <li key={i} className="flex gap-3 rounded-xl bg-emerald-50/60 p-3">
+                  <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-emerald-600 text-xs font-black text-white">{i + 1}</span>
+                  <div className="text-sm text-slate-800">{r}</div>
+                </li>
+              ))}
+            </ol>
+          )}
+          <div className="mt-5 rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+            Please prepare a recent passport photograph of the applicant — you will upload it directly on the application form when the portal opens.
+          </div>
+        </section>
+      </div>
+
+      <div className="mt-6 text-center text-xs text-slate-500">
+        Check back on {openDate ? new Date(openDate + 'T00:00:00').toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' }) : 'the date announced by the school'} to submit your application.
+      </div>
+    </div>
+  </main>;
+}
+
+function TimeBlock({ value, label, pad }: { value: number; label: string; pad?: (n: number) => string }) {
+  const shown = pad ? pad(value) : String(value);
+  return <div className="rounded-xl bg-emerald-950/40 p-3 text-center ring-1 ring-white/10">
+    <div className="text-3xl font-black tabular-nums leading-none tracking-tight md:text-4xl">{shown}</div>
+    <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-amber-200">{label}</div>
+  </div>;
 }
