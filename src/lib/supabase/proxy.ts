@@ -1,7 +1,7 @@
 import {createServerClient} from '@supabase/ssr';
 import {NextResponse,type NextRequest} from 'next/server';
 
-const publicPaths=['/','/auth/login','/admissions','/alumni','/about','/programs','/campus-life','/news','/contact'];
+const publicPaths=['/','/auth/login','/admissions','/admissions/track','/alumni','/about','/programs','/campus-life','/news','/contact'];
 const roleRoutes:{prefix:string;roles:string[]}[]=[
  {prefix:'/admin',roles:['super_admin','admin','principal']},
  {prefix:'/cms',roles:['super_admin','admin','principal']},

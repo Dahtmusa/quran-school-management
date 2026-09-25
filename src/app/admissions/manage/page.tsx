@@ -7,9 +7,7 @@ import {printAdmissionLetter} from '@/lib/admission-letter';
 import {useEffect,useMemo,useState} from 'react';
 
 const DEFAULT_ADMISSION_SETTINGS = {
-  application_fee_ngn: 5000,
-  application_form_price_ngn: 2000,
-  registration_fee_ngn: 25000,
+  admission_fee_ngn: 5000,
   opening_date: '',
   closing_date: '',
   screening_from: '',
@@ -54,7 +52,7 @@ export default function AdmissionsManage(){
    setBusy(true);
    try{
      const cleanedReq=reqDraft.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-     const next={...admissionSettings,requirements:cleanedReq,application_fee_ngn:Number(admissionSettings.application_fee_ngn)||0,application_form_price_ngn:Number(admissionSettings.application_form_price_ngn)||0,registration_fee_ngn:Number(admissionSettings.registration_fee_ngn)||0};
+     const next={...admissionSettings,requirements:cleanedReq,admission_fee_ngn:Number(admissionSettings.admission_fee_ngn)||0};
      await saveCMSSetting('admission_settings',next);
      setMessage('Admission settings saved.');
      await refresh();
@@ -92,7 +90,26 @@ export default function AdmissionsManage(){
   <section className="rounded-3xl bg-gradient-to-br from-slate-950 to-emerald-950 p-6 text-white"><div><div className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Admissions lifecycle</div><h2 className="mt-2 text-3xl font-black">Application → Screening → Decision → Class → Quran start.</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/75">Adamawa applicants are scheduled for physical screening. Applicants outside Adamawa are scheduled into AMQM's own secure browser video room with a unique link.</p></div></section>
   {message&&<div className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</div>}
   <section className="grid gap-4 lg:grid-cols-3">
-   <div className="card p-5 lg:col-span-2"><h2 className="font-black">Admission portal</h2><div className="mt-4 grid gap-3 sm:grid-cols-2"><label className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-sm font-semibold sm:col-span-2"><input type="checkbox" checked={!!portal.enabled} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,enabled:e.target.checked}}))}/> Portal open for applications</label><label className="text-sm font-semibold">Opening date<input className="input mt-1" type="date" value={portal.opening_date||''} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,opening_date:e.target.value}}))}/></label><label className="text-sm font-semibold">Closing date<input className="input mt-1" type="date" value={portal.closing_date||''} onChange={e=>setSettings((x:any)=>({...x,admission_portal:{...portal,closing_date:e.target.value}}))}/></label></div><button disabled={busy} onClick={savePortal} className="btn btn-primary mt-4">Save admissions settings</button></div>
+   <div className="card p-5 lg:col-span-2">
+     <div className="text-xs font-black uppercase tracking-widest text-emerald-700">Portal status</div>
+     <div className="mt-1 text-lg font-black">
+       {(() => {
+         const today=new Date().toISOString().slice(0,10);
+         const o=admissionSettings.opening_date||''; const c=admissionSettings.closing_date||'';
+         if(!o) return 'Not scheduled — set an opening date in Admission settings';
+         if(today<o) return `Portal opens ${o}`;
+         if(c&&today>c) return `Portal closed since ${c}`;
+         return `Portal is OPEN${c?` until ${c}`:''}`;
+       })()}
+     </div>
+     <div className="mt-2 text-xs text-slate-500">The public /admissions page opens and closes automatically based on the dates you set below.</div>
+     <div className="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+       <div className="rounded-xl bg-slate-50 p-3"><div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Applications</div><div className="mt-1 text-xl font-black">{items.length}</div></div>
+       <div className="rounded-xl bg-amber-50 p-3"><div className="text-[10px] font-black uppercase tracking-wide text-amber-700">Awaiting payment</div><div className="mt-1 text-xl font-black">{items.filter(a=>a.payment_status!=='verified').length}</div></div>
+       <div className="rounded-xl bg-sky-50 p-3"><div className="text-[10px] font-black uppercase tracking-wide text-sky-700">Screening scheduled</div><div className="mt-1 text-xl font-black">{items.filter(a=>a.screening_scheduled_at&&!a.screening_outcome).length}</div></div>
+       <div className="rounded-xl bg-emerald-50 p-3"><div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Successful</div><div className="mt-1 text-xl font-black">{items.filter(a=>a.screening_outcome==='successful').length}</div></div>
+     </div>
+   </div>
    <div className="card p-5"><div className="text-xs font-black uppercase tracking-widest text-emerald-700">Virtual screenings</div><div className="mt-2 text-4xl font-black">{virtualCount}</div><p className="mt-1 text-xs text-slate-500">Applications from outside Adamawa requiring an online interview.</p></div>
   </section>
 
@@ -106,16 +123,18 @@ export default function AdmissionsManage(){
       <div className="text-xs text-slate-500">Everything the applicant sees on the website and everything the parent gets from the school comes from here.</div>
     </summary>
     <div className="grid gap-4 p-5 lg:grid-cols-2">
-      <label className="text-xs font-black text-slate-600">Application fee (₦) — pays to submit application
-        <input type="number" className="input mt-1 w-full" value={admissionSettings.application_fee_ngn} onChange={e=>setS('application_fee_ngn',Number(e.target.value)||0 as any)} />
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">Admission fee (₦) — one-time, non-refundable
+        <input type="number" className="input mt-1 w-full" value={admissionSettings.admission_fee_ngn} onChange={e=>setS('admission_fee_ngn',Number(e.target.value)||0 as any)} />
+        <div className="mt-1 text-[11px] font-medium text-slate-500">Applicants pay this after submitting the form and use their application number as the transfer reference.</div>
       </label>
-      <label className="text-xs font-black text-slate-600">Application form price (₦) — used later when Phase 2 ships
-        <input type="number" className="input mt-1 w-full" value={admissionSettings.application_form_price_ngn} onChange={e=>setS('application_form_price_ngn',Number(e.target.value)||0 as any)} />
+      <label className="text-xs font-black text-slate-600">Portal opens on
+        <input type="date" className="input mt-1 w-full" value={admissionSettings.opening_date||''} onChange={e=>setS('opening_date',e.target.value as any)} />
+        <div className="mt-1 text-[11px] font-medium text-slate-500">The public /admissions page opens automatically on this date.</div>
       </label>
-      <label className="text-xs font-black text-slate-600">Registration fee (₦) — paid before class enrollment
-        <input type="number" className="input mt-1 w-full" value={admissionSettings.registration_fee_ngn} onChange={e=>setS('registration_fee_ngn',Number(e.target.value)||0 as any)} />
+      <label className="text-xs font-black text-slate-600">Portal closes on
+        <input type="date" className="input mt-1 w-full" value={admissionSettings.closing_date||''} onChange={e=>setS('closing_date',e.target.value as any)} />
+        <div className="mt-1 text-[11px] font-medium text-slate-500">After this date, new applications are refused.</div>
       </label>
-      <div />
       <label className="text-xs font-black text-slate-600">Screening period · from
         <input type="date" className="input mt-1 w-full" value={admissionSettings.screening_from||''} onChange={e=>setS('screening_from',e.target.value as any)} />
       </label>
