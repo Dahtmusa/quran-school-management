@@ -159,11 +159,19 @@ function Timeline({ payload }: { payload: any }) {
       {
         title: 'Screening',
         state: (screeningAt ? 'done' : paymentVerified ? 'active' : 'wait') as 'done'|'active'|'wait',
-        detail: screeningAt
+        detail: (() => {
+          const predictedMode = payload.screening_mode
+            || (String(payload.state || '').trim().toLowerCase() === 'adamawa' ? 'physical' : 'virtual');
+          const modeLabel = predictedMode === 'virtual' ? 'Virtual video call' : 'Physical at school';
+          if (screeningAt) return `${modeLabel} · ${screeningAt.toLocaleString()}`;
+          if (paymentVerified) return `Screening will be scheduled once admin has assigned a date. Expected mode: ${modeLabel}.`;
+          return `Screening is scheduled after your payment is verified. Expected mode: ${modeLabel}.`;
+        })(),
+        _skip: (function(){/* dead code kept as reference, harmless
           ? `${payload.screening_mode === 'virtual' ? 'Virtual video call' : 'Physical at school'} · ${screeningAt.toLocaleString()}`
           : paymentVerified
             ? 'Screening will be scheduled once admin has assigned a date.'
-            : 'Screening is scheduled after your payment is verified.',
+            : 'Screening is scheduled after your payment is verified.',*/})(),
         extra: screeningAt && payload.screening_mode === 'virtual' && payload.screening_token
           ? { href: '/admissions/screening/' + payload.screening_token, label: 'Join video call' }
           : null,
