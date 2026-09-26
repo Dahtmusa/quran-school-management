@@ -8,20 +8,22 @@ import { sendBestBulkSms } from '@/lib/sms/bestbulksms';
 
 const ADMIN_ROLES = ['admin','super_admin','principal','admissions'];
 
-type Kind = 'screening_success' | 'screening_fail' | 'admission_offered' | 'registered';
+type Kind = 'screening_success' | 'screening_fail' | 'admission_offered' | 'registered' | 'screening_scheduled';
 
 const DEFAULT_TEMPLATES: Record<Kind, string> = {
-  screening_success: 'Assalamu alaikum {parent_name}. This is AMQM. {applicant_name} (Ref {application_no}) has PASSED the admissions screening. Please log in to receive the admission letter.',
-  screening_fail:    'Assalamu alaikum {parent_name}. This is AMQM. Following screening for {applicant_name} (Ref {application_no}), we are unable to offer admission this session. Please contact the office for details.',
-  admission_offered: 'Assalamu alaikum {parent_name}. This is AMQM. An OFFICIAL ADMISSION LETTER has been issued for {applicant_name} (Ref {application_no}). Please collect it from the school or check your email.',
-  registered:        'Assalamu alaikum {parent_name}. This is AMQM. Registration is complete for {applicant_name} (Admission No {admission_no}). Welcome to the AMQM family.',
+  screening_success:   'Assalamu alaikum {parent_name}. This is AMQM. {applicant_name} (Ref {application_no}) has PASSED the admissions screening. Please log in to receive the admission letter.',
+  screening_fail:      'Assalamu alaikum {parent_name}. This is AMQM. Following screening for {applicant_name} (Ref {application_no}), we are unable to offer admission this session. Please contact the office for details.',
+  admission_offered:   'Assalamu alaikum {parent_name}. This is AMQM. An OFFICIAL ADMISSION LETTER has been issued for {applicant_name} (Ref {application_no}). Please collect it from the school or check your email.',
+  registered:          'Assalamu alaikum {parent_name}. This is AMQM. Registration is complete for {applicant_name} (Admission No {admission_no}). Welcome to the AMQM family.',
+  screening_scheduled: 'AMQM screening for {applicant_name} (Ref {application_no}): {screening_date} at {screening_time}. Mode: {mode}. {join_line}',
 };
 
 const KEY_BY_KIND: Record<Kind, string> = {
-  screening_success: 'sms_screening_success',
-  screening_fail:    'sms_screening_fail',
-  admission_offered: 'sms_admission_offered',
-  registered:        'sms_registered',
+  screening_success:   'sms_screening_success',
+  screening_fail:      'sms_screening_fail',
+  admission_offered:   'sms_admission_offered',
+  registered:          'sms_registered',
+  screening_scheduled: 'sms_screening_scheduled',
 };
 
 function render(template: string, vars: Record<string, string>): string {
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
   const admin = createAdminClient();
   const { data: app } = await admin
     .from('admissions')
-    .select('id,application_no,applicant_name,parent_name,parent_phone,guardian_phone')
+    .select('id,application_no,applicant_name,parent_name,parent_phone,guardian_phone,screening_mode,screening_scheduled_at,screening_token,state')
     .eq('id', applicationId).maybeSingle();
   if (!app) return NextResponse.json({ error: 'Application not found.' }, { status: 404 });
   const phone = app.parent_phone || app.guardian_phone;
@@ -65,11 +67,41 @@ export async function POST(req: NextRequest) {
     .select('admission_no')
     .eq('admission_no', app.application_no).maybeSingle();
 
+  // Build screening-scheduled specific fields. A "short" join link uses
+  // the first 12 chars of the screening_token (24 bytes of entropy in the
+  // full token so 48 bits in 12 hex chars still make guessing infeasible
+  // for a short-lived screening slot). Route /j/[code] resolves this.
+  let screeningDate = '';
+  let screeningTime = '';
+  let joinLine      = '';
+  let joinLink      = '';
+  const modeLabel   = app.screening_mode === 'virtual' ? 'Virtual video call' :
+                      app.screening_mode === 'physical' ? 'Physical at school' :
+                      (String(app.state || '').trim().toLowerCase() === 'adamawa' ? 'Physical at school' : 'Virtual video call');
+
+  if (app.screening_scheduled_at) {
+    const d = new Date(app.screening_scheduled_at);
+    screeningDate = new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+    screeningTime = new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
+  }
+  if (app.screening_mode === 'virtual' && app.screening_token) {
+    const origin = req.nextUrl.origin.replace(/\/$/, '');
+    joinLink = origin + '/j/' + String(app.screening_token).slice(0, 12);
+    joinLine = 'Join: ' + joinLink;
+  } else if (app.screening_mode === 'physical') {
+    joinLine = 'Please arrive 15 minutes early at the AMQM campus.';
+  }
+
   const message = render(template, {
     applicant_name: app.applicant_name || '',
     parent_name:    app.parent_name    || 'Parent',
     application_no: app.application_no || '',
     admission_no:   enrolled?.admission_no || app.application_no,
+    screening_date: screeningDate,
+    screening_time: screeningTime,
+    mode:           modeLabel,
+    join_link:      joinLink,
+    join_line:      joinLine,
   });
   if (!message.trim()) return NextResponse.json({ error: 'The template for this notification is empty.' }, { status: 400 });
 

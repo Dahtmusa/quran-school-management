@@ -20,6 +20,7 @@ const DEFAULT_ADMISSION_SETTINGS = {
     'Parent/guardian valid ID',
   ] as string[],
   letter_body_template: '',
+  sms_screening_scheduled: '',
   sms_screening_success: '',
   sms_screening_fail: '',
   sms_admission_offered: '',
@@ -27,7 +28,7 @@ const DEFAULT_ADMISSION_SETTINGS = {
 };
 type AdmissionSettings = typeof DEFAULT_ADMISSION_SETTINGS;
 
-async function notifyParent(applicationId: string, kind: 'screening_success'|'screening_fail'|'admission_offered'|'registered') {
+async function notifyParent(applicationId: string, kind: 'screening_success'|'screening_fail'|'admission_offered'|'registered'|'screening_scheduled') {
   const res = await fetch('/api/admissions/notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,8 +91,17 @@ export default function AdmissionsManage(){
  }
  async function verify(a:any){setBusy(true);try{await updateAdmissionApplication(a.id,{payment_status:'verified',payment_reference:a.payment_reference||null,status:'payment_verified'});setMessage(a.application_no+' payment verified.');await refresh()}catch(e:any){setMessage(e?.message||'Unable to verify')}finally{setBusy(false)}}
  async function schedule(a:any){
-   if(!scheduleAt)return;
-   setBusy(true);try{const r=await scheduleAdmissionScreening(a.id,scheduleAt,'');setMessage(a.application_no+' screening scheduled as '+r.screening_mode+'.');setScheduleAt('');await refresh();setSelected(null)}catch(e:any){setMessage(e?.message||'Unable to schedule screening')}finally{setBusy(false)}
+   if(!scheduleAt){setMessage('Pick a date and time for the screening first.');return;}
+   setBusy(true);
+   try{
+     const r=await scheduleAdmissionScreening(a.id,scheduleAt,'');
+     let smsNote='';
+     try{const s=await notifyParent(a.id,'screening_scheduled');smsNote=` SMS sent to ${s.to}.`;}
+     catch(smsErr:any){smsNote=` (SMS failed: ${smsErr?.message||'unknown error'})`;}
+     setMessage(a.application_no+' screening scheduled as '+r.screening_mode+'.'+smsNote);
+     setScheduleAt('');await refresh();setSelected(null);
+   }catch(e:any){setMessage(e?.message||'Unable to schedule screening')}
+   finally{setBusy(false)}
  }
  async function outcome(a:any,outcome:'successful'|'unsuccessful'|'further_assessment'){
    setBusy(true);try{await saveAdmissionScreening(a.id,outcome,a.screening_score?Number(a.screening_score):null,a.screening_notes||'');setMessage(a.application_no+' marked '+outcome.replace('_',' ')+'.');await refresh();setSelected(null)}catch(e:any){setMessage(e?.message||'Unable to save screening outcome')}finally{setBusy(false)}
@@ -152,7 +162,7 @@ export default function AdmissionsManage(){
           <SavedTile label="Screening period">{savedSnapshot.screening_from||savedSnapshot.screening_to?`${savedSnapshot.screening_from||'—'} → ${savedSnapshot.screening_to||'—'}`:<i className="text-slate-400">Not set</i>}</SavedTile>
           <SavedTile label="Requirements">{savedSnapshot.requirements?.length?`${savedSnapshot.requirements.length} item${savedSnapshot.requirements.length===1?'':'s'}`:<i className="text-slate-400">None</i>}</SavedTile>
           <SavedTile label="Letter template">{savedSnapshot.letter_body_template?.trim()?`${savedSnapshot.letter_body_template.split(/\r?\n/).filter(Boolean).length} lines`:<i className="text-slate-400">Default</i>}</SavedTile>
-          <SavedTile label="SMS templates set">{['sms_screening_success','sms_screening_fail','sms_admission_offered','sms_registered'].filter(k=>(savedSnapshot as any)[k]?.trim()).length} of 4</SavedTile>
+          <SavedTile label="SMS templates set">{['sms_screening_scheduled','sms_screening_success','sms_screening_fail','sms_admission_offered','sms_registered'].filter(k=>(savedSnapshot as any)[k]?.trim()).length} of 5</SavedTile>
           <SavedTile label="Portal state">{(()=>{const today=new Date().toISOString().slice(0,10);const o=savedSnapshot.opening_date;const c=savedSnapshot.closing_date;if(!o) return <span className="text-slate-500">Not scheduled</span>; if(today<o) return <span className="text-amber-700">Opens {o}</span>; if(c&&today>c) return <span className="text-rose-700">Closed</span>; return <span className="text-emerald-700 font-black">OPEN</span>;})()}</SavedTile>
         </div>
         {Array.isArray(savedSnapshot.requirements) && savedSnapshot.requirements.length > 0 && (
@@ -193,6 +203,9 @@ export default function AdmissionsManage(){
       </label>
       <label className="text-xs font-black text-slate-600 lg:col-span-2">Admission letter body (placeholders: {'{applicant_name} · {parent_name} · {application_no} · {class_name} · {section} · {starting_position} · {registration_fee} · {screening_score} · {date} · {school_name}'})
         <textarea rows={8} className="input mt-1 w-full" value={admissionSettings.letter_body_template||''} onChange={e=>setS('letter_body_template',e.target.value as any)} placeholder="Dear {parent_name}, we are pleased to offer {applicant_name} admission to {school_name} ..." />
+      </label>
+      <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Screening scheduled (placeholders: {'{applicant_name} · {parent_name} · {application_no} · {screening_date} · {screening_time} · {mode} · {join_link} · {join_line}'})
+        <textarea rows={3} className="input mt-1 w-full" value={admissionSettings.sms_screening_scheduled||''} onChange={e=>setS('sms_screening_scheduled',e.target.value as any)} placeholder="AMQM screening for {applicant_name} (Ref {application_no}): {screening_date} at {screening_time}. Mode: {mode}. {join_line}" />
       </label>
       <label className="text-xs font-black text-slate-600 lg:col-span-2">SMS · Successful screening (placeholders: {'{applicant_name} · {parent_name} · {application_no}'})
         <textarea rows={2} className="input mt-1 w-full" value={admissionSettings.sms_screening_success||''} onChange={e=>setS('sms_screening_success',e.target.value as any)} />
