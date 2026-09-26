@@ -30,7 +30,7 @@ export default function ScreeningRoom(){
   const channel=useRef<any>(null);
   const disposed=useRef(false);
   const pendingIce=useRef<RTCIceCandidateInit[]>([]);
-  const startFnRef=useRef<(() => Promise<void>) | null>(null);
+  const startFnRef=useRef<((mode?: 'video'|'audio') => Promise<void>) | null>(null);
 
   useEffect(()=>{
     let alive=true;
@@ -69,7 +69,7 @@ export default function ScreeningRoom(){
       }catch(e){console.error('offer error',e);}
     };
 
-    const start=async()=>{
+    const start=async(mode:'video'|'audio'='video')=>{
       // Ref-based guard: bail immediately if we've already been called.
       // This is critical -- multiple simultaneous getUserMedia calls will
       // hang or crash the browser tab on some laptops.
@@ -77,14 +77,16 @@ export default function ScreeningRoom(){
       startedRef.current=true;
       try{
         if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera and microphone access requires HTTPS and a supported browser.');
-        setStatus('Requesting camera and microphone…');
-        // Modest resolution + capped framerate so low-end laptops don't
-        // burn CPU encoding 1080p at 30fps. Aspect ratio stays 16:9 and
-        // WebRTC upscales fine when needed.
+        setStatus(mode==='video'?'Requesting camera and microphone…':'Requesting microphone…');
+        // Bare-minimum constraints: let the browser pick the safest camera
+        // and settings. Some hardware/driver combinations crash Chrome
+        // when the code specifies width/height/framerate at all. `video:
+        // true` puts us back on the manufacturer's supported profile.
         localStream.current=await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:'user',width:{ideal:640,max:960},height:{ideal:360,max:540},frameRate:{ideal:15,max:20}},
-          audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+          video: mode==='video' ? true : false,
+          audio: {echoCancellation:true,noiseSuppression:true,autoGainControl:true}
         });
+        if(mode==='audio'){setCameraOff(true);}
         if(localVideo.current){
           localVideo.current.srcObject=localStream.current;
           await localVideo.current.play().catch(()=>{});
@@ -218,13 +220,19 @@ export default function ScreeningRoom(){
           </div>
         </div>
         <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:mt-4">
-          {!started && (
+          {!started && <div className="flex flex-col items-center gap-2 sm:flex-row">
             <button
-              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn();}}}
+              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn('video');}}}
               className="min-h-11 rounded-xl bg-emerald-500 px-6 text-sm font-black text-white shadow hover:bg-emerald-400">
               🎥 Start camera &amp; mic
             </button>
-          )}
+            <button
+              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn('audio');}}}
+              title="If Camera & mic crashes your browser, use this instead"
+              className="min-h-11 rounded-xl bg-slate-600 px-4 text-xs font-bold text-white hover:bg-slate-500">
+              🎤 Start audio only
+            </button>
+          </div>}
           <button onClick={toggleMute} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{muted?'Unmute':'Mute'}</button>
           <button onClick={toggleCamera} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{cameraOff?'Camera on':'Camera off'}</button>
           <button onClick={leave} className="min-h-11 rounded-xl bg-rose-600 px-4 text-sm font-black text-white">Leave</button>
