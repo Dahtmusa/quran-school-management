@@ -94,6 +94,7 @@ export default function TrackApplication() {
 
       {payload && !payload.error && <div className="mt-6 space-y-4">
         <Header payload={payload} />
+        <JoinVirtualBanner payload={payload} />
         <Timeline payload={payload} />
         {canPrintLetter && <div className="card p-5">
           <div className="text-xs font-bold uppercase tracking-widest text-emerald-700">Admission letter</div>
@@ -213,4 +214,95 @@ function Timeline({ payload }: { payload: any }) {
       </li>
     ))}
   </ol>;
+}
+
+// Big prominent banner shown to virtual applicants once the admin has
+// scheduled their screening. It counts down to the appointment time
+// and, from 15 minutes before through the whole session, shows a
+// bright green "Join now" button that opens the video room. Never
+// appears for physical screenings.
+function JoinVirtualBanner({ payload }: { payload: any }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const scheduledIso: string | null = payload.screening_scheduled_at || null;
+  const isVirtual = payload.screening_mode === 'virtual';
+  const token: string | null = payload.screening_token || null;
+  if (!isVirtual || !scheduledIso || !token) return null;
+  if (payload.screening_outcome) return null; // already interviewed
+
+  const scheduledAt = new Date(scheduledIso).getTime();
+  const openWindow = 15 * 60 * 1000; // room opens 15 min early
+  const graceWindow = 90 * 60 * 1000; // still joinable for 90 min after
+  const canJoin = now >= (scheduledAt - openWindow) && now <= (scheduledAt + graceWindow);
+  const beforeOpen = now < (scheduledAt - openWindow);
+
+  const totalSec = Math.max(0, Math.floor(((scheduledAt - openWindow) - now) / 1000));
+  const days    = Math.floor(totalSec / 86400);
+  const hours   = Math.floor((totalSec % 86400) / 3600);
+  const minutes = Math.floor((totalSec % 3600)  / 60);
+  const seconds = totalSec % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const scheduledPretty = new Date(scheduledIso).toLocaleString('en-NG', {
+    weekday: 'short', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+
+  const joinHref = '/admissions/screening/' + token;
+
+  return (
+    <section className={
+      'rounded-2xl p-5 shadow-md ring-2 ' +
+      (canJoin ? 'bg-emerald-600 text-white ring-emerald-300'
+               : 'bg-sky-950 text-white ring-sky-500/30')
+    }>
+      <div className="text-[10px] font-black uppercase tracking-[.24em] text-amber-200">
+        Your virtual interview
+      </div>
+      <div className="mt-1 text-lg font-black">
+        {canJoin ? '🎥  You can join the video call now' : `Scheduled for ${scheduledPretty}`}
+      </div>
+
+      {canJoin ? (
+        <>
+          <div className="mt-3">
+            <Link href={joinHref} target="_blank"
+              className="inline-block rounded-xl bg-white px-6 py-3 text-base font-black text-emerald-700 shadow-lg hover:bg-emerald-50">
+              🎥 Join video call
+            </Link>
+          </div>
+          <div className="mt-2 text-xs text-emerald-50/80">
+            Best on Chrome or Safari. Allow camera and microphone when prompted. If the call drops, reload this page and press Join again.
+          </div>
+        </>
+      ) : beforeOpen ? (
+        <>
+          <div className="mt-3 grid max-w-md grid-cols-4 gap-2">
+            <TimeCell v={days}    l="Days" />
+            <TimeCell v={hours}   l="Hours"   f={pad} />
+            <TimeCell v={minutes} l="Minutes" f={pad} />
+            <TimeCell v={seconds} l="Seconds" f={pad} />
+          </div>
+          <div className="mt-3 text-xs text-sky-100/80">
+            The Join button appears 15 minutes before your scheduled time. This page checks itself every second, so you do not need to reload.
+          </div>
+        </>
+      ) : (
+        <div className="mt-3 text-sm text-amber-200">
+          Your scheduled interview window has passed. If you missed it, please contact the school for the next steps.
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TimeCell({ v, l, f }: { v: number; l: string; f?: (n: number) => string }) {
+  return <div className="rounded-lg bg-white/10 p-2 text-center">
+    <div className="text-2xl font-black tabular-nums leading-none">{f ? f(v) : v}</div>
+    <div className="mt-0.5 text-[9px] font-bold uppercase tracking-widest text-amber-200">{l}</div>
+  </div>;
 }
