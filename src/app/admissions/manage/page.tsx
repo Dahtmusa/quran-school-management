@@ -91,7 +91,7 @@ export default function AdmissionsManage(){
  }
  async function verify(a:any){setBusy(true);try{await updateAdmissionApplication(a.id,{payment_status:'verified',payment_reference:a.payment_reference||null,status:'payment_verified'});setMessage(a.application_no+' payment verified.');await refresh()}catch(e:any){setMessage(e?.message||'Unable to verify')}finally{setBusy(false)}}
  async function schedule(a:any){
-   if(!scheduleAt){setMessage('Pick a date and time for the screening first.');return;}
+   if(!scheduleAt){alert('Pick a date and time for the screening first (the "Screening time" field just above this button).');setMessage('Pick a date and time for the screening first.');return;}
    setBusy(true);
    try{
      const r=await scheduleAdmissionScreening(a.id,scheduleAt,'');
@@ -237,9 +237,15 @@ export default function AdmissionsManage(){
      <div className={'rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-wide '+((String(selected.state||'').trim().toLowerCase()==='adamawa')?'bg-emerald-50 text-emerald-800':'bg-sky-50 text-sky-800')}>
        Predicted: {(String(selected.state||'').trim().toLowerCase()==='adamawa')?'Physical (Adamawa)':`Virtual (${selected.state||'outside Adamawa'})`}
      </div>
-     <button disabled={busy||selected.payment_status!=='verified'} className="btn bg-amber-100 text-amber-900" onClick={()=>schedule(selected)}>
+     <button
+       disabled={busy||selected.payment_status!=='verified'||!scheduleAt}
+       className={'btn '+(scheduleAt?'bg-amber-500 text-white':'bg-amber-100 text-amber-900')}
+       onClick={()=>schedule(selected)}
+       title={!scheduleAt?'Pick a date and time above first':(selected.payment_status!=='verified'?'Verify payment first':'Schedule this screening')}>
        Schedule {(selected.screening_mode||(String(selected.state||'').trim().toLowerCase()==='adamawa'?'physical':'virtual'))==='virtual'?'video':'physical'} screening
      </button>
+     {!scheduleAt && <div className="text-[11px] font-bold text-amber-800">← Pick a date & time above first</div>}
+     {selected.payment_status!=='verified' && <div className="text-[11px] font-bold text-rose-700">Verify payment before scheduling</div>}
      {selected.screening_mode==='virtual'&&selected.screening_token&&<a className="btn bg-emerald-100 text-emerald-900" target="_blank" rel="noreferrer" href={'/admissions/screening/'+selected.screening_token+'?role=interviewer'}>Open interview room</a>}
    </div>
    <div className="mt-6 border-t pt-5"><div className="text-xs font-black uppercase tracking-widest text-slate-500">Decision</div><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy} className="btn btn-green" onClick={()=>outcome(selected,'successful')}>Successful</button><button disabled={busy} className="btn bg-rose-100 text-rose-900" onClick={()=>outcome(selected,'unsuccessful')}>Unsuccessful</button><button disabled={busy} className="btn bg-amber-100 text-amber-900" onClick={()=>outcome(selected,'further_assessment')}>Further Assessment Required</button></div></div>
