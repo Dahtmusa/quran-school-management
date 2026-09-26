@@ -15,7 +15,7 @@ const DEFAULT_TEMPLATES: Record<Kind, string> = {
   screening_fail:      'Assalamu alaikum {parent_name}. This is AMQM. Following screening for {applicant_name} (Ref {application_no}), we are unable to offer admission this session. Please contact the office for details.',
   admission_offered:   'Assalamu alaikum {parent_name}. This is AMQM. An OFFICIAL ADMISSION LETTER has been issued for {applicant_name} (Ref {application_no}). Please collect it from the school or check your email.',
   registered:          'Assalamu alaikum {parent_name}. This is AMQM. Registration is complete for {applicant_name} (Admission No {admission_no}). Welcome to the AMQM family.',
-  screening_scheduled: 'AMQM screening for {applicant_name} (Ref {application_no}): {screening_date} at {screening_time}. Mode: {mode}. {join_line}',
+  screening_scheduled: 'AMQM screening for {applicant_name} on {screening_date} {screening_time}. {join_line} Ref {application_no}.',
 };
 
 const KEY_BY_KIND: Record<Kind, string> = {
@@ -85,7 +85,11 @@ export async function POST(req: NextRequest) {
     screeningTime = new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true }).format(d);
   }
   if (app.screening_mode === 'virtual' && app.screening_token) {
-    const origin = req.nextUrl.origin.replace(/\/$/, '');
+    // Prefer an explicit site URL env var if the school configured one
+    // so SMS links always use the friendly domain (aliyumaimuna.com.ng)
+    // instead of whatever Vercel host the request landed on.
+    const configured = String(process.env.NEXT_PUBLIC_SITE_URL || '').replace(/\/$/, '');
+    const origin = (configured || req.nextUrl.origin || '').replace(/\/$/, '');
     joinLink = origin + '/j/' + String(app.screening_token).slice(0, 12);
     joinLine = 'Join: ' + joinLink;
   } else if (app.screening_mode === 'physical') {

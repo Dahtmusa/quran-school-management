@@ -68,9 +68,12 @@ export default function ScreeningRoom(){
       if(started)return;
       try{
         if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera and microphone access requires HTTPS and a supported browser.');
+        // Modest resolution + capped framerate so low-end laptops don't
+        // burn CPU encoding 1080p at 30fps. Aspect ratio stays 16:9 and
+        // WebRTC upscales fine when needed.
         localStream.current=await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},
-          audio:true
+          video:{facingMode:'user',width:{ideal:640,max:1280},height:{ideal:360,max:720},frameRate:{ideal:20,max:24}},
+          audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
         });
         if(localVideo.current){
           localVideo.current.srcObject=localStream.current;
@@ -175,9 +178,24 @@ export default function ScreeningRoom(){
     <header className="border-b bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-4"><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.2em] text-emerald-700">AMQM Virtual Screening</div><h1 className="truncate text-lg sm:text-xl font-black">{interview?'Interview: '+screening.applicant_name:'Your AMQM screening room'}</h1></div><div className={connected?'shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black text-emerald-800':'shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black text-amber-800'}>{connected?'Live':'Connecting'}</div></div></header>
     <div className="mx-auto grid max-w-7xl gap-4 p-3 sm:p-5 lg:grid-cols-[1fr_360px]">
       <section className="rounded-2xl bg-slate-950 p-2.5 sm:rounded-3xl sm:p-4 shadow-xl">
-        <div className="grid gap-2.5 md:grid-cols-2">
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-900 sm:rounded-2xl"><video ref={localVideo} muted playsInline className="h-full w-full object-cover"/><span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">{interview?'Interviewer':'Applicant'} · You</span></div>
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-900 sm:rounded-2xl"><video ref={remoteVideo} playsInline className="h-full w-full object-cover"/><span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">{interview?'Applicant':'Interviewer'}</span></div>
+        {/* Videos: the OTHER person is the primary big view; your own
+            camera is a smaller preview underneath. This layout works on
+            phones where screen height is limited, and gives the
+            interviewer + applicant a clear view of each other. */}
+        <div className="space-y-2.5">
+          <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-900 sm:rounded-2xl">
+            <video ref={remoteVideo} playsInline className="h-full w-full object-contain sm:object-cover bg-black" />
+            <span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
+              {interview ? 'Applicant' : 'Interviewer'}
+            </span>
+            {!connected && <div className="absolute inset-0 grid place-items-center bg-black/70 text-center text-slate-300"><div><div className="text-2xl">👤</div><div className="mt-1 text-xs font-bold">Waiting for {interview ? 'applicant' : 'interviewer'} to join…</div></div></div>}
+          </div>
+          <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded-xl bg-slate-900 sm:mx-0 sm:max-w-sm sm:rounded-2xl">
+            <video ref={localVideo} muted playsInline className="h-full w-full object-contain sm:object-cover bg-black" />
+            <span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
+              {interview ? 'Interviewer' : 'Applicant'} · You
+            </span>
+          </div>
         </div>
         <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:mt-4">
           <button onClick={toggleMute} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900">{muted?'Unmute':'Mute'}</button>
