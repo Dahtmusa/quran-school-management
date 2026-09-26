@@ -243,25 +243,19 @@ export default function AdmissionsManage(){
   </div></section>
   {selected&&<div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-5" onClick={()=>setSelected(null)}><div className="max-h-[92vh] w-full max-w-3xl overflow-auto rounded-t-3xl bg-white p-6 sm:rounded-3xl" onClick={e=>e.stopPropagation()}>
    <div className="flex justify-between"><div><div className="text-xs uppercase tracking-wider text-emerald-700">Application {selected.application_no}</div><h2 className="mt-1 text-2xl font-black">{selected.applicant_name}</h2></div><button className="btn bg-slate-100" onClick={()=>setSelected(null)}>Close</button></div>
-   <div className="mt-5 grid gap-3 sm:grid-cols-2">{[['Date of birth',selected.date_of_birth],['Gender',selected.gender],['Parent',selected.parent_name],['Parent phone',selected.parent_phone],['Guardian',selected.guardian_name],['Guardian phone',selected.guardian_phone],['Email',selected.guardian_email],['Address',(selected.address||'—')+', '+(selected.lga||'')+', '+(selected.state||'')],['Quran level',selected.quran_level],['Screening mode',selected.screening_mode],['Screening time',selected.screening_scheduled_at?new Date(selected.screening_scheduled_at).toLocaleString():'—'],['Outcome',selected.screening_outcome||'Pending']].map(([k,v])=><div className="rounded-xl bg-slate-50 p-3" key={k as string}><div className="text-xs text-slate-400">{k}</div><div className="mt-1 text-sm font-semibold">{v||'—'}</div></div>)}</div>
-   <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="text-xs font-black text-slate-600">Class after successful screening<select className="input mt-1 w-full" value={selected.class_id||''} onChange={e=>setSelected((x:any)=>({...x,class_id:e.target.value}))}><option value="">Assign class</option>{classes.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label><label className="text-xs font-black text-slate-600">Screening time<input className="input mt-1 w-full" type="datetime-local" value={scheduleAt} onChange={e=>setScheduleAt(e.target.value)}/></label><input className="input" type="number" placeholder="Screening score" value={selected.screening_score||''} onChange={e=>setSelected((x:any)=>({...x,screening_score:e.target.value}))}/><textarea className="input sm:col-span-2" placeholder="Screening notes / assessment" value={selected.screening_notes||''} onChange={e=>setSelected((x:any)=>({...x,screening_notes:e.target.value}))}/></div>
-   <div className="mt-4 flex flex-wrap items-center gap-2">
-     <div className={'rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-wide '+((String(selected.state||'').trim().toLowerCase()==='adamawa')?'bg-emerald-50 text-emerald-800':'bg-sky-50 text-sky-800')}>
-       Predicted: {(String(selected.state||'').trim().toLowerCase()==='adamawa')?'Physical (Adamawa)':`Virtual (${selected.state||'outside Adamawa'})`}
-     </div>
-     <button
-       disabled={busy||selected.payment_status!=='verified'||!scheduleAt}
-       className={'btn '+(scheduleAt?'bg-amber-500 text-white':'bg-amber-100 text-amber-900')}
-       onClick={()=>schedule(selected)}
-       title={!scheduleAt?'Pick a date and time above first':(selected.payment_status!=='verified'?'Verify payment first':'Schedule this screening')}>
-       Schedule {(selected.screening_mode||(String(selected.state||'').trim().toLowerCase()==='adamawa'?'physical':'virtual'))==='virtual'?'video':'physical'} screening
-     </button>
-     {!scheduleAt && <div className="text-[11px] font-bold text-amber-800">← Pick a date & time above first</div>}
-     {selected.payment_status!=='verified' && <div className="text-[11px] font-bold text-rose-700">Verify payment before scheduling</div>}
-     {selected.screening_mode==='virtual'&&selected.screening_token&&<a className="btn bg-emerald-100 text-emerald-900" target="_blank" rel="noreferrer" href={'/admissions/screening/'+selected.screening_token+'?role=interviewer'}>Open interview room</a>}
-   </div>
-   <div className="mt-6 border-t pt-5"><div className="text-xs font-black uppercase tracking-widest text-slate-500">Decision</div><div className="mt-3 flex flex-wrap gap-2"><button disabled={busy} className="btn btn-green" onClick={()=>outcome(selected,'successful')}>Successful</button><button disabled={busy} className="btn bg-rose-100 text-rose-900" onClick={()=>outcome(selected,'unsuccessful')}>Unsuccessful</button><button disabled={busy} className="btn bg-amber-100 text-amber-900" onClick={()=>outcome(selected,'further_assessment')}>Further Assessment Required</button></div></div>
-   <div className="mt-6 border-t pt-5"><div className="text-xs font-black uppercase tracking-widest text-slate-500">After successful screening</div><p className="mt-2 text-sm text-slate-500">Assign the class and Quran starting Surah/Ayah, then enroll. The student's Quran journey starts from that position and continues across future school years.</p></div>
+   <ApplicationDetails selected={selected} />
+   <ApplicationWizard
+     selected={selected}
+     setSelected={setSelected}
+     classes={classes}
+     busy={busy}
+     scheduleAt={scheduleAt}
+     setScheduleAt={setScheduleAt}
+     verify={verify}
+     schedule={schedule}
+     outcome={outcome}
+     enroll={enroll}
+   />
   </div></div>}
  </div></AdminShell>
 }
@@ -271,4 +265,257 @@ function SavedTile({label,children}:{label:string;children:React.ReactNode}){
     <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">{label}</div>
     <div className="mt-1 text-sm font-black text-slate-900">{children}</div>
   </div>;
+}
+
+// Read-only applicant details card. Kept above the wizard so the admin
+// can always see who they are acting on.
+function ApplicationDetails({ selected }: { selected: any }) {
+  const rows: [string, any][] = [
+    ['Date of birth', selected.date_of_birth],
+    ['Gender', selected.gender],
+    ['Parent', selected.parent_name],
+    ['Parent phone', selected.parent_phone],
+    ['Guardian', selected.guardian_name],
+    ['Guardian phone', selected.guardian_phone],
+    ['Email', selected.guardian_email],
+    ['Address', (selected.address || '—') + ', ' + (selected.lga || '') + ', ' + (selected.state || '')],
+    ['Quran level', selected.quran_level],
+    ['Requested section', selected.requested_section],
+  ];
+  return (
+    <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      {rows.map(([k, v]) => (
+        <div key={k} className="rounded-xl bg-slate-50 p-3">
+          <div className="text-xs text-slate-400">{k}</div>
+          <div className="mt-1 text-sm font-semibold">{v || '—'}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Stage-based decision wizard. Shows only the ONE section the admin
+// should act on next. Each stage naturally follows the previous:
+//   1. Verify payment
+//   2. Schedule screening (date + time)
+//   3. Record screening result (score + notes + Successful/Unsuccessful/Further)
+//   4. Assign class + set Quran starting position (only if Successful)
+//   5. Enroll into the school (only when a class is assigned)
+// Above the active step, a small progress trail shows what's already
+// done so it never feels like context has been lost.
+function ApplicationWizard(props: {
+  selected: any;
+  setSelected: (fn: any) => void;
+  classes: any[];
+  busy: boolean;
+  scheduleAt: string;
+  setScheduleAt: (v: string) => void;
+  verify: (a: any) => any;
+  schedule: (a: any) => any;
+  outcome: (a: any, o: 'successful' | 'unsuccessful' | 'further_assessment') => any;
+  enroll: (a: any) => any;
+}) {
+  const { selected, setSelected, classes, busy, scheduleAt, setScheduleAt, verify, schedule, outcome, enroll } = props;
+
+  const predictedMode = String(selected.state || '').trim().toLowerCase() === 'adamawa' ? 'physical' : 'virtual';
+  const mode = selected.screening_mode || predictedMode;
+
+  const paymentDone   = selected.payment_status === 'verified';
+  const scheduleDone  = !!selected.screening_scheduled_at;
+  const outcomeDone   = !!selected.screening_outcome;
+  const successful    = selected.screening_outcome === 'successful';
+  const classAssigned = !!selected.class_id;
+  const enrolled      = selected.status === 'enrolled';
+
+  // Determine which stage is active. Only one section renders below.
+  let stage: 1 | 2 | 3 | 4 | 5 | 6 = 1;
+  if (enrolled)                                         stage = 6;
+  else if (successful && classAssigned)                 stage = 5;
+  else if (successful)                                  stage = 4;
+  else if (scheduleDone && !outcomeDone)                stage = 3;
+  else if (paymentDone && !scheduleDone)                stage = 2;
+  else if (!paymentDone)                                stage = 1;
+  else                                                  stage = 3; // outcome recorded (unsuccessful / further)
+
+  const trail = [
+    { n: 1, label: 'Payment',    done: paymentDone },
+    { n: 2, label: 'Schedule',   done: scheduleDone },
+    { n: 3, label: 'Result',     done: outcomeDone },
+    { n: 4, label: 'Class',      done: classAssigned },
+    { n: 5, label: 'Enrol',      done: enrolled },
+  ];
+
+  return (
+    <div className="mt-6 border-t pt-5">
+      {/* Progress trail */}
+      <ol className="flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-wide">
+        {trail.map((t, i) => (
+          <li key={t.n} className="flex items-center gap-2">
+            <span className={
+              'grid h-7 w-7 place-items-center rounded-full ' +
+              (t.done ? 'bg-emerald-600 text-white' :
+               stage === t.n ? 'bg-amber-500 text-white' :
+                               'bg-slate-100 text-slate-400')
+            }>{t.done ? '✓' : t.n}</span>
+            <span className={t.done ? 'text-emerald-700' : stage === t.n ? 'text-amber-800' : 'text-slate-400'}>{t.label}</span>
+            {i < trail.length - 1 && <span className="text-slate-300">→</span>}
+          </li>
+        ))}
+      </ol>
+
+      {/* Active stage */}
+      <div className="mt-5 rounded-2xl border-2 border-emerald-100 bg-emerald-50/40 p-5">
+        {stage === 1 && (
+          <>
+            <StageHeader
+              icon="₦"
+              title="Step 1 · Verify payment"
+              body={`Confirm that ${selected.applicant_name}'s parent transferred ₦${Number(selected.application_fee || 0).toLocaleString('en-NG')} using ${selected.application_no} as the payment reference.`}
+            />
+            <label className="mt-3 block text-xs font-black text-slate-600">Bank reference (optional)
+              <input className="input mt-1 w-full" placeholder="Transfer reference from parent (optional)"
+                value={selected.payment_reference || ''}
+                onChange={e => setSelected((x: any) => ({ ...x, payment_reference: e.target.value }))} />
+            </label>
+            <button disabled={busy} onClick={() => verify(selected)}
+              className="btn btn-green mt-4">✓ Confirm payment received</button>
+          </>
+        )}
+
+        {stage === 2 && (
+          <>
+            <StageHeader
+              icon="🗓"
+              title={'Step 2 · Schedule ' + (mode === 'virtual' ? 'video' : 'physical') + ' screening'}
+              body={`Applicant is from ${selected.state}. Screening will be ${mode === 'virtual' ? 'a virtual video call' : 'at the school in Adamawa'}. Pick a date and time — the parent will receive an SMS with the details${mode === 'virtual' ? ' and a short link to join the video call' : ''}.`}
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <label className="text-xs font-black text-slate-600">Screening date &amp; time (local)
+                <input className="input mt-1 w-full" type="datetime-local"
+                  value={scheduleAt} onChange={e => setScheduleAt(e.target.value)} />
+              </label>
+              <button
+                disabled={busy || !scheduleAt}
+                className={'btn ' + (scheduleAt ? 'bg-amber-500 text-white' : 'bg-amber-100 text-amber-900')}
+                onClick={() => schedule(selected)}>
+                Schedule {mode === 'virtual' ? 'video' : 'physical'} screening
+              </button>
+            </div>
+            {!scheduleAt && <div className="mt-2 text-[11px] font-bold text-amber-800">← Pick a date and time first.</div>}
+          </>
+        )}
+
+        {stage === 3 && (
+          <>
+            <StageHeader
+              icon="📝"
+              title="Step 3 · Record the screening result"
+              body={
+                selected.screening_scheduled_at
+                  ? `The ${mode === 'virtual' ? 'video call' : 'physical screening'} was scheduled for ${new Date(selected.screening_scheduled_at).toLocaleString('en-NG')}. After the interview, record the score, any notes and mark the outcome.`
+                  : 'Record the score, any notes, and the outcome for this application.'
+              }
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-slate-600">Screening score (out of 100)
+                <input className="input mt-1 w-full" type="number" min={0} max={100}
+                  value={selected.screening_score || ''}
+                  onChange={e => setSelected((x: any) => ({ ...x, screening_score: e.target.value }))} />
+              </label>
+              <label className="text-xs font-black text-slate-600 sm:col-span-2">Notes / assessment
+                <textarea className="input mt-1 w-full" rows={3}
+                  placeholder="What was covered, applicant's strengths / areas to work on, etc."
+                  value={selected.screening_notes || ''}
+                  onChange={e => setSelected((x: any) => ({ ...x, screening_notes: e.target.value }))} />
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button disabled={busy} className="btn btn-green" onClick={() => outcome(selected, 'successful')}>✓ Mark Successful</button>
+              <button disabled={busy} className="btn bg-rose-100 text-rose-900" onClick={() => outcome(selected, 'unsuccessful')}>✗ Mark Unsuccessful</button>
+              <button disabled={busy} className="btn bg-amber-100 text-amber-900" onClick={() => outcome(selected, 'further_assessment')}>Needs Further Assessment</button>
+            </div>
+            {mode === 'virtual' && selected.screening_token && (
+              <div className="mt-3">
+                <a className="btn bg-emerald-100 text-emerald-900" target="_blank" rel="noreferrer"
+                  href={'/admissions/screening/' + selected.screening_token + '?role=interviewer'}>Open interview room</a>
+              </div>
+            )}
+          </>
+        )}
+
+        {stage === 4 && (
+          <>
+            <StageHeader
+              icon="🎓"
+              title="Step 4 · Assign a class"
+              body={`${selected.applicant_name} passed screening${selected.screening_score ? ' with a score of ' + selected.screening_score + '/100' : ''}. Assign the class they will join. This is the last step before enrolment.`}
+            />
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-xs font-black text-slate-600">Class
+                <select className="input mt-1 w-full" value={selected.class_id || ''}
+                  onChange={e => setSelected((x: any) => ({ ...x, class_id: e.target.value }))}>
+                  <option value="">— Pick a class —</option>
+                  {classes.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </label>
+              <div className="rounded-xl bg-slate-100 p-3 text-xs text-slate-600">
+                <b>Qur'an starting position:</b> {selected.starting_surah ? 'Surah ' + selected.starting_surah + ' : Ayah ' + (selected.starting_ayah || 1) : 'Not set — the applicant did not declare one'}
+              </div>
+            </div>
+            {!selected.class_id && <div className="mt-2 text-[11px] font-bold text-amber-800">← Pick a class to unlock enrolment.</div>}
+          </>
+        )}
+
+        {stage === 5 && (
+          <>
+            <StageHeader
+              icon="✓"
+              title="Step 5 · Enrol into the school"
+              body={`Class assigned. Clicking Enrol creates ${selected.applicant_name}'s student record, generates their Admission Number, and starts their Qur'an journey from the configured position.`}
+            />
+            <button disabled={busy} className="btn btn-primary mt-3" onClick={() => enroll(selected)}>
+              ✓ Enrol {selected.applicant_name} as a student
+            </button>
+          </>
+        )}
+
+        {stage === 6 && (
+          <>
+            <StageHeader
+              icon="🎉"
+              title="Enrolled"
+              body={`${selected.applicant_name} is officially a student. This application record is preserved for auditing but no further action is needed.`}
+            />
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              <span className="pill bg-emerald-100 text-emerald-900">✓ Payment verified</span>
+              <span className="pill bg-emerald-100 text-emerald-900">✓ Screening successful</span>
+              <span className="pill bg-emerald-100 text-emerald-900">✓ Class assigned</span>
+              <span className="pill bg-emerald-100 text-emerald-900">✓ Enrolled</span>
+            </div>
+          </>
+        )}
+
+        {/* Screening result once locked in (for stages 4-6). */}
+        {outcomeDone && stage !== 3 && (
+          <div className="mt-4 border-t border-emerald-200 pt-3 text-xs text-slate-600">
+            <b>Screening result:</b> {selected.screening_outcome?.replaceAll('_', ' ')}
+            {selected.screening_score && <> · <b>Score:</b> {selected.screening_score}/100</>}
+            {selected.screening_scheduled_at && <> · <b>Held on:</b> {new Date(selected.screening_scheduled_at).toLocaleString('en-NG')}</>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StageHeader({ icon, title, body }: { icon: string; title: string; body: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-emerald-600 text-lg font-black text-white">{icon}</div>
+      <div>
+        <div className="text-base font-black text-emerald-900">{title}</div>
+        <div className="mt-1 text-sm text-slate-600">{body}</div>
+      </div>
+    </div>
+  );
 }
