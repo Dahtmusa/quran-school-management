@@ -17,6 +17,10 @@ export default function ScreeningRoom(){
   const [muted,setMuted]=useState(false);
   const [cameraOff,setCameraOff]=useState(false);
   const [started,setStarted]=useState(false);
+  // Ref-backed guard so start() can never launch twice even if the
+  // useEffect re-runs (React 19 strict mode, prop change, etc.). The
+  // state variable above is only used for UI; the ref is authoritative.
+  const startedRef=useRef(false);
   const localVideo=useRef<HTMLVideoElement>(null);
   const remoteVideo=useRef<HTMLVideoElement>(null);
   const pc=useRef<RTCPeerConnection|null>(null);
@@ -26,6 +30,7 @@ export default function ScreeningRoom(){
   const channel=useRef<any>(null);
   const disposed=useRef(false);
   const pendingIce=useRef<RTCIceCandidateInit[]>([]);
+  const startFnRef=useRef<(() => Promise<void>) | null>(null);
 
   useEffect(()=>{
     let alive=true;
@@ -65,14 +70,19 @@ export default function ScreeningRoom(){
     };
 
     const start=async()=>{
-      if(started)return;
+      // Ref-based guard: bail immediately if we've already been called.
+      // This is critical -- multiple simultaneous getUserMedia calls will
+      // hang or crash the browser tab on some laptops.
+      if(startedRef.current)return;
+      startedRef.current=true;
       try{
         if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera and microphone access requires HTTPS and a supported browser.');
+        setStatus('Requesting camera and microphone…');
         // Modest resolution + capped framerate so low-end laptops don't
         // burn CPU encoding 1080p at 30fps. Aspect ratio stays 16:9 and
         // WebRTC upscales fine when needed.
         localStream.current=await navigator.mediaDevices.getUserMedia({
-          video:{facingMode:'user',width:{ideal:640,max:1280},height:{ideal:360,max:720},frameRate:{ideal:20,max:24}},
+          video:{facingMode:'user',width:{ideal:640,max:960},height:{ideal:360,max:540},frameRate:{ideal:15,max:20}},
           audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}
         });
         if(localVideo.current){
@@ -107,9 +117,13 @@ export default function ScreeningRoom(){
         await send({kind:'hello'});
         if(role==='applicant')setStatus('Waiting for the interviewer to join…');
       }catch(e:any){
-        setStatus(e?.name==='NotAllowedError'?'Camera/microphone permission was denied. Please allow access and reload.':e?.message||'Unable to start camera and microphone.');
+        // Roll back the guard so the admin can hit Start again after fixing
+        // permissions or reconnecting devices, without a full page reload.
+        startedRef.current=false;
+        setStatus(e?.name==='NotAllowedError'?'Camera/microphone permission was denied. Allow access and press Start again.':e?.message||'Unable to start camera and microphone. Press Start to try again.');
       }
     };
+    startFnRef.current=start;
 
     ch.on('broadcast',{event:'signal'},async({payload}:any)=>{
       if(disposed.current||payload?.sender===peerId.current)return;
@@ -138,10 +152,12 @@ export default function ScreeningRoom(){
           else pendingIce.current.push(payload.candidate);
         }
       }catch(e){console.error('screening signal error',e);}
-    }).subscribe(async state=>{
+    }).subscribe(state=>{
       if(state==='SUBSCRIBED'){
-        setStatus('Room connected. Start your camera when ready.');
-        await start();
+        // Do NOT auto-start the camera. Wait for the user to press Start
+        // so we don't spin up two getUserMedia calls at the same time
+        // (which is what was crashing low-end laptops).
+        setStatus('Room ready. Press Start when you are ready to share your camera and microphone.');
       }else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'){
         setStatus('The screening room connection failed. Please reload.');
       }
@@ -149,10 +165,14 @@ export default function ScreeningRoom(){
 
     return()=>{
       disposed.current=true;
-      localStream.current?.getTracks().forEach(t=>t.stop());
-      pc.current?.close();
-      supabase.removeChannel(ch);
-      pc.current=null;channel.current=null;
+      try{localStream.current?.getTracks().forEach(t=>t.stop());}catch{}
+      try{pc.current?.close();}catch{}
+      try{supabase.removeChannel(ch);}catch{}
+      localStream.current=null;
+      pc.current=null;
+      channel.current=null;
+      startedRef.current=false;
+      startFnRef.current=null;
     };
   },[screening,params.token,role]);
 
@@ -198,8 +218,15 @@ export default function ScreeningRoom(){
           </div>
         </div>
         <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:mt-4">
-          <button onClick={toggleMute} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900">{muted?'Unmute':'Mute'}</button>
-          <button onClick={toggleCamera} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900">{cameraOff?'Camera on':'Camera off'}</button>
+          {!started && (
+            <button
+              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn();}}}
+              className="min-h-11 rounded-xl bg-emerald-500 px-6 text-sm font-black text-white shadow hover:bg-emerald-400">
+              🎥 Start camera &amp; mic
+            </button>
+          )}
+          <button onClick={toggleMute} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{muted?'Unmute':'Mute'}</button>
+          <button onClick={toggleCamera} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{cameraOff?'Camera on':'Camera off'}</button>
           <button onClick={leave} className="min-h-11 rounded-xl bg-rose-600 px-4 text-sm font-black text-white">Leave</button>
         </div>
         <div className="mt-2.5 rounded-xl bg-white/5 p-3 text-xs leading-5 text-slate-300 sm:mt-4 sm:text-sm">{status}</div>
