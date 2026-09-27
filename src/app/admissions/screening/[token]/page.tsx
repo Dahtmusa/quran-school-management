@@ -1,260 +1,221 @@
 'use client';
 
-import {useEffect,useRef,useState} from 'react';
-import {useParams,useSearchParams} from 'next/navigation';
-import {createClient} from '@/lib/supabase/client';
-import {loadAdmissionScreening} from '@/lib/live-store';
+// AMQM virtual screening room. Uses Jitsi Meet as the video backend so we
+// do not have to run our own STUN/TURN infrastructure -- Jitsi's public
+// meet.jit.si server handles all the peer-to-peer negotiation across
+// Nigerian mobile networks (where symmetric NAT is common and STUN alone
+// fails). The screening_token is used verbatim as the Jitsi room name so
+// the room is unguessable.
 
-type Screening=any;
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
+import { loadAdmissionScreening } from '@/lib/live-store';
 
-export default function ScreeningRoom(){
-  const params=useParams<{token:string}>();
-  const search=useSearchParams();
-  const role=search.get('role')==='interviewer'?'interviewer':'applicant';
-  const [screening,setScreening]=useState<Screening|null>(null);
-  const [status,setStatus]=useState('Loading secure screening room…');
-  const [connected,setConnected]=useState(false);
-  const [muted,setMuted]=useState(false);
-  const [cameraOff,setCameraOff]=useState(false);
-  const [started,setStarted]=useState(false);
-  // Ref-backed guard so start() can never launch twice even if the
-  // useEffect re-runs (React 19 strict mode, prop change, etc.). The
-  // state variable above is only used for UI; the ref is authoritative.
-  const startedRef=useRef(false);
-  const localVideo=useRef<HTMLVideoElement>(null);
-  const remoteVideo=useRef<HTMLVideoElement>(null);
-  const pc=useRef<RTCPeerConnection|null>(null);
-  const client=useRef(createClient());
-  const localStream=useRef<MediaStream|null>(null);
-  const peerId=useRef(crypto.randomUUID());
-  const channel=useRef<any>(null);
-  const disposed=useRef(false);
-  const pendingIce=useRef<RTCIceCandidateInit[]>([]);
-  const startFnRef=useRef<((mode?: 'video'|'audio') => Promise<void>) | null>(null);
+type Screening = any;
 
-  useEffect(()=>{
-    let alive=true;
-    (async()=>{
-      try{
-        const row=await loadAdmissionScreening(params.token);
-        if(!alive)return;
-        if(!row){setStatus('This screening link is invalid or has expired.');return;}
+export default function ScreeningRoom() {
+  const params = useParams<{ token: string }>();
+  const search = useSearchParams();
+  const role   = search.get('role') === 'interviewer' ? 'interviewer' : 'applicant';
+  const [screening, setScreening] = useState<Screening | null>(null);
+  const [status,    setStatus]    = useState('Loading secure screening room…');
+  const [joined,    setJoined]    = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const apiRef       = useRef<any>(null);
+
+  // Load the admission that this token belongs to. If the token is
+  // unknown or expired, the user gets a clear message rather than a blank
+  // meeting.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const row = await loadAdmissionScreening(params.token);
+        if (!alive) return;
+        if (!row) { setStatus('This screening link is invalid or has expired.'); return; }
         setScreening(row);
-      }catch(e:any){setStatus(e?.message||'Unable to load the screening room.');}
+        setStatus('Room ready. Press Start when you are ready to join.');
+      } catch (e: any) {
+        if (alive) setStatus(e?.message || 'Unable to load the screening room.');
+      }
     })();
-    return()=>{alive=false};
-  },[params.token]);
+    return () => { alive = false; };
+  }, [params.token]);
 
-  useEffect(()=>{
-    if(!screening)return;
-    disposed.current=false;
-    const supabase=client.current;
-    const topic='amqm-screening:'+params.token;
-    const ch=supabase.channel(topic,{config:{broadcast:{ack:true}}});
-    channel.current=ch;
+  // Room name: prefix so it's namespaced away from any other AMQM
+  // schools using meet.jit.si + use the whole screening token so the
+  // room name is unguessable.
+  const roomName = useMemo(
+    () => 'AMQM-Screening-' + String(params.token || '').replace(/[^a-zA-Z0-9]/g, ''),
+    [params.token],
+  );
 
-    const send=async(payload:any)=>{
-      if(disposed.current)return;
-      try{await ch.send({type:'broadcast',event:'signal',payload:{...payload,sender:peerId.current}})}catch(e){console.error('screening signal send error',e);}
-    };
+  const start = () => {
+    if (joined || !screening || !containerRef.current) return;
+    setJoined(true);
+    setStatus('Joining video call…');
 
-    const createOffer=async()=>{
-      const connection=pc.current;
-      if(!connection||role!=='applicant')return;
-      try{
-        const offer=await connection.createOffer();
-        await connection.setLocalDescription(offer);
-        await send({kind:'offer',description:offer});
-        setStatus('Waiting for the interviewer to connect…');
-      }catch(e){console.error('offer error',e);}
-    };
-
-    const start=async(mode:'video'|'audio'='video')=>{
-      // Ref-based guard: bail immediately if we've already been called.
-      // This is critical -- multiple simultaneous getUserMedia calls will
-      // hang or crash the browser tab on some laptops.
-      if(startedRef.current)return;
-      startedRef.current=true;
-      try{
-        if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera and microphone access requires HTTPS and a supported browser.');
-        setStatus(mode==='video'?'Requesting camera and microphone…':'Requesting microphone…');
-        // Bare-minimum constraints: let the browser pick the safest camera
-        // and settings. Some hardware/driver combinations crash Chrome
-        // when the code specifies width/height/framerate at all. `video:
-        // true` puts us back on the manufacturer's supported profile.
-        localStream.current=await navigator.mediaDevices.getUserMedia({
-          video: mode==='video' ? true : false,
-          audio: {echoCancellation:true,noiseSuppression:true,autoGainControl:true}
+    // Inject the Jitsi external API script exactly once. The script is
+    // small (~30 KB) and cached, so subsequent joins are instant.
+    const bootstrap = () => {
+      const JitsiMeetExternalAPI = (window as any).JitsiMeetExternalAPI;
+      if (!JitsiMeetExternalAPI) {
+        setStatus('The video service could not be loaded. Check your internet connection and reload the page.');
+        setJoined(false);
+        return;
+      }
+      try {
+        const displayName = role === 'interviewer'
+          ? 'AMQM Interviewer'
+          : (screening?.applicant_name || 'Applicant');
+        const api = new JitsiMeetExternalAPI('meet.jit.si', {
+          roomName,
+          parentNode: containerRef.current,
+          width: '100%',
+          height: '100%',
+          userInfo: { displayName },
+          configOverwrite: {
+            prejoinPageEnabled: false,           // straight into the call
+            startWithVideoMuted: false,
+            startWithAudioMuted: false,
+            disableDeepLinking: true,
+            enableWelcomePage: false,
+          },
+          interfaceConfigOverwrite: {
+            DEFAULT_BACKGROUND: '#062d2a',
+            SHOW_JITSI_WATERMARK: false,
+            SHOW_WATERMARK_FOR_GUESTS: false,
+            MOBILE_APP_PROMO: false,
+            TOOLBAR_BUTTONS: [
+              'microphone','camera','tileview','fullscreen',
+              'hangup','chat','raisehand','videoquality','settings',
+            ],
+          },
         });
-        if(mode==='audio'){setCameraOff(true);}
-        if(localVideo.current){
-          localVideo.current.srcObject=localStream.current;
-          await localVideo.current.play().catch(()=>{});
-        }
-        const turnUrl=process.env.NEXT_PUBLIC_WEBRTC_TURN_URL;
-        const iceServers:any[]=[{urls:'stun:stun.l.google.com:19302'}];
-        if(turnUrl){
-          iceServers.push({
-            urls:turnUrl,
-            username:process.env.NEXT_PUBLIC_WEBRTC_TURN_USERNAME,
-            credential:process.env.NEXT_PUBLIC_WEBRTC_TURN_CREDENTIAL
-          });
-        }
-        const connection=new RTCPeerConnection({iceServers});
-        pc.current=connection;
-        localStream.current.getTracks().forEach(track=>connection.addTrack(track,localStream.current!));
-        connection.ontrack=e=>{
-          if(remoteVideo.current){
-            remoteVideo.current.srcObject=e.streams[0];
-            remoteVideo.current.play().catch(()=>{});
-          }
-        };
-        connection.onicecandidate=e=>{if(e.candidate)send({kind:'ice',candidate:e.candidate.toJSON()});};
-        connection.onconnectionstatechange=()=>{
-          const state=connection.connectionState;
-          setConnected(state==='connected');
-          setStatus(state==='connected'?'Connected — screening in progress':state==='failed'?'Connection failed. If this repeats, AMQM needs TURN connectivity configured.':'Connection: '+state);
-        };
-        setStarted(true);
-        await send({kind:'hello'});
-        if(role==='applicant')setStatus('Waiting for the interviewer to join…');
-      }catch(e:any){
-        // Roll back the guard so the admin can hit Start again after fixing
-        // permissions or reconnecting devices, without a full page reload.
-        startedRef.current=false;
-        setStatus(e?.name==='NotAllowedError'?'Camera/microphone permission was denied. Allow access and press Start again.':e?.message||'Unable to start camera and microphone. Press Start to try again.');
+        apiRef.current = api;
+        api.addListener('videoConferenceJoined', () => setStatus('Connected. You are in the call.'));
+        api.addListener('participantJoined',    () => setStatus('The other person joined the call.'));
+        api.addListener('participantLeft',      () => setStatus('The other person left. They may rejoin.'));
+        api.addListener('readyToClose',         () => {
+          setStatus('You left the video call. Press Start again to rejoin.');
+          setJoined(false);
+          try { api.dispose(); } catch {}
+          apiRef.current = null;
+        });
+      } catch (err: any) {
+        setStatus('Video call failed to start: ' + (err?.message || 'unknown error'));
+        setJoined(false);
       }
     };
-    startFnRef.current=start;
 
-    ch.on('broadcast',{event:'signal'},async({payload}:any)=>{
-      if(disposed.current||payload?.sender===peerId.current)return;
-      try{
-        if(payload.kind==='hello'){
-          if(role==='applicant')await createOffer();
-          return;
-        }
-        if(payload.kind==='offer' && role==='interviewer'){
-          const connection=pc.current;
-          if(!connection)return;
-          await connection.setRemoteDescription(payload.description);
-          for(const candidate of pendingIce.current.splice(0)){await connection.addIceCandidate(candidate).catch(()=>{});}
-          const answer=await connection.createAnswer();
-          await connection.setLocalDescription(answer);
-          await send({kind:'answer',description:answer});
-          return;
-        }
-        if(payload.kind==='answer' && role==='applicant'){
-          if(pc.current?.signalingState!=='have-local-offer')return;
-          await pc.current.setRemoteDescription(payload.description);
-          return;
-        }
-        if(payload.kind==='ice' && pc.current){
-          if(pc.current.remoteDescription) await pc.current.addIceCandidate(payload.candidate).catch(()=>{});
-          else pendingIce.current.push(payload.candidate);
-        }
-      }catch(e){console.error('screening signal error',e);}
-    }).subscribe(state=>{
-      if(state==='SUBSCRIBED'){
-        // Do NOT auto-start the camera. Wait for the user to press Start
-        // so we don't spin up two getUserMedia calls at the same time
-        // (which is what was crashing low-end laptops).
-        setStatus('Room ready. Press Start when you are ready to share your camera and microphone.');
-      }else if(state==='CHANNEL_ERROR'||state==='TIMED_OUT'){
-        setStatus('The screening room connection failed. Please reload.');
-      }
-    });
+    if ((window as any).JitsiMeetExternalAPI) {
+      bootstrap();
+    } else {
+      const script = document.createElement('script');
+      script.src   = 'https://meet.jit.si/external_api.js';
+      script.async = true;
+      script.onload  = bootstrap;
+      script.onerror = () => {
+        setStatus('Could not load meet.jit.si. Check your internet connection and reload the page.');
+        setJoined(false);
+      };
+      document.body.appendChild(script);
+    }
+  };
 
-    return()=>{
-      disposed.current=true;
-      try{localStream.current?.getTracks().forEach(t=>t.stop());}catch{}
-      try{pc.current?.close();}catch{}
-      try{supabase.removeChannel(ch);}catch{}
-      localStream.current=null;
-      pc.current=null;
-      channel.current=null;
-      startedRef.current=false;
-      startFnRef.current=null;
+  useEffect(() => {
+    return () => {
+      try { apiRef.current?.dispose(); } catch {}
+      apiRef.current = null;
     };
-  },[screening,params.token,role]);
+  }, []);
 
-  const toggleMute=()=>{
-    const tracks=localStream.current?.getAudioTracks()||[];
-    const next=!muted; tracks.forEach(t=>{t.enabled=!next}); setMuted(next);
-  };
-  const toggleCamera=()=>{
-    const tracks=localStream.current?.getVideoTracks()||[];
-    const next=!cameraOff; tracks.forEach(t=>{t.enabled=!next}); setCameraOff(next);
-  };
-  const leave=()=>{
-    localStream.current?.getTracks().forEach(t=>t.stop());
-    pc.current?.close();
-    setConnected(false);
-    setStatus('You left the screening room. You can reload to join again.');
-  };
+  if (!screening) {
+    return <main className="min-h-screen bg-slate-950 p-5 text-white">
+      <div className="mx-auto max-w-3xl pt-16 text-center">
+        <div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">AMQM Virtual Screening</div>
+        <h1 className="mt-3 text-2xl sm:text-3xl font-black">{status}</h1>
+        <p className="mt-3 text-sm text-slate-400">If you were given a new screening link, use that link exactly as provided.</p>
+      </div>
+    </main>;
+  }
 
-  if(!screening)return <main className="min-h-screen bg-slate-950 p-5 text-white"><div className="mx-auto max-w-3xl pt-16 text-center"><div className="text-xs font-black uppercase tracking-[.25em] text-amber-300">AMQM Virtual Screening</div><h1 className="mt-3 text-2xl sm:text-3xl font-black">{status}</h1><p className="mt-3 text-sm text-slate-400">If you were given a new screening link, use that link exactly as provided.</p></div></main>;
-
-  const interview=role==='interviewer';
+  const interview = role === 'interviewer';
   return <main className="min-h-screen bg-slate-100">
-    <header className="border-b bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-4"><div className="min-w-0"><div className="text-[9px] font-black uppercase tracking-[.2em] text-emerald-700">AMQM Virtual Screening</div><h1 className="truncate text-lg sm:text-xl font-black">{interview?'Interview: '+screening.applicant_name:'Your AMQM screening room'}</h1></div><div className={connected?'shrink-0 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black text-emerald-800':'shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-black text-amber-800'}>{connected?'Live':'Connecting'}</div></div></header>
+    <header className="border-b bg-white">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+          <div className="text-[9px] font-black uppercase tracking-[.2em] text-emerald-700">AMQM Virtual Screening</div>
+          <h1 className="truncate text-lg sm:text-xl font-black">
+            {interview ? 'Interview: ' + screening.applicant_name : 'Your AMQM screening room'}
+          </h1>
+        </div>
+        <div className={(joined ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800') + ' shrink-0 rounded-full px-2.5 py-1 text-[11px] font-black'}>
+          {joined ? 'Live' : 'Ready'}
+        </div>
+      </div>
+    </header>
+
     <div className="mx-auto grid max-w-7xl gap-4 p-3 sm:p-5 lg:grid-cols-[1fr_360px]">
-      <section className="rounded-2xl bg-slate-950 p-2.5 sm:rounded-3xl sm:p-4 shadow-xl">
-        {/* Videos: the OTHER person is the primary big view; your own
-            camera is a smaller preview underneath. This layout works on
-            phones where screen height is limited, and gives the
-            interviewer + applicant a clear view of each other. */}
-        <div className="space-y-2.5">
-          <div className="relative aspect-video overflow-hidden rounded-xl bg-slate-900 sm:rounded-2xl">
-            <video ref={remoteVideo} playsInline className="h-full w-full object-contain sm:object-cover bg-black" />
-            <span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
-              {interview ? 'Applicant' : 'Interviewer'}
-            </span>
-            {!connected && <div className="absolute inset-0 grid place-items-center bg-black/70 text-center text-slate-300"><div><div className="text-2xl">👤</div><div className="mt-1 text-xs font-bold">Waiting for {interview ? 'applicant' : 'interviewer'} to join…</div></div></div>}
+      <section className="relative overflow-hidden rounded-2xl bg-slate-950 shadow-xl sm:rounded-3xl">
+        {/* Jitsi mounts its own iframe inside this container. Keep it
+            aspect-video on desktop; full-height on mobile. */}
+        <div ref={containerRef} className="h-[65vh] w-full sm:h-[70vh]" />
+        {!joined && (
+          <div className="absolute inset-0 grid place-items-center bg-slate-950/85 p-6 text-center text-white">
+            <div>
+              <div className="text-4xl">📹</div>
+              <div className="mt-3 text-xs font-black uppercase tracking-[.24em] text-amber-300">Ready to join</div>
+              <h2 className="mt-2 text-2xl font-black">
+                {interview ? 'Interviewer waiting room' : 'Your screening call'}
+              </h2>
+              <p className="mx-auto mt-2 max-w-md text-sm text-slate-300">{status}</p>
+              <button onClick={start}
+                className="mt-5 rounded-xl bg-emerald-500 px-8 py-3 text-base font-black text-white shadow-lg hover:bg-emerald-400">
+                🎥 Start video call
+              </button>
+              <div className="mt-3 text-[11px] text-slate-400">Allow camera and microphone when your browser asks.</div>
+            </div>
           </div>
-          <div className="relative mx-auto aspect-video w-full max-w-xs overflow-hidden rounded-xl bg-slate-900 sm:mx-0 sm:max-w-sm sm:rounded-2xl">
-            <video ref={localVideo} muted playsInline className="h-full w-full object-contain sm:object-cover bg-black" />
-            <span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px] font-bold text-white">
-              {interview ? 'Interviewer' : 'Applicant'} · You
-            </span>
-          </div>
-        </div>
-        <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 sm:mt-4">
-          {!started && <div className="flex flex-col items-center gap-2 sm:flex-row">
-            <button
-              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn('video');}}}
-              className="min-h-11 rounded-xl bg-emerald-500 px-6 text-sm font-black text-white shadow hover:bg-emerald-400">
-              🎥 Start camera &amp; mic
-            </button>
-            <button
-              onClick={async()=>{const fn=startFnRef.current;if(fn){setStarted(true);await fn('audio');}}}
-              title="If Camera & mic crashes your browser, use this instead"
-              className="min-h-11 rounded-xl bg-slate-600 px-4 text-xs font-bold text-white hover:bg-slate-500">
-              🎤 Start audio only
-            </button>
-          </div>}
-          <button onClick={toggleMute} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{muted?'Unmute':'Mute'}</button>
-          <button onClick={toggleCamera} disabled={!started} className="min-h-11 rounded-xl bg-white px-4 text-sm font-black text-slate-900 disabled:opacity-40">{cameraOff?'Camera on':'Camera off'}</button>
-          <button onClick={leave} className="min-h-11 rounded-xl bg-rose-600 px-4 text-sm font-black text-white">Leave</button>
-        </div>
-        <div className="mt-2.5 rounded-xl bg-white/5 p-3 text-xs leading-5 text-slate-300 sm:mt-4 sm:text-sm">{status}</div>
+        )}
       </section>
+
       <aside className="space-y-4">
         <section className="rounded-2xl bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5">
           <div className="text-xs font-black uppercase tracking-widest text-emerald-700">Applicant information</div>
           <div className="mt-3 space-y-2.5 text-sm">
             {[
-              ['Application',screening.application_no],
-              ['Name',screening.applicant_name],
-              ['Date of birth',screening.date_of_birth||'—'],
-              ['Gender',screening.gender||'—'],
-              ['State / LGA',(screening.state||'—')+' / '+(screening.lga||'—')],
-              ['Quran level',screening.quran_level||'—'],
-              ['Starting point',screening.starting_surah?'Surah '+screening.starting_surah+' : Ayah '+(screening.starting_ayah||1):'Not assigned yet'],
-            ].map(([k,v])=><div key={k}><div className="text-[11px] text-slate-400">{k}</div><div className="break-words font-bold text-slate-900">{v}</div></div>)}
+              ['Application', screening.application_no],
+              ['Name',        screening.applicant_name],
+              ['Date of birth', screening.date_of_birth || '—'],
+              ['Gender',      screening.gender || '—'],
+              ['State / LGA', (screening.state || '—') + ' / ' + (screening.lga || '—')],
+              ['Qur’an level', screening.quran_level || '—'],
+              ['Starting point', screening.starting_surah
+                ? 'Surah ' + screening.starting_surah + ' : Ayah ' + (screening.starting_ayah || 1)
+                : 'Not assigned yet'],
+            ].map(([k, v]) => (
+              <div key={k}>
+                <div className="text-[11px] text-slate-400">{k}</div>
+                <div className="break-words font-bold text-slate-900">{v}</div>
+              </div>
+            ))}
           </div>
         </section>
-        {interview&&<section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:rounded-3xl sm:p-5"><div className="font-black text-amber-950">Screening decision</div><p className="mt-1 text-xs leading-5 text-amber-900/70">Record the final decision in Admissions Management after the interview.</p></section>}
+
+        {interview && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:rounded-3xl sm:p-5">
+            <div className="font-black text-amber-950">Screening decision</div>
+            <p className="mt-1 text-xs leading-5 text-amber-900/70">Record the final decision in Admissions Management after the interview.</p>
+          </section>
+        )}
+
+        <section className="rounded-2xl bg-white p-4 shadow-sm sm:rounded-3xl sm:p-5">
+          <div className="text-xs font-black uppercase tracking-widest text-emerald-700">Room details</div>
+          <div className="mt-2 text-xs leading-5 text-slate-500">
+            Video powered by Jitsi Meet. If the video fails to load, reload the page and press Start again. Camera and microphone permissions are required.
+          </div>
+        </section>
       </aside>
     </div>
   </main>;
