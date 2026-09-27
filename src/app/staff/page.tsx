@@ -3,7 +3,7 @@ import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile, loadCMSSettings } from '@/lib/cms-live-store';
-import { printAcademicIdCard, printBulkAcademicIdCards } from '@/lib/id-card';
+import { printAcademicIdCard } from '@/lib/id-card';
 import { useEffect, useState, useMemo } from 'react';
 
 type StaffProfile={id:string;full_name:string;role:string;gender:string|null;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
@@ -162,29 +162,7 @@ export default function StaffPage(){
          <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/80">Manage teaching staff profiles, bios, website visibility, and school leadership. Class assignments are done in <Link href="/classes" className="underline underline-offset-2">Classes & Teachers</Link>.</p>
        </div>
        <div className="flex flex-wrap gap-2">
-         {tab==='people'&&<>
-           <button className="btn bg-amber-50 text-amber-900" title="Open one print sheet with every staff ID card"
-             onClick={async()=>{
-               if(!staff.length){alert('No staff to print.');return;}
-               if(!confirm(`Print ID cards for all ${staff.length} staff members?`))return;
-               const managementRoles=['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];
-               const inputs=staff.map(a=>{
-                 const type=managementRoles.includes(a.role)?('MANAGEMENT' as const):('STAFF' as const);
-                 const linkedTeam=team.find(t=>t.full_name.trim().toLowerCase()===a.full_name.trim().toLowerCase());
-                 return {
-                   type,name:a.full_name,id:a.staff_id||a.id,
-                   photoUrl:a.avatar_url||linkedTeam?.photo_url||null,
-                   jobTitle:a.job_title??linkedTeam?.role_title??undefined,
-                   department:a.department??undefined,
-                   phone:a.phone??undefined,
-                   expiry:a.id_expires_on??null,logoUrl,
-                 };
-               });
-               try{await printBulkAcademicIdCards(inputs);}catch(e:any){alert(e?.message||'Could not open print window.');}
-             }}>▤ Print all staff IDs ({staff.length})</button>
-           <button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button>
-           <button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button>
-         </>}
+         {tab==='people'&&<><button className="btn bg-white text-emerald-950" onClick={()=>setShowCreate(true)}>+ Create teacher</button><button className="btn bg-white text-emerald-950" onClick={()=>setEditL({...blankTeam})}>+ Add leader</button></>}
        </div>
 
      </div>
