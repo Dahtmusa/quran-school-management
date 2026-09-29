@@ -618,9 +618,13 @@ export default function TeacherDashboard() {
 
     {/* Profile modal */}
     {profileOpen && <Modal title="My profile" close={() => setProfileOpen(false)}>
+      {message && <div className={'mb-4 rounded-xl p-3 text-sm font-semibold '+(String(message).toLowerCase().includes('fail')||String(message).toLowerCase().includes('unable')||String(message).toLowerCase().includes('error')?'bg-rose-50 text-rose-800':'bg-teal-50 text-teal-800')}>{message}</div>}
       <div className="flex items-center gap-4">
         <div className="h-20 w-20 overflow-hidden rounded-2xl bg-slate-100 border">{me?.avatar_url ? <img src={me.avatar_url} className="h-full w-full object-cover" alt="Profile" /> : <div className="grid h-full place-items-center text-2xl font-black text-slate-300">{me?.full_name?.charAt(0)||'T'}</div>}</div>
-        <label className="btn bg-slate-100">Change photo<input hidden type="file" accept="image/*" onChange={e => uploadPhoto(e.target.files?.[0] || null)} /></label>
+        <label className={'btn cursor-pointer '+(busy?'bg-slate-200 text-slate-500':'bg-slate-100')}>
+          {busy?'Uploading…':'Change photo'}
+          <input hidden type="file" accept="image/*" disabled={busy} onChange={e => { uploadPhoto(e.target.files?.[0] || null); e.currentTarget.value=''; }} />
+        </label>
       </div>
       <label className="mt-5 block text-sm font-semibold">Phone number<input className="input mt-1 w-full" placeholder="+234 xxx xxx xxxx" value={me?.phone || ''} onChange={e => setMe((x: any) => ({ ...x, phone: e.target.value }))} /></label>
       <button disabled={busy} onClick={async () => { setBusy(true); try { await updateOwnProfile({ phone: me?.phone || null }); setMessage('Phone updated.'); } catch (e: any) { setMessage(e?.message || 'Unable to update phone'); } finally { setBusy(false); } }} className="btn btn-primary mt-4 w-full">Save Profile</button>

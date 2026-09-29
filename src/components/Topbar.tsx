@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { getCurrentProfile, updateOwnProfile, saveMySignature, getMySignature } from '@/lib/live-store';
+import { getCurrentProfile, updateOwnProfile, saveMySignature, getMySignature, uploadProfileImage } from '@/lib/live-store';
 import { roleLinks } from '@/lib/nav-links';
 import { globalSearch, type GlobalSearchResult } from '@/lib/global-search';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
@@ -13,6 +13,19 @@ export default function Topbar({title}:{title:string}){
  const [open,setOpen]=useState(false),[profile,setProfile]=useState(false),[me,setMe]=useState<any>(null),[query,setQuery]=useState(''),[results,setResults]=useState<GlobalSearchResult[]>([]),[searching,setSearching]=useState(false);
  const [editProfile,setEditProfile]=useState(false),[phone,setPhone]=useState(''),[profileBusy,setProfileBusy]=useState(false),[profileMsg,setProfileMsg]=useState('');
  const [mySig,setMySig]=useState<any|null>(null),[sigBusy,setSigBusy]=useState(false);
+ const [photoBusy,setPhotoBusy]=useState(false);
+ async function uploadTopbarPhoto(file:File|null){
+   if(!file)return;
+   setPhotoBusy(true);setProfileMsg('');
+   try{
+     const url=await uploadProfileImage(file,'staff');
+     await updateOwnProfile({avatar_url:url});
+     setMe((x:any)=>({...(x||{}),avatar_url:url}));
+     setProfileMsg('Profile photo updated.');
+   }catch(e:any){
+     setProfileMsg(e?.message||'Photo upload failed. Try a different image (JPG/PNG, under 5MB).');
+   }finally{setPhotoBusy(false);}
+ }
  const sigPadRef=useRef<SignaturePadRef|null>(null);
  const links=roleLinks(me?.role||''); const isAdmin=adminRoles.includes(me?.role);
  const searchBox=useRef<HTMLDivElement>(null); const mobileSearchBox=useRef<HTMLDivElement>(null); const searchInput=useRef<HTMLInputElement>(null);
@@ -47,9 +60,22 @@ async function openEditProfile(){
  {open&&<div className="fixed inset-0 z-[100] md:hidden"><button aria-label="Close navigation overlay" className="absolute inset-0 bg-slate-950/55" onClick={()=>setOpen(false)}/><aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-[#062d2a] p-5 pb-[max(20px,env(safe-area-inset-bottom))] text-white shadow-2xl"><div className="flex items-center justify-between border-b border-white/10 pb-5"><div><div className="text-2xl font-black">AMQM</div><div className="mt-1 text-xs capitalize text-emerald-200/70">{me?.role||'Account'} workspace</div></div><button aria-label="Close navigation" onClick={()=>setOpen(false)} className="h-10 w-10 rounded-xl bg-white/10 text-xl">×</button></div><div className="mt-6 flex-1 overflow-y-auto overscroll-contain"><nav className="space-y-1.5">{links.map(([href,label])=><Link onClick={()=>setOpen(false)} className="flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-bold text-emerald-50 hover:bg-white/10" href={href} key={href}>{label}<span className="text-emerald-300">→</span></Link>)}</nav></div><Link onClick={()=>setOpen(false)} href="/" className="mt-5 block rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-emerald-950">View website</Link><button onClick={signOut} className="mt-2 block w-full rounded-2xl bg-white/10 px-4 py-3 text-sm font-bold text-white">Sign out</button></aside></div>}
  {editProfile&&<div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/50 p-0 sm:items-center sm:p-5"><div className="max-h-[90vh] w-full max-w-md overflow-auto overscroll-contain rounded-t-3xl bg-white p-5 pb-[max(20px,env(safe-area-inset-bottom))] sm:rounded-3xl">
    <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black">Edit Profile</h2><button className="btn bg-slate-100" onClick={()=>setEditProfile(false)}>Close</button></div>
-   {profileMsg&&<div className="mb-4 rounded-xl bg-teal-50 p-3 text-sm font-semibold text-teal-800">{profileMsg}</div>}
-   <div className="text-sm font-black text-slate-700 mb-1">{me?.full_name??'Account'}</div>
-   <div className="text-xs capitalize text-slate-400 mb-4">{me?.role??'—'}{me?.staff_id?` · ${me.staff_id}`:''}</div>
+   {profileMsg&&<div className={'mb-4 rounded-xl p-3 text-sm font-semibold '+(profileMsg.toLowerCase().includes('fail')||profileMsg.toLowerCase().includes('unable')||profileMsg.toLowerCase().includes('error')?'bg-rose-50 text-rose-800':'bg-teal-50 text-teal-800')}>{profileMsg}</div>}
+   <div className="mb-4 flex items-center gap-4">
+     <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-2xl border bg-slate-100">
+       {me?.avatar_url
+         ? <img src={me.avatar_url} alt="Profile photo" className="h-full w-full object-cover"/>
+         : <div className="grid h-full w-full place-items-center text-2xl font-black text-slate-300">{me?.full_name?.charAt(0)||'?'}</div>}
+     </div>
+     <div>
+       <div className="text-sm font-black text-slate-700">{me?.full_name??'Account'}</div>
+       <div className="text-xs capitalize text-slate-400 mb-2">{me?.role??'—'}{me?.staff_id?` · ${me.staff_id}`:''}</div>
+       <label className={'btn cursor-pointer '+(photoBusy?'bg-slate-200 text-slate-500':'bg-slate-100 hover:bg-slate-200 text-slate-800')}>
+         {photoBusy?'Uploading…':'Change photo'}
+         <input hidden type="file" accept="image/*" disabled={photoBusy} onChange={e=>{uploadTopbarPhoto(e.target.files?.[0]||null);e.currentTarget.value='';}}/>
+       </label>
+     </div>
+   </div>
    <label className="block text-sm font-semibold">Phone number<input className="input mt-1 w-full" placeholder="+234 xxx xxx xxxx" value={phone} onChange={e=>setPhone(e.target.value)}/></label>
    <button disabled={profileBusy} onClick={async()=>{setProfileBusy(true);try{await updateOwnProfile({phone:phone||null});setProfileMsg('Profile saved.');}catch(e:any){setProfileMsg(e?.message||'Failed.');}finally{setProfileBusy(false);}}} className="btn btn-primary mt-3 w-full">{profileBusy?'Saving…':'Save Profile'}</button>
    {showSigForRole(me?.role)&&<div className="mt-6 border-t pt-5">
