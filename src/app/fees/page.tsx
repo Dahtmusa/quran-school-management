@@ -171,19 +171,149 @@ function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, cu
 }
 
 function bulkPrintReceipts(students: Student[], payments: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+  // 4-up receipts per A4 sheet, each in its own tile with a dashed border
+  // and a ✂ scissors icon on the shared cut lines so admin can trim the
+  // paper into 4 individual receipts after printing. Massively cuts paper
+  // cost compared to one receipt per A4 page.
   const w = window.open('', '_blank');
   if (!w) return;
   const accent = '#062d2a';
-  const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
-  const pages = students.map(s => {
-    const p = payments.find((x: any) => x.student_id === s.id);
-    if (!p) return '';
-    const date = new Date(p.paid_on||Date.now()).toLocaleDateString('en-NG',{day:'2-digit',month:'long',year:'numeric'});
-    const refNo = String(p.id||'').slice(-8).toUpperCase();
-    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">PAYMENT RECEIPT</div></div><div class="ab"><div class="al">Amount Paid</div><div class="av">${currency} ${Number(p.amount||0).toLocaleString()}</div></div><table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${p.method||'Cash'}</td></tr>${p.reference?`<tr><td>Ref</td><td>${p.reference}</td></tr>`:''}</table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${s.section||'—'}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account</td><td>${bank.account_number||'—'}</td></tr></table>`:''}</div>`;
-  }).filter(Boolean);
-  if (!pages.length) { w.close(); alert('No payment records found for this class.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Receipts</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
+  const logoTag = logoUrl
+    ? `<img src="${logoUrl}" style="height:18mm;max-width:38mm;object-fit:contain;" alt="logo">`
+    : '';
+
+  // One receipt tile (fits in one quarter of A4).
+  const tile = (s: Student, p: any) => {
+    const date  = new Date(p.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
+    const refNo = String(p.id || '').slice(-8).toUpperCase();
+    return `<article class="tile">
+      <header>
+        ${logoTag}
+        <div class="school">${schoolName || 'AMQM'}</div>
+        ${schoolAddress ? `<div class="addr">${schoolAddress}</div>` : ''}
+        <div class="badge">PAYMENT RECEIPT</div>
+      </header>
+      <section class="amount">
+        <div class="al">Amount Paid</div>
+        <div class="av">${currency} ${Number(p.amount || 0).toLocaleString()}</div>
+      </section>
+      <div class="grid">
+        <div class="col">
+          <div class="row"><span>Receipt</span><b>REC-${refNo}</b></div>
+          <div class="row"><span>Date</span><b>${date}</b></div>
+          <div class="row"><span>Method</span><b>${p.method || 'Cash'}</b></div>
+          ${p.reference ? `<div class="row"><span>Ref</span><b>${p.reference}</b></div>` : ''}
+        </div>
+        <div class="col">
+          <div class="row"><span>Student</span><b>${s.name}</b></div>
+          <div class="row"><span>Admission</span><b>${s.admissionNo}</b></div>
+          <div class="row"><span>Class</span><b>${s.className || '—'}</b></div>
+          <div class="row"><span>Section</span><b>${s.section || '—'}</b></div>
+        </div>
+      </div>
+      ${bank?.bank_name ? `<footer class="bank">${bank.bank_name} · ${bank.account_number || '—'}</footer>` : ''}
+      <div class="sig">Received by ______________________</div>
+    </article>`;
+  };
+
+  // Build 4-up sheets. Each sheet gets up to 4 tiles in a 2x2 grid with
+  // cut markers drawn across the shared borders.
+  const items = students.map(s => ({ s, p: payments.find((x: any) => x.student_id === s.id) })).filter(x => !!x.p);
+  if (!items.length) { w.close(); alert('No payment records found for this class.'); return; }
+  const sheets: string[] = [];
+  for (let i = 0; i < items.length; i += 4) {
+    const chunk = items.slice(i, i + 4);
+    const cells = chunk.map(x => tile(x.s, x.p));
+    while (cells.length < 4) cells.push('<article class="tile tile--empty"></article>');
+    sheets.push(`<div class="sheet">
+      ${cells.join('')}
+      <div class="cut cut--vertical">
+        <span class="scissors scissors--top">✂</span>
+        <span class="scissors scissors--mid">✂</span>
+        <span class="scissors scissors--bot">✂</span>
+      </div>
+      <div class="cut cut--horizontal">
+        <span class="scissors scissors--left">✂</span>
+        <span class="scissors scissors--mid">✂</span>
+        <span class="scissors scissors--right">✂</span>
+      </div>
+    </div>`);
+  }
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Receipts (${items.length})</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{background:#eef1f0;font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a}
+@page{size:A4;margin:0}
+
+.sheet{
+  position:relative;width:210mm;height:297mm;background:#fff;
+  display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;
+  page-break-after:always;
+}
+.sheet:last-child{page-break-after:auto}
+
+/* Each receipt tile. Dashed border forms the cut edge visible to admin. */
+.tile{
+  position:relative;overflow:hidden;padding:8mm 8mm 10mm;
+  border:1px dashed #94a3b8;
+  display:flex;flex-direction:column;gap:3mm;
+  break-inside:avoid;page-break-inside:avoid;
+}
+.tile--empty{background:repeating-linear-gradient(45deg,#f8fafc 0,#f8fafc 8px,#f1f5f9 8px,#f1f5f9 16px)}
+/* Collapse shared borders so the dashed line reads as a single cut line. */
+.tile:nth-child(1){border-right-style:none;border-bottom-style:none}
+.tile:nth-child(2){border-bottom-style:none}
+.tile:nth-child(3){border-right-style:none}
+
+/* Header */
+.tile header{text-align:center;padding-bottom:3mm;border-bottom:1.2mm solid ${accent}}
+.tile .school{font-size:11.5pt;font-weight:800;color:${accent};margin-top:1.5mm;letter-spacing:-.01em}
+.tile .addr{font-size:7pt;color:#64748b;margin-top:1mm}
+.tile .badge{display:inline-block;background:${accent};color:#fff;padding:1.4mm 4mm;border-radius:12mm;font-size:7pt;font-weight:800;letter-spacing:.08em;margin-top:2.3mm}
+
+/* Amount highlight */
+.tile .amount{background:#f0fdf4;border:0.4mm solid #86efac;border-radius:2.5mm;text-align:center;padding:3mm}
+.tile .al{font-size:7pt;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.tile .av{font-size:17pt;font-weight:900;color:${accent};margin-top:1mm;letter-spacing:-.01em}
+
+/* Two-column fact grid */
+.tile .grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm}
+.tile .col{display:flex;flex-direction:column;gap:1.3mm}
+.tile .row{display:flex;align-items:baseline;justify-content:space-between;gap:2mm;border-bottom:0.2mm solid #e2e8f0;padding-bottom:1mm;font-size:8.5pt}
+.tile .row span{color:#64748b;font-size:7.5pt;flex-shrink:0}
+.tile .row b{font-weight:700;color:#111827;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Footer */
+.tile .bank{font-size:7pt;color:#64748b;border-top:0.2mm solid #e2e8f0;padding-top:1.5mm;text-align:center}
+.tile .sig{margin-top:auto;padding-top:2mm;font-size:7pt;color:#94a3b8;text-align:center}
+
+/* Cut lines overlay the shared borders with scissors icons. */
+.cut{position:absolute;pointer-events:none}
+.cut--vertical{top:0;bottom:0;left:50%;width:0}
+.cut--horizontal{left:0;right:0;top:50%;height:0}
+.scissors{
+  position:absolute;background:#fff;color:#334155;font-size:11pt;line-height:1;
+  padding:0 2mm;transform:translate(-50%,-50%);
+  letter-spacing:0;font-weight:700;
+}
+.cut--vertical .scissors--top{top:20mm;left:0}
+.cut--vertical .scissors--mid{top:50%;left:0}
+.cut--vertical .scissors--bot{bottom:20mm;left:0;top:auto}
+.cut--horizontal .scissors--left{left:20mm;top:0}
+.cut--horizontal .scissors--mid{left:50%;top:0}
+.cut--horizontal .scissors--right{right:20mm;top:0;left:auto}
+
+/* Screen preview — show the sheet as a nice page on a grey background. */
+@media screen{
+  body{padding:20px 0}
+  .sheet{margin:0 auto 30px;box-shadow:0 10px 40px rgba(16,37,31,.15);border-radius:3mm}
+}
+@media print{body{padding:0;background:#fff}.sheet{box-shadow:none;border-radius:0}}
+</style></head><body>
+${sheets.join('')}
+<script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
+</body></html>`);
   w.document.close();
 }
 
