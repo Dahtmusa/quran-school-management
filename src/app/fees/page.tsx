@@ -318,26 +318,117 @@ ${sheets.join('')}
 }
 
 function bulkPrintInvoices(students: Student[], currentTerm: any, terms: any[], structs: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '', fees: any[] = []) {
+  // 4-up invoices per A4 sheet — same cut-and-share layout as receipts
+  // so admin can trim one sheet into four per-student invoices.
   const nextTerm = findNextTerm(currentTerm, terms);
   if (!nextTerm) { alert('Could not determine next term. Set up terms in school calendar first.'); return; }
-  const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name||''}`.trim();
+  const nextTermName = `${tLabel(nextTerm)} ${nextTerm.academic_years?.name || ''}`.trim();
   const accent = '#062d2a';
-  const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:48px;max-width:160px;object-fit:contain;margin-bottom:6px;" alt="logo">` : '';
+  const logoTag = logoUrl ? `<img src="${logoUrl}" style="height:16mm;max-width:36mm;object-fit:contain;" alt="logo">` : '';
   const w = window.open('', '_blank');
   if (!w) return;
-  const pages = students.map(s => {
+
+  const tile = (s: Student) => {
     const sec = String(s.section).toLowerCase() === 'boarding' ? 'boarding' : 'day';
     const feeRow = getStudentFee(structs, nextTerm.id, nextTerm.academic_year_id, sec);
-    if (!feeRow) return '';
+    if (!feeRow) return null;
     const feeAmount = Number(feeRow.amount);
-    const carryForwardItems = outstandingItemsBeforeTerm(s.id, nextTerm, fees, terms);
-    const openingBalance = carryForwardItems.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
-    const totalPayable = feeAmount + openingBalance;
-    const invoiceNo = `INV-${String(s.admissionNo||'').toUpperCase()}-T${nextTerm.term_number||''}`;
-    return `<div class="page"><div class="top">${logoTag}<div class="school">${schoolName||'AMQM'}</div>${schoolAddress?`<div class="addr">${schoolAddress}</div>`:''}<div class="badge">SCHOOL FEES INVOICE</div></div><div class="term-box">For: ${nextTermName}</div><div class="ab"><div class="al">Total Payable</div><div class="av">${currency} ${totalPayable.toLocaleString()}</div></div><div class="st">Fee details</div><table>${carryForwardItems.map((item: any) => `<tr><td>Outstanding · ${item.termLabel}<br><span style="font-size:10px;color:#888">${item.name}</span></td><td>${currency} ${Number(item.amount).toLocaleString()}</td></tr>`).join('')}<tr><td>Current term · ${nextTermName}<br><span style="font-size:10px;color:#888">${feeRow.name || 'Term Fee'}</span></td><td>${currency} ${feeAmount.toLocaleString()}</td></tr><tr><td><b>Total payable</b></td><td><b>${currency} ${totalPayable.toLocaleString()}</b></td></tr></table><table><tr><td>Name</td><td>${s.name}</td></tr><tr><td>Admission</td><td>${s.admissionNo}</td></tr><tr><td>Class</td><td>${s.className||'—'}</td></tr><tr><td>Section</td><td>${sec.charAt(0).toUpperCase()+sec.slice(1)}</td></tr></table><table><tr><td>Invoice No.</td><td>${invoiceNo}</td></tr><tr><td>Issued</td><td>${new Date().toLocaleDateString('en-NG')}</td></tr></table>${bank?.bank_name?`<table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td><b>${bank.account_number||'—'}</b></td></tr></table>`:''}<div class="ref-box">Ref: ${s.admissionNo||'Use admission number'}</div></div>`;
-  }).filter(Boolean);
-  if (!pages.length) { w.close(); alert('No fee structures configured for the next term yet.'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;color:#1a1a1a}.page{padding:28px;page-break-after:always}.top{text-align:center;padding-bottom:14px;border-bottom:3px solid ${accent};margin-bottom:14px}.school{font-size:14px;font-weight:800;color:${accent}}.addr{font-size:10px;color:#555;margin-top:2px}.badge{display:inline-block;background:${accent};color:#fff;padding:3px 12px;border-radius:20px;font-size:10px;font-weight:700;margin-top:8px}.term-box{background:#f0fdf4;border:2px solid #86efac;border-radius:6px;text-align:center;padding:8px;margin-bottom:12px;font-weight:700;color:${accent}}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:10px;text-align:center;padding:12px;margin:14px 0}.al{font-size:10px;color:#166534;font-weight:700;text-transform:uppercase}.av{font-size:24px;font-weight:900;color:${accent};margin-top:3px}table{width:100%;border-collapse:collapse;margin-bottom:10px}td{padding:5px 4px;border-bottom:1px solid #f0f0f0}td:first-child{color:#666;width:38%}td:last-child{font-weight:600}.ref-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px;font-size:11px;color:#166534;margin-top:8px}</style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`);
+    const carry = outstandingItemsBeforeTerm(s.id, nextTerm, fees, terms);
+    const opening = carry.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    const totalPayable = feeAmount + opening;
+    const invoiceNo = `INV-${String(s.admissionNo || '').toUpperCase()}-T${nextTerm.term_number || ''}`;
+    return `<article class="tile">
+      <header>
+        ${logoTag}
+        <div class="school">${schoolName || 'AMQM'}</div>
+        ${schoolAddress ? `<div class="addr">${schoolAddress}</div>` : ''}
+        <div class="badge">FEES INVOICE</div>
+      </header>
+      <div class="termline">${nextTermName}</div>
+      <section class="amount">
+        <div class="al">Total Payable</div>
+        <div class="av">${currency} ${totalPayable.toLocaleString()}</div>
+      </section>
+      <div class="rows">
+        ${carry.length ? carry.map((item: any) => `<div class="row"><span>Outstanding · ${item.termLabel}</span><b>${currency} ${Number(item.amount).toLocaleString()}</b></div>`).join('') : ''}
+        <div class="row"><span>Current term fee</span><b>${currency} ${feeAmount.toLocaleString()}</b></div>
+      </div>
+      <div class="grid">
+        <div class="col">
+          <div class="row2"><span>Student</span><b>${s.name}</b></div>
+          <div class="row2"><span>Admission</span><b>${s.admissionNo}</b></div>
+          <div class="row2"><span>Class</span><b>${s.className || '—'}</b></div>
+        </div>
+        <div class="col">
+          <div class="row2"><span>Invoice</span><b>${invoiceNo}</b></div>
+          <div class="row2"><span>Section</span><b>${sec.charAt(0).toUpperCase() + sec.slice(1)}</b></div>
+          <div class="row2"><span>Issued</span><b>${new Date().toLocaleDateString('en-NG')}</b></div>
+        </div>
+      </div>
+      ${bank?.bank_name ? `<footer class="bank">Pay to ${bank.bank_name} · ${bank.account_number || '—'}</footer>` : ''}
+      <div class="ref">Ref: <b>${s.admissionNo || 'Use admission number'}</b></div>
+    </article>`;
+  };
+
+  const tiles = students.map(tile).filter(Boolean) as string[];
+  if (!tiles.length) { w.close(); alert('No fee structures configured for the next term yet.'); return; }
+  const sheets: string[] = [];
+  for (let i = 0; i < tiles.length; i += 4) {
+    const chunk = tiles.slice(i, i + 4);
+    while (chunk.length < 4) chunk.push('<article class="tile tile--empty"></article>');
+    sheets.push(`<div class="sheet">
+      ${chunk.join('')}
+      <div class="cut cut--vertical"><span class="scissors scissors--top">✂</span><span class="scissors scissors--mid">✂</span><span class="scissors scissors--bot">✂</span></div>
+      <div class="cut cut--horizontal"><span class="scissors scissors--left">✂</span><span class="scissors scissors--mid">✂</span><span class="scissors scissors--right">✂</span></div>
+    </div>`);
+  }
+
+  w.document.write(`<!DOCTYPE html><html><head><title>Bulk Invoices (${tiles.length})</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+html,body{background:#eef1f0;font-family:'Segoe UI',Arial,sans-serif;color:#1a1a1a}
+@page{size:A4;margin:0}
+.sheet{position:relative;width:210mm;height:297mm;background:#fff;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;page-break-after:always}
+.sheet:last-child{page-break-after:auto}
+.tile{position:relative;overflow:hidden;padding:7mm 7mm 9mm;border:1px dashed #94a3b8;display:flex;flex-direction:column;gap:2.3mm;break-inside:avoid;page-break-inside:avoid}
+.tile--empty{background:repeating-linear-gradient(45deg,#f8fafc 0,#f8fafc 8px,#f1f5f9 8px,#f1f5f9 16px)}
+.tile:nth-child(1){border-right-style:none;border-bottom-style:none}
+.tile:nth-child(2){border-bottom-style:none}
+.tile:nth-child(3){border-right-style:none}
+.tile header{text-align:center;padding-bottom:2.5mm;border-bottom:1.2mm solid ${accent}}
+.tile .school{font-size:11pt;font-weight:800;color:${accent};margin-top:1.2mm;letter-spacing:-.01em}
+.tile .addr{font-size:7pt;color:#64748b;margin-top:.6mm}
+.tile .badge{display:inline-block;background:${accent};color:#fff;padding:1.2mm 4mm;border-radius:12mm;font-size:7pt;font-weight:800;letter-spacing:.08em;margin-top:1.8mm}
+.tile .termline{text-align:center;background:#f0fdf4;border:0.4mm solid #86efac;border-radius:2mm;padding:1.6mm 2mm;font-size:8pt;font-weight:800;color:${accent}}
+.tile .amount{background:#f0fdf4;border:0.4mm solid #86efac;border-radius:2.5mm;text-align:center;padding:2.5mm}
+.tile .al{font-size:7pt;color:#166534;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.tile .av{font-size:16pt;font-weight:900;color:${accent};margin-top:.8mm;letter-spacing:-.01em}
+.tile .rows{display:flex;flex-direction:column;gap:.8mm}
+.tile .row{display:flex;justify-content:space-between;gap:2mm;font-size:7.6pt;border-bottom:0.2mm dotted #e2e8f0;padding-bottom:.8mm}
+.tile .row span{color:#64748b;flex-shrink:0}
+.tile .row b{font-weight:700;color:#111827}
+.tile .grid{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm;margin-top:1mm}
+.tile .col{display:flex;flex-direction:column;gap:1mm}
+.tile .row2{display:flex;justify-content:space-between;gap:1mm;font-size:7.5pt;border-bottom:0.2mm solid #e2e8f0;padding-bottom:.8mm}
+.tile .row2 span{color:#64748b}
+.tile .row2 b{font-weight:700;color:#111827;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .bank{font-size:7pt;color:#64748b;border-top:0.2mm solid #e2e8f0;padding-top:1.3mm;text-align:center}
+.tile .ref{margin-top:auto;font-size:7.5pt;color:#166534;background:#f0fdf4;border:0.3mm solid #86efac;border-radius:1.8mm;padding:1.4mm 2.5mm;text-align:center}
+.cut{position:absolute;pointer-events:none}
+.cut--vertical{top:0;bottom:0;left:50%;width:0}
+.cut--horizontal{left:0;right:0;top:50%;height:0}
+.scissors{position:absolute;background:#fff;color:#334155;font-size:11pt;line-height:1;padding:0 2mm;transform:translate(-50%,-50%);font-weight:700}
+.cut--vertical .scissors--top{top:20mm;left:0}
+.cut--vertical .scissors--mid{top:50%;left:0}
+.cut--vertical .scissors--bot{bottom:20mm;left:0;top:auto}
+.cut--horizontal .scissors--left{left:20mm;top:0}
+.cut--horizontal .scissors--mid{left:50%;top:0}
+.cut--horizontal .scissors--right{right:20mm;top:0;left:auto}
+@media screen{body{padding:20px 0}.sheet{margin:0 auto 30px;box-shadow:0 10px 40px rgba(16,37,31,.15);border-radius:3mm}}
+@media print{body{padding:0;background:#fff}.sheet{box-shadow:none;border-radius:0}}
+</style></head><body>${sheets.join('')}
+<script>window.onload=()=>setTimeout(()=>window.print(),300);<\/script>
+</body></html>`);
   w.document.close();
 }
 
@@ -807,184 +898,300 @@ export default function Fees() {
   const pillLabel = (st: ReturnType<typeof getStatus>) =>
     st === 'full' ? 'Paid in full' : st === 'partial' ? 'Partial' : st === 'unpaid' ? 'Unpaid' : st === 'exempted' ? 'Exempted' : 'No fee set';
 
+  const money = (n: number) => `${currency} ${Number(n || 0).toLocaleString()}`;
+  const collectionPct = expected > 0 ? Math.min(100, Math.round((collected / expected) * 100)) : 0;
+
   return (
     <AdminShell title="Finance & Fees">
-      <div className="min-h-full bg-[#061b27] text-slate-100 -m-4 p-4 sm:-m-6 sm:p-6">
-        <div className="mx-auto max-w-[1600px] space-y-5">
-          {/* Header */}
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div className="space-y-5">
+        {/* --- Hero: term / class pickers + headline numbers ---------- */}
+        <section className="rounded-[2rem] bg-[#062d2a] p-6 text-white">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <div className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">AMQM · ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION</div>
-              <h1 className="mt-1 text-3xl font-black tracking-tight text-white sm:text-4xl">Finance & Fees</h1>
-              <p className="mt-1 text-sm text-slate-400">Complete overview of school fee collection, payments and student balances.</p>
+              <div className="text-[10px] font-black uppercase tracking-[.22em] text-[#e3c36b]">AMQM · Finance</div>
+              <h1 className="mt-2 text-3xl font-black">Fees &amp; Payments</h1>
+              <p className="mt-2 max-w-2xl text-sm text-emerald-50/80">
+                Record payments, see who still owes, print receipts and invoices &mdash; all in one place.
+              </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <select className="h-11 rounded-xl border border-slate-700 bg-[#092638] px-4 text-sm font-bold text-white outline-none" value={selectedTermId} onChange={e => setSelectedTermId(e.target.value)}>
+              <select className="h-11 min-w-[180px] rounded-xl border-0 bg-white px-3 text-sm font-bold text-slate-900" value={selectedTermId} onChange={e => setSelectedTermId(e.target.value)}>
                 <option value="">Choose a term</option>
                 {terms.map(t => <option key={t.id} value={t.id}>{t.academic_years?.name} · {tLabel(t)}</option>)}
               </select>
-              <select className="h-11 rounded-xl border border-slate-700 bg-[#092638] px-4 text-sm font-bold text-white outline-none" value={classFilter} onChange={e => { setClassFilter(e.target.value); setStatusFilter('all'); clearSelection(); }}>
+              <select className="h-11 min-w-[160px] rounded-xl border-0 bg-white px-3 text-sm font-bold text-slate-900" value={classFilter} onChange={e => { setClassFilter(e.target.value); setStatusFilter('all'); clearSelection(); }}>
                 <option value="">All classes</option>
                 {classNames.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
-              <button className="h-11 rounded-xl bg-emerald-500 px-5 text-sm font-black text-white shadow-lg shadow-emerald-900/20 hover:bg-emerald-400" onClick={() => filtered[0] && openPay(filtered[0])}>＋ Record Payment</button>
+              <button className="rounded-xl bg-[#e3c36b] px-5 py-3 text-sm font-black text-[#062d2a] hover:bg-amber-300" onClick={() => filtered[0] && openPay(filtered[0])}>＋ Record Payment</button>
             </div>
           </div>
+        </section>
 
-          {message && <button type="button" className="flex w-full items-center justify-between rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-200" onClick={() => setMessage('')}><span>✓ {message}</span><span>×</span></button>}
+        {message && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">✓ {message}</div>}
 
-          {/* KPI cards */}
-          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-5">
-            {[
-              ['Current Term Fees', expected, '▣', 'text-white', 'bg-blue-500/20 text-blue-300'],
-              ['Paid This Term', collected, '✓', 'text-emerald-300', 'bg-emerald-500/20 text-emerald-300'],
-              ['Previous Balance', previousOutstanding, '◔', 'text-white', 'bg-violet-500/20 text-violet-300'],
-              ['Total Payable', totalPayable, '▤', 'text-white', 'bg-blue-500/20 text-blue-300'],
-              ['Total Outstanding', totalOutstanding, '!', totalOutstanding > 0 ? 'text-rose-400' : 'text-emerald-300', totalOutstanding > 0 ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'],
-            ].map(([label, value, icon, valueCls, iconCls]) => (
-              <div key={label as string} className="rounded-2xl border border-slate-800 bg-[#092638] p-4 shadow-xl shadow-black/10">
-                <div className="flex items-start justify-between"><div className="text-[11px] font-black uppercase tracking-[0.13em] text-slate-400">{label as string}</div><span className={`flex h-8 w-8 items-center justify-center rounded-xl text-sm font-black ${iconCls}`}>{icon as string}</span></div>
-                <div className={`mt-3 text-2xl font-black tabular-nums ${valueCls}`}>{currency} {Number(value).toLocaleString()}</div>
-                {label === 'Paid This Term' && expected > 0 && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, Math.round((collected / expected) * 100))}%` }} /></div>}
-                {label === 'Paid This Term' && <div className="mt-1 text-[10px] text-slate-500">{expected > 0 ? `${Math.round((collected / expected) * 100)}% of expected` : 'No expected fees'}</div>}
-              </div>
-            ))}
+        {/* --- Three big numbers that actually matter ----------------- */}
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Total Payable</div>
+            <div className="mt-2 text-3xl font-black text-slate-900 tabular-nums">{money(totalPayable)}</div>
+            <div className="mt-1 text-xs text-slate-500">This term + previous outstanding</div>
           </div>
-
-          {/* Analytics */}
-          <div className="grid gap-4 xl:grid-cols-[1.15fr_1fr_0.9fr]">
-            <section className="rounded-2xl border border-slate-800 bg-[#092638] p-5">
-              <div className="mb-4 flex items-center justify-between"><div><h2 className="font-black text-white">Collection Trend</h2><p className="text-xs text-slate-500">Payments recorded in the selected term</p></div><span className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-bold text-slate-400">Last 5 months</span></div>
-              <div className="flex h-44 items-end gap-3 border-b border-slate-800 px-2 pb-2">
-                {monthlyCollection.map(m => <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-2"><div className="w-full max-w-12 rounded-t-lg bg-gradient-to-t from-blue-600 to-cyan-400" style={{ height: `${Math.max(5, (m.amount / maxMonthlyCollection) * 100)}%` }} title={`${currency} ${m.amount.toLocaleString()}`} /><span className="text-[10px] font-bold text-slate-500">{m.label}</span></div>)}
-              </div>
-              <div className="mt-3 flex justify-between text-[10px] text-slate-500"><span>Collected: <b className="text-emerald-300">{currency} {collected.toLocaleString()}</b></span><span>Expected: <b className="text-blue-300">{currency} {expected.toLocaleString()}</b></span></div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-[#092638] p-5">
-              <div className="mb-4"><h2 className="font-black text-white">Student Payment Status</h2><p className="text-xs text-slate-500">{byClass.length} students in this view</p></div>
-              <div className="flex items-center gap-6">
-                <div className="relative flex h-36 w-36 shrink-0 items-center justify-center rounded-full" style={{ background: `conic-gradient(#10b981 0 ${(counts.full / Math.max(1, byClass.length)) * 360}deg, #f59e0b 0 ${((counts.full + counts.partial) / Math.max(1, byClass.length)) * 360}deg, #f43f5e 0 360deg)` }}><div className="flex h-24 w-24 flex-col items-center justify-center rounded-full bg-[#092638]"><b className="text-2xl text-white">{byClass.length}</b><span className="text-[10px] text-slate-500">Students</span></div></div>
-                <div className="space-y-3 text-xs">{[['Paid in Full',counts.full,'text-emerald-300'],['Partial Payments',counts.partial,'text-amber-300'],['Not Paid',counts.unpaid,'text-rose-400']].map(([l,c,cl]) => <button key={l as string} className="flex items-center gap-2 text-left" onClick={() => setStatusFilter(statusFilter === (l === 'Paid in Full' ? 'full' : l === 'Partial Payments' ? 'partial' : 'unpaid') ? 'all' : (l === 'Paid in Full' ? 'full' : l === 'Partial Payments' ? 'partial' : 'unpaid'))}><span className={`h-2.5 w-2.5 rounded-full ${cl === 'text-emerald-300' ? 'bg-emerald-400' : cl === 'text-amber-300' ? 'bg-amber-400' : 'bg-rose-400'}`} /><span className="text-slate-300">{l}</span><b className={cl as string}>{c as number}</b></button>)}</div>
-              </div>
-            </section>
-
-            <section className="rounded-2xl border border-slate-800 bg-[#092638] p-5">
-              <h2 className="font-black text-white">Quick Actions</h2><p className="mb-4 text-xs text-slate-500">Common finance operations</p>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
-                <button className="quick" onClick={() => filtered[0] && openPay(filtered[0])}>＋ Record Payment</button>
-                <button className="quick" onClick={() => setShowFeeConfig(true)}>▤ Fee Structures</button>
-                <button className="quick" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, false)} disabled={generatingInvoices || !nextTerm}>↻ Sync / Generate Invoices</button>
-                <button className="quick" onClick={() => generateBulkInvoices(selectedStudents.length ? selectedStudents : byClass, true)} disabled={generatingInvoices || !nextTerm}>▣ Bulk Invoices</button>
-                <button className="quick" onClick={() => bulkPrintInvoices(classFilter ? byClass : selectedStudents, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!nextTerm || (!classFilter && !selectedStudents.length)}>▤ Print Invoices (Bulk)</button>
-                <button className="quick" onClick={() => bulkPrintReceipts(classFilter ? byClass.filter(hasPaid) : selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!(classFilter ? byClass.some(hasPaid) : selectedPaidStudents.length)}>▤ Bulk Receipts</button>
-              </div>
-            </section>
+          <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+            <div className="flex items-center justify-between">
+              <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Paid This Term</div>
+              <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-black text-white">{collectionPct}%</span>
+            </div>
+            <div className="mt-2 text-3xl font-black text-emerald-800 tabular-nums">{money(collected)}</div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-emerald-100">
+              <div className="h-full rounded-full bg-emerald-500" style={{ width: collectionPct + '%' }} />
+            </div>
           </div>
+          <div className={'rounded-2xl border p-5 ' + (totalOutstanding > 0 ? 'border-rose-100 bg-rose-50' : 'border-slate-200 bg-white')}>
+            <div className={'text-[10px] font-black uppercase tracking-wide ' + (totalOutstanding > 0 ? 'text-rose-700' : 'text-slate-500')}>Outstanding</div>
+            <div className={'mt-2 text-3xl font-black tabular-nums ' + (totalOutstanding > 0 ? 'text-rose-800' : 'text-emerald-700')}>{money(totalOutstanding)}</div>
+            <div className="mt-1 text-xs text-slate-500">{counts.unpaid} unpaid · {counts.partial} partial</div>
+          </div>
+        </div>
 
-          {/* Status filter strip */}
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-            {(
-              [
-                ['all','All Students',byClass.length,'bg-emerald-500/10 text-emerald-300'],
-                ['full','Paid in Full',counts.full,'bg-emerald-500/10 text-emerald-300'],
-                ['partial','Partial Payments',counts.partial,'bg-amber-500/10 text-amber-300'],
-                ['unpaid','Not Paid',counts.unpaid,'bg-rose-500/10 text-rose-300'],
-                ['exempted','Exempted',counts.exempted,'bg-violet-500/10 text-violet-300'],
-              ] as const
-            ).map(([key,label,count,cls]) => (
-              <button key={key} onClick={() => setStatusFilter(key)} className={`rounded-2xl border border-slate-800 p-4 text-left transition hover:border-slate-700 ${statusFilter === key ? 'ring-2 ring-violet-400/50' : ''} ${cls}`}>
-                <div className="text-[11px] font-black uppercase tracking-[0.12em] opacity-70">{label}</div>
-                <div className="mt-1 text-2xl font-black">{count}</div>
-                {key === 'exempted' && <div className="mt-1 text-[10px] opacity-70">No payment required</div>}
+        {/* --- Secondary stats + optional analytics ------------------- */}
+        <details className="group rounded-2xl border border-slate-200 bg-white">
+          <summary className="flex cursor-pointer items-center justify-between p-4 text-sm font-black text-slate-700">
+            <span>▸ Breakdown &amp; analytics ({currentTerm ? tLabel(currentTerm) : 'select a term'})</span>
+            <span className="text-xs font-bold text-slate-400 group-open:hidden">Click to expand</span>
+          </summary>
+          <div className="grid gap-4 border-t border-slate-100 p-4 md:grid-cols-[1fr_1fr_1fr]">
+            <div className="space-y-2">
+              <div className="text-xs font-black uppercase tracking-wide text-slate-500">By the numbers</div>
+              <Stat label="This term's expected fees" value={money(expected)} />
+              <Stat label="Previous balance carried in" value={money(previousOutstanding)} />
+              <Stat label="Students in view" value={String(byClass.length)} />
+            </div>
+            <div>
+              <div className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Payment status</div>
+              <div className="flex items-center gap-4">
+                <div className="relative grid h-28 w-28 place-items-center rounded-full"
+                  style={{ background: `conic-gradient(#10b981 0 ${(counts.full / Math.max(1, byClass.length)) * 360}deg, #f59e0b 0 ${((counts.full + counts.partial) / Math.max(1, byClass.length)) * 360}deg, #f43f5e 0 360deg)` }}>
+                  <div className="grid h-20 w-20 place-items-center rounded-full bg-white">
+                    <b className="text-xl text-slate-900">{byClass.length}</b>
+                  </div>
+                </div>
+                <div className="space-y-2 text-xs">
+                  {([['Paid in full', counts.full, 'emerald', 'full'], ['Partial', counts.partial, 'amber', 'partial'], ['Not paid', counts.unpaid, 'rose', 'unpaid']] as const).map(([l, c, col, key]) => (
+                    <button key={l} onClick={() => setStatusFilter(statusFilter === key ? 'all' : key)}
+                      className="flex items-center gap-2 hover:underline">
+                      <span className={'h-2.5 w-2.5 rounded-full bg-' + col + '-500'} />
+                      <span className="text-slate-700">{l}</span>
+                      <b className={'text-' + col + '-700'}>{c}</b>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Monthly collection</div>
+              <div className="flex h-28 items-end gap-2 border-b border-slate-200">
+                {monthlyCollection.map(m => (
+                  <div key={m.key} className="flex h-full flex-1 flex-col items-center justify-end gap-1">
+                    <div className="w-full max-w-10 rounded-t-md bg-gradient-to-t from-emerald-700 to-emerald-400"
+                      style={{ height: Math.max(5, (m.amount / maxMonthlyCollection) * 100) + '%' }}
+                      title={money(m.amount)} />
+                    <span className="text-[9px] font-bold text-slate-500">{m.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </details>
+
+        {/* --- Simple status filter row ------------------------------- */}
+        <div className="flex flex-wrap gap-2">
+          {([['all', 'All', byClass.length, 'slate'], ['full', 'Paid in full', counts.full, 'emerald'], ['partial', 'Partial', counts.partial, 'amber'], ['unpaid', 'Not paid', counts.unpaid, 'rose'], ['exempted', 'Exempted', counts.exempted, 'violet']] as const).map(([key, label, count, col]) => (
+            <button key={key} onClick={() => setStatusFilter(key)}
+              className={'rounded-full border px-4 py-2 text-xs font-black transition ' +
+                (statusFilter === key
+                  ? 'bg-' + col + '-600 text-white border-' + col + '-600'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50')}>
+              {label} · {count}
+            </button>
+          ))}
+        </div>
+
+        {/* --- Student ledger ----------------------------------------- */}
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900">Students</h2>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-black text-slate-700">{ledgerStudents.length}</span>
+              </div>
+              <div className="mt-1 text-xs text-slate-500">{classFilter || 'All classes'} · {currentTerm ? tLabel(currentTerm) : 'Pick a term'}</div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <input value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Search student or admission no…"
+                className="h-10 w-full min-w-[200px] max-w-[280px] rounded-lg border border-slate-200 px-3 text-sm" />
+              <button className="h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50" onClick={toggleAllVisible}>
+                {ledgerStudents.length && ledgerStudents.every(s => selectedIds.has(s.id)) ? 'Clear selection' : 'Select all'}
               </button>
-            ))}
+            </div>
           </div>
 
-          {/* Student ledger */}
-          <section className="rounded-2xl border border-slate-800 bg-[#092638] shadow-xl">
-            <div className="flex flex-col gap-4 border-b border-slate-800 p-5 xl:flex-row xl:items-center xl:justify-between">
-              <div><div className="flex items-center gap-2"><h2 className="text-lg font-black text-white">Students</h2><span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-400">{ledgerStudents.length}</span></div><p className="mt-1 text-xs text-slate-500">{classFilter || 'All classes'} · {currentTerm ? tLabel(currentTerm) : 'Selected term'} · <span className="text-violet-300">Use Exempt to remove this term&apos;s fee obligation</span></p></div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex h-10 w-64 items-center rounded-xl border border-slate-700 bg-[#061b27] px-3"><span className="text-slate-500">⌕</span><input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search students by name or admission no..." className="w-full bg-transparent px-2 text-xs text-white outline-none placeholder:text-slate-600" /></div>
-                <button className="h-10 rounded-xl border border-slate-700 px-3 text-xs font-bold text-slate-300 hover:bg-slate-800" onClick={toggleAllVisible}>{ledgerStudents.length && ledgerStudents.every(s => selectedIds.has(s.id)) ? 'Clear selection' : 'Select all'}</button>
-                {statusFilter !== 'all' && <button className="h-10 rounded-xl border border-slate-700 px-3 text-xs font-bold text-slate-400" onClick={() => setStatusFilter('all')}>Clear filter</button>}
-              </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[920px] text-left text-sm">
+              <thead className="text-[10px] uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th className="w-10 px-4 py-3"><input type="checkbox"
+                    checked={ledgerStudents.length > 0 && ledgerStudents.every(s => selectedIds.has(s.id))}
+                    onChange={toggleAllVisible} /></th>
+                  <th className="px-3 py-3">Student</th>
+                  <th>Class</th>
+                  <th className="text-right">Payable</th>
+                  <th className="text-right">Paid</th>
+                  <th className="text-right">Outstanding</th>
+                  <th>Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ledgerStudents.map(s => {
+                  const v = byStudentAccount.get(s.id) || { due: 0, opening: 0, payable: 0, paidThisTerm: 0, outstanding: 0 };
+                  const bal = Math.max(0, v.outstanding);
+                  const st = getStatus(s);
+                  const stylePill: Record<string, string> = {
+                    full: 'bg-emerald-50 text-emerald-700',
+                    partial: 'bg-amber-50 text-amber-700',
+                    unpaid: 'bg-rose-50 text-rose-700',
+                    exempted: 'bg-violet-50 text-violet-700',
+                    none: 'bg-slate-100 text-slate-500',
+                  };
+                  return (
+                    <tr key={s.id} className="border-t border-slate-100 align-middle hover:bg-slate-50/50">
+                      <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleStudent(s.id)} /></td>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-full bg-slate-100 text-sm font-black text-slate-500">
+                            {s.photoUrl ? <img src={s.photoUrl} alt="" className="h-full w-full object-cover" /> : s.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-black text-slate-900">{s.name}</div>
+                            <div className="text-[10px] text-slate-400">{s.admissionNo}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="text-xs text-slate-600">
+                        <div className="font-semibold">{s.className || 'Unassigned'}</div>
+                        <SectionBadge section={s.section} />
+                      </td>
+                      <td className="text-right font-mono text-xs text-slate-700">{v.payable > 0 ? money(v.payable) : '—'}</td>
+                      <td className="text-right font-mono text-xs font-bold text-emerald-700">{v.paidThisTerm > 0 ? money(v.paidThisTerm) : '—'}</td>
+                      <td className="text-right font-mono text-xs font-bold text-rose-700">{bal > 0 ? money(bal) : '—'}</td>
+                      <td><span className={'rounded-full px-2.5 py-1 text-[10px] font-black ' + (stylePill[st] || stylePill.none)}>{pillLabel(st)}</span></td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          {st === 'exempted'
+                            ? <span className="rounded-lg bg-violet-50 px-3 py-1.5 text-[11px] font-black text-violet-700" title={feeExemptions.get(s.id)?.reason || 'Exempted'}>Exempted</span>
+                            : <button onClick={() => openPay(s)} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-emerald-700">💰 Pay</button>}
+                          <button onClick={() => setHistoryTarget(s)} className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-black text-slate-700 hover:bg-slate-50">History</button>
+                          {nextTerm && !feeExemptions.has(s.id) &&
+                            <button title={'Print ' + tLabel(nextTerm) + ' invoice'}
+                              onClick={() => printInvoice(s, nextTerm, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees, terms)}
+                              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-[11px] font-black text-amber-800 hover:bg-amber-100">Invoice</button>}
+                          <button disabled={exemptionBusy === s.id} onClick={() => toggleFeeExemption(s)}
+                            className={'rounded-lg border px-3 py-1.5 text-[11px] font-black disabled:opacity-40 ' +
+                              (feeExemptions.has(s.id)
+                                ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                                : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50')}>
+                            {exemptionBusy === s.id ? '…' : feeExemptions.has(s.id) ? 'Unexempt' : 'Exempt'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!ledgerStudents.length && <tr><td colSpan={8} className="p-10 text-center text-sm text-slate-400">No students match this selection.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          {/* --- Bulk action bar (only when at least one is selected) - */}
+          {selectedIds.size > 0 && <div className="flex flex-col gap-3 border-t border-slate-100 bg-emerald-50 p-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-xs font-bold text-emerald-800"><b>{selectedIds.size}</b> student{selectedIds.size === 1 ? '' : 's'} selected</div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => generateBulkInvoices(selectedStudents, true)} disabled={generatingInvoices} className="rounded-lg bg-amber-500 px-3 py-2 text-[11px] font-black text-white hover:bg-amber-600 disabled:opacity-40">▤ Print invoices (4 per sheet)</button>
+              <button onClick={() => bulkPrintReceipts(selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!selectedPaidStudents.length} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-40">▤ Print receipts (4 per sheet)</button>
+              <button onClick={clearSelection} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-500 hover:bg-slate-50">Clear</button>
             </div>
-            <div className="w-full overflow-x-auto overscroll-x-contain">
-              <table className="w-full min-w-[1320px] table-auto text-left text-sm">
-                <thead className="bg-[#061b27] text-[10px] font-black uppercase tracking-[0.1em] text-slate-500"><tr><th className="px-4 py-3"><input type="checkbox" checked={ledgerStudents.length > 0 && ledgerStudents.every(s => selectedIds.has(s.id))} onChange={toggleAllVisible} /></th><th className="px-3 py-3">Student</th><th>Class / Section</th><th className="text-right">Current Fee</th><th className="text-right">Brought Forward</th><th className="text-right">Paid This Term</th><th className="text-right">Total Payable</th><th className="text-right">Outstanding</th><th>Status</th><th className="w-[330px] px-4 text-right whitespace-nowrap">Actions</th></tr></thead>
+          </div>}
+        </section>
+
+        {/* --- Settings (collapsed by default) ------------------------ */}
+        <details className="rounded-2xl border border-slate-200 bg-white">
+          <summary className="flex cursor-pointer items-center justify-between p-5 text-sm font-black text-slate-700">
+            <span>⚙️ Fee structures &amp; bank setup</span>
+            <span className="text-xs font-bold text-slate-400 group-open:hidden">Click to open</span>
+          </summary>
+
+          {/* Fee structures */}
+          <div className="border-t border-slate-100 p-5">
+            <div className="text-xs font-black uppercase tracking-wide text-slate-500">Fee structures</div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1.1fr_1fr_1fr_1fr_1fr_auto]">
+              <select className="input" value={feeForm.academicYearId} onChange={e => setFeeForm(f => ({ ...f, academicYearId: e.target.value, termId: '' }))}>
+                <option value="">Academic year</option>{years.map(y => <option key={y.id} value={y.id}>{y.name}{y.is_current ? ' (current)' : ''}</option>)}
+              </select>
+              <select className="input" value={feeForm.termId} onChange={e => setFeeForm(f => ({ ...f, termId: e.target.value }))}>
+                <option value="">All terms in year</option>{terms.filter(t => !feeForm.academicYearId || t.academic_year_id === feeForm.academicYearId).map(t => <option key={t.id} value={t.id}>{tLabel(t)}</option>)}
+              </select>
+              <input className="input" type="number" min="0" placeholder="Day fee" value={feeForm.dayAmount} onChange={e => setFeeForm(f => ({ ...f, dayAmount: e.target.value }))} />
+              <input className="input" type="number" min="0" placeholder="Boarding fee" value={feeForm.boardingAmount} onChange={e => setFeeForm(f => ({ ...f, boardingAmount: e.target.value }))} />
+              <input className="input" type="date" value={feeForm.dueDate} onChange={e => setFeeForm(f => ({ ...f, dueDate: e.target.value }))} />
+              <button className="rounded-xl bg-emerald-600 px-5 py-3 text-xs font-black text-white hover:bg-emerald-700 disabled:opacity-40"
+                disabled={busy || !feeForm.academicYearId || (!feeForm.dayAmount && !feeForm.boardingAmount)} onClick={saveFees}>
+                {busy ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+            <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500">
+                  <tr><th className="p-3">Year</th><th>Term</th><th className="text-right">Day</th><th className="text-right">Boarding</th><th>Due</th><th /></tr>
+                </thead>
                 <tbody>
-                  {ledgerStudents.map(s => { const v=byStudentAccount.get(s.id)||{due:0,opening:0,payable:0,paidThisTerm:0,outstanding:0}; const bal=Math.max(0,v.outstanding); const st=getStatus(s); return <tr key={s.id} className="border-t border-slate-800 hover:bg-cyan-500/[0.03]">
-                    <td className="px-4 py-3"><input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleStudent(s.id)} /></td>
-                    <td className="px-3 py-3"><div className="flex items-center gap-3"><div className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-800">{s.photoUrl ? <img src={s.photoUrl} className="h-full w-full object-cover" alt="" /> : <span className="flex h-full w-full items-center justify-center text-sm font-black text-slate-500">{s.name.charAt(0)}</span>}</div><div><div className="font-bold text-white">{s.name}</div><div className="text-[10px] text-slate-500">{s.admissionNo}</div></div></div></td>
-                    <td className="px-3 py-3"><div className="text-xs font-semibold text-slate-300">{s.className || 'Unassigned'}</div><SectionBadge section={s.section} /></td>
-                    <td className="px-3 py-3 text-right font-mono text-xs text-slate-300">{v.due > 0 ? `${currency} ${v.due.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3 text-right font-mono text-xs text-violet-300">{v.opening > 0 ? `${currency} ${v.opening.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3 text-right font-mono text-xs font-bold text-emerald-300">{v.paidThisTerm > 0 ? `${currency} ${v.paidThisTerm.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3 text-right font-mono text-xs font-bold text-blue-300">{v.payable > 0 ? `${currency} ${v.payable.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3 text-right font-mono text-xs font-bold text-rose-400">{bal > 0 ? `${currency} ${bal.toLocaleString()}` : '—'}</td>
-                    <td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-[10px] font-black ${st==='full'?'bg-emerald-500/15 text-emerald-300':st==='partial'?'bg-amber-500/15 text-amber-300':st==='unpaid'?'bg-rose-500/15 text-rose-300':st==='exempted'?'bg-violet-500/15 text-violet-300':'bg-slate-800 text-slate-500'}`}>{pillLabel(st)}</span></td>
-                    <td className="w-[430px] whitespace-nowrap px-4 py-3">
-                      <div className="flex min-w-max justify-end gap-1.5">
-                        {st === 'exempted' ? (
-                          <button disabled className="cursor-not-allowed rounded-lg bg-violet-500/15 px-3 py-2.5 text-[11px] font-black text-violet-300" title={feeExemptions.get(s.id)?.reason || 'Exempted from school fees'}>Exempted</button>
-                        ) : (
-                          <button onClick={() => openPay(s)} className="rounded-lg bg-blue-500 px-3 py-2.5 text-[11px] font-black text-white hover:bg-blue-400">Pay</button>
-                        )}
-                        {feeExemptions.has(s.id) ? null : hasPaid(s) && <button onClick={() => printReceipt(s, termPayments.find((p:any) => p.student_id === s.id), bank, currency, schoolName, logoUrl, schoolAddress)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-black text-emerald-300">Receipt</button>}
-                        <button onClick={() => setHistoryTarget(s)} className="rounded-lg bg-slate-800 px-3 py-2.5 text-[11px] font-black text-slate-300">History</button>
-                        {nextTerm && !feeExemptions.has(s.id) && <button title={'Print ' + tLabel(nextTerm) + ' invoice with previous outstanding balances carried forward'} onClick={() => printInvoice(s,nextTerm,structures,bank,currency,schoolName,logoUrl,schoolAddress,summary.fees,terms)} className="shrink-0 whitespace-nowrap rounded-lg bg-amber-400 px-3 py-2.5 text-[11px] font-black text-slate-950">Next Term Invoice</button>}
-                        <button
-                          disabled={exemptionBusy === s.id}
-                          onClick={() => toggleFeeExemption(s)}
-                          className={feeExemptions.has(s.id) ? 'rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5 text-[11px] font-black text-amber-300 hover:bg-amber-400/15 disabled:opacity-50' : 'rounded-lg border border-violet-400/30 bg-violet-500/10 px-3 py-2.5 text-[11px] font-black text-violet-300 hover:bg-violet-500/15 disabled:opacity-50'}
-                          title={feeExemptions.has(s.id) ? 'Remove this term exemption' : 'Exempt this student from this term fees'}>
-                          {exemptionBusy === s.id ? 'Saving…' : feeExemptions.has(s.id) ? 'Unexempt' : 'Exempt'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr> })}
-                  {!ledgerStudents.length && <tr><td colSpan={10} className="p-12 text-center text-sm text-slate-500">No students match this selection.</td></tr>}
+                  {feeGroups.map((g, i) => (
+                    <tr key={i} className="border-t border-slate-100">
+                      <td className="p-3 text-slate-700">{g.year?.name || '—'}</td>
+                      <td className="text-slate-700">{g.termId ? tLabel(g.term) : 'All terms'}</td>
+                      <td className="text-right font-mono text-emerald-700">{g.day ? money(Number(g.day.amount)) : '—'}</td>
+                      <td className="text-right font-mono text-sky-700">{g.boarding ? money(Number(g.boarding.amount)) : '—'}</td>
+                      <td className="text-slate-500">{g.dueDate || '—'}</td>
+                      <td className="p-2">
+                        <div className="flex gap-1.5">
+                          <button className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-700" onClick={() => startEditGroup(g)}>Edit</button>
+                          <button className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-700" onClick={() => deleteFeeGroup(g)}>Delete</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {!feeGroups.length && <tr><td colSpan={6} className="p-6 text-center text-slate-400">No fee structures configured yet.</td></tr>}
                 </tbody>
               </table>
             </div>
-            <div className="flex flex-col gap-3 border-t border-slate-800 bg-[#061b27] p-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="text-xs text-slate-500"><b className="text-white">{selectedIds.size}</b> selected</div>
-              <div className="flex flex-wrap gap-2">
-                <button onClick={() => generateBulkInvoices(selectedStudents, false)} disabled={!selectedStudents.length || generatingInvoices} className="rounded-lg border border-slate-700 px-3 py-2.5 text-[11px] font-black text-slate-200 disabled:opacity-40">▣ Generate Invoices (Bulk)</button>
-                <button onClick={() => generateBulkInvoices(selectedStudents, true)} disabled={!selectedStudents.length || generatingInvoices} className="rounded-lg bg-amber-400 px-3 py-2.5 text-[11px] font-black text-slate-950 disabled:opacity-40">▤ Print Invoices (Bulk)</button>
-                <button onClick={() => bulkPrintReceipts(selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!selectedPaidStudents.length} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-black text-emerald-300 disabled:opacity-40">▤ Bulk Receipts</button>
-                <button onClick={() => classFilter && bulkPrintInvoices(byClass, currentTerm, terms, structures, bank, currency, schoolName, logoUrl, schoolAddress, summary.fees)} disabled={!classFilter || !nextTerm} className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2.5 text-[11px] font-black text-blue-300 disabled:opacity-40">▤ Bulk Class Invoices</button>
-                <button onClick={() => classFilter && bulkPrintReceipts(byClass.filter(hasPaid), summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!classFilter || !byClass.some(hasPaid)} className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-black text-emerald-300 disabled:opacity-40">▤ Bulk Class Receipts</button>
-                <button onClick={clearSelection} disabled={!selectedIds.size} className="rounded-lg bg-slate-800 px-3 py-2.5 text-[11px] font-black text-slate-400 disabled:opacity-40">Clear</button>
-              </div>
+          </div>
+
+          {/* Bank setup */}
+          <div className="border-t border-slate-100 p-5">
+            <div className="text-xs font-black uppercase tracking-wide text-slate-500">Bank account</div>
+            <p className="mt-1 text-xs text-slate-500">Shown on parent invoices and receipts.</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <input className="input" placeholder="Bank name" value={bank.bank_name || ''} onChange={e => setBank({ ...bank, bank_name: e.target.value })} />
+              <input className="input" placeholder="Account name" value={bank.account_name || ''} onChange={e => setBank({ ...bank, account_name: e.target.value })} />
+              <input className="input font-mono" placeholder="Account number" value={bank.account_number || ''} onChange={e => setBank({ ...bank, account_number: e.target.value })} />
+              <input className="input" placeholder="Payment reference instruction" value={bank.reference_instruction || ''} onChange={e => setBank({ ...bank, reference_instruction: e.target.value })} />
             </div>
-          </section>
-
-          {/* Fee configuration */}
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638] shadow-xl">
-            <button className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowFeeConfig(x => !x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Finance setup</div><div className="mt-1 text-lg font-black text-white">Fee Configuration</div><div className="mt-1 text-xs text-slate-500">Configure day and boarding fees by academic year and term, with clear due dates.</div></div><span className="text-slate-400">{showFeeConfig ? '▲' : '▼'}</span></button>
-            {showFeeConfig && <div className="border-t border-slate-800 p-5">
-              <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_1fr_1fr_1fr_auto]">
-                <select className="input bg-[#061b27] text-white" value={feeForm.academicYearId} onChange={e => setFeeForm(f=>({...f,academicYearId:e.target.value,termId:''}))}><option value="">Academic year</option>{years.map(y=><option key={y.id} value={y.id}>{y.name}{y.is_current?' (current)':''}</option>)}</select>
-                <select className="input bg-[#061b27] text-white" value={feeForm.termId} onChange={e=>setFeeForm(f=>({...f,termId:e.target.value}))}><option value="">All terms in year</option>{terms.filter(t=>!feeForm.academicYearId||t.academic_year_id===feeForm.academicYearId).map(t=><option key={t.id} value={t.id}>{tLabel(t)}</option>)}</select>
-                <input className="input bg-[#061b27] text-white" type="number" min="0" placeholder="Day fee" value={feeForm.dayAmount} onChange={e=>setFeeForm(f=>({...f,dayAmount:e.target.value}))}/>
-                <input className="input bg-[#061b27] text-white" type="number" min="0" placeholder="Boarding fee" value={feeForm.boardingAmount} onChange={e=>setFeeForm(f=>({...f,boardingAmount:e.target.value}))}/>
-                <input className="input bg-[#061b27] text-white" type="date" title="Due date" value={feeForm.dueDate} onChange={e=>setFeeForm(f=>({...f,dueDate:e.target.value}))}/>
-                <button className="rounded-xl bg-emerald-500 px-5 py-3 text-xs font-black text-white hover:bg-emerald-400 disabled:opacity-40" disabled={busy||!feeForm.academicYearId||(!feeForm.dayAmount&&!feeForm.boardingAmount)} onClick={saveFees}>{busy?'Saving…':'Save fees'}</button>
-              </div>
-              <div className="mt-5 grid gap-3 md:grid-cols-2"><div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4"><div className="text-xs font-black text-emerald-300">DAY STUDENTS</div><div className="mt-1 text-2xl font-black text-white">{currency} {Number(feeGroups.find(g=>g.termId===selectedTermId)?.day?.amount||0).toLocaleString()}</div><div className="text-[10px] text-slate-500">Current selected term structure</div></div><div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4"><div className="text-xs font-black text-blue-300">BOARDING STUDENTS</div><div className="mt-1 text-2xl font-black text-white">{currency} {Number(feeGroups.find(g=>g.termId===selectedTermId)?.boarding?.amount||0).toLocaleString()}</div><div className="text-[10px] text-slate-500">Current selected term structure</div></div></div>
-              <div className="mt-5 overflow-x-auto rounded-xl border border-slate-800"><table className="w-full text-left text-xs"><thead className="bg-[#061b27] text-[10px] uppercase tracking-wider text-slate-500"><tr><th className="p-3">Year</th><th>Term</th><th className="text-right">Day fee</th><th className="text-right">Boarding fee</th><th>Due date</th><th /></tr></thead><tbody>{feeGroups.map((g,i)=><tr key={i} className="border-t border-slate-800"><td className="p-3 text-slate-300">{g.year?.name||'—'}</td><td className="text-slate-300">{g.termId?tLabel(g.term):'All terms'}</td><td className="text-right font-mono text-emerald-300">{g.day?`${currency} ${Number(g.day.amount).toLocaleString()}`:'—'}</td><td className="text-right font-mono text-blue-300">{g.boarding?`${currency} ${Number(g.boarding.amount).toLocaleString()}`:'—'}</td><td className="text-slate-500">{g.dueDate||'—'}</td><td><div className="flex gap-1.5 p-2"><button className="rounded-lg bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-300" onClick={()=>startEditGroup(g)}>Edit</button><button className="rounded-lg bg-rose-500/10 px-3 py-2 text-[11px] font-bold text-rose-300" onClick={()=>deleteFeeGroup(g)}>Delete</button></div></td></tr>)}{!feeGroups.length&&<tr><td colSpan={6} className="p-6 text-center text-slate-500">No fee structures configured yet.</td></tr>}</tbody></table></div>
-            </div>}
-          </section>
-
-          {/* Bank configuration */}
-          <section className="overflow-hidden rounded-2xl border border-slate-800 bg-[#092638]">
-            <button className="flex w-full items-center justify-between p-5 text-left" onClick={() => setShowBankConfig(x=>!x)}><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">Payment setup</div><div className="mt-1 font-black text-white">School Bank Account</div><div className="mt-1 text-xs text-slate-500">Shown on parent invoices and receipts.</div></div><span className="text-slate-500">{showBankConfig?'▲':'▼'}</span></button>
-            {showBankConfig&&<div className="border-t border-slate-800 p-5"><div className="grid gap-3 md:grid-cols-2"><input className="input bg-[#061b27] text-white" placeholder="Bank name" value={bank.bank_name||''} onChange={e=>setBank({...bank,bank_name:e.target.value})}/><input className="input bg-[#061b27] text-white" placeholder="Account name" value={bank.account_name||''} onChange={e=>setBank({...bank,account_name:e.target.value})}/><input className="input bg-[#061b27] font-mono text-white" placeholder="Account number" value={bank.account_number||''} onChange={e=>setBank({...bank,account_number:e.target.value})}/><input className="input bg-[#061b27] text-white" placeholder="Payment reference instruction" value={bank.reference_instruction||''} onChange={e=>setBank({...bank,reference_instruction:e.target.value})}/></div><button className="mt-4 rounded-xl bg-emerald-500 px-5 py-3 text-xs font-black text-white" disabled={busy} onClick={saveBank}>{busy?'Saving…':'Save bank details'}</button></div>}
-          </section>
-        </div>
+            <button className="mt-4 rounded-xl bg-emerald-600 px-5 py-3 text-xs font-black text-white hover:bg-emerald-700" disabled={busy} onClick={saveBank}>
+              {busy ? 'Saving…' : 'Save bank details'}
+            </button>
+          </div>
+        </details>
       </div>
 
       {/* Payment history modal */}
@@ -1091,5 +1298,14 @@ export default function Fees() {
         </div>
       )}
     </AdminShell>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs">
+      <span className="text-slate-600">{label}</span>
+      <b className="font-black text-slate-900">{value}</b>
+    </div>
   );
 }
