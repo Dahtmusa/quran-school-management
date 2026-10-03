@@ -32,6 +32,40 @@ export default function Topbar({title}:{title:string}){
    try{await fetch('/api/notifications/mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});}catch{}
    await loadNotifs();
  }
+ // Threaded view when a notification is tapped: shows the whole
+ // conversation and lets the recipient reply. The reply itself is a
+ // notification addressed to the other party.
+ type ThreadItem=Notif&{created_by:string|null;parent_id:string|null;sender_name:string|null;recipient_id:string};
+ const [threadOpen,setThreadOpen]=useState<Notif|null>(null);
+ const [threadItems,setThreadItems]=useState<ThreadItem[]>([]);
+ const [threadBusy,setThreadBusy]=useState(false);
+ const [replyText,setReplyText]=useState('');
+ async function openThread(n:Notif){
+   setNotifOpen(false);
+   setThreadOpen(n);setThreadItems([]);setReplyText('');
+   if(!n.read_at)await markRead([n.id]);
+   try{
+     const r=await fetch('/api/notifications/thread?id='+encodeURIComponent(n.id),{cache:'no-store'});
+     const b=await r.json();
+     if(r.ok)setThreadItems(b.items||[]);
+   }catch{}
+ }
+ async function sendReply(){
+   if(!threadOpen||!replyText.trim())return;
+   setThreadBusy(true);
+   try{
+     const parent=threadItems[threadItems.length-1]||threadOpen;
+     const r=await fetch('/api/notifications/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({parentId:parent.id,body:replyText.trim()})});
+     const b=await r.json();
+     if(!r.ok)throw new Error(b?.error||'Reply failed.');
+     setReplyText('');
+     // Re-fetch so the UI reflects the new reply immediately.
+     const r2=await fetch('/api/notifications/thread?id='+encodeURIComponent(threadOpen.id),{cache:'no-store'});
+     if(r2.ok){const b2=await r2.json();setThreadItems(b2.items||[]);}
+     await loadNotifs();
+   }catch(e:any){alert(e?.message||'Could not send reply.');}
+   finally{setThreadBusy(false);}
+ }
  async function uploadTopbarPhoto(file:File|null){
    if(!file)return;
    setPhotoBusy(true);setProfileMsg('');
@@ -95,12 +129,7 @@ async function openEditProfile(){
             <div className="mt-1 text-[10px] text-slate-400">{new Date(n.created_at).toLocaleString('en-NG',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</div>
           </div>
         </div>;
-        const click=async()=>{
-          if(!n.read_at)await markRead([n.id]);
-          setNotifOpen(false);
-          if(n.link)window.location.href=n.link;
-        };
-        return <button key={n.id} onClick={click} className="block w-full text-left hover:bg-slate-50">{inner}</button>;
+        return <button key={n.id} onClick={()=>openThread(n)} className="block w-full text-left hover:bg-slate-50">{inner}</button>;
       })}
    </div>
  </div>}
@@ -143,5 +172,38 @@ async function openEditProfile(){
      }}>{sigBusy?'Saving…':'Save Signature'}</button>
    </div>}
  </div></div>}
+
+ {threadOpen&&<div className="fixed inset-0 z-[110] flex items-end justify-center bg-slate-950/55 p-0 sm:items-center sm:p-5" onClick={()=>setThreadOpen(null)}>
+   <div className="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white sm:rounded-3xl" onClick={e=>e.stopPropagation()}>
+     <div className="flex items-start justify-between gap-3 border-b bg-slate-50 p-4">
+       <div className="min-w-0">
+         <div className="text-[10px] font-black uppercase tracking-wide text-emerald-700">Notification thread</div>
+         <h2 className="mt-1 truncate text-lg font-black">{threadOpen.title}</h2>
+       </div>
+       <button className="btn bg-slate-100" onClick={()=>setThreadOpen(null)}>Close</button>
+     </div>
+     <div className="flex-1 space-y-3 overflow-y-auto p-4">
+       {threadItems.length===0?<div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-400">Loading conversation…</div>:
+        threadItems.map(t=>{
+          const mine=t.recipient_id!==me?.id; // if I'm not the recipient, I sent it
+          return <div key={t.id} className={'rounded-2xl p-3 '+(mine?'ml-6 bg-emerald-50 border border-emerald-100':'mr-6 bg-slate-50 border border-slate-100')}>
+            <div className="flex items-center justify-between gap-3 text-[11px] font-bold">
+              <span className={mine?'text-emerald-800':'text-slate-700'}>{mine?'You':(t.sender_name||'Admin')}</span>
+              <span className="text-slate-400">{new Date(t.created_at).toLocaleString('en-NG',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</span>
+            </div>
+            <div className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">{t.body||<i className="text-slate-400">(no body)</i>}</div>
+            {t.link&&!t.parent_id&&<Link href={t.link} onClick={()=>setThreadOpen(null)} className="mt-2 inline-block rounded-lg bg-emerald-700 px-3 py-1.5 text-[11px] font-black text-white">Open link →</Link>}
+          </div>;
+        })}
+     </div>
+     <div className="border-t bg-white p-4">
+       <textarea rows={3} className="input w-full" placeholder="Reply to this message…" value={replyText} onChange={e=>setReplyText(e.target.value)} />
+       <div className="mt-2 flex justify-end gap-2">
+         <button className="btn bg-slate-100 text-slate-700" onClick={()=>setThreadOpen(null)}>Close</button>
+         <button disabled={threadBusy||!replyText.trim()} onClick={sendReply} className="btn btn-primary">{threadBusy?'Sending…':'Send reply'}</button>
+       </div>
+     </div>
+   </div>
+ </div>}
  </>
 }
