@@ -14,6 +14,7 @@ export const adminLinks: NavLink[] = [
   ['/fees/bulk-documents', 'Invoices & Receipts', '▤'],
   ['/calendar', 'School Calendar', '◷'],
   ['/reports', 'Report Cards', '▤'],
+  ['/notifications', 'Notifications', '🔔'],
   ['/alumni', 'Alumni', '★'],
   ['/cms', 'Website CMS', '✦'],
   ['/admin/users', 'User Management', '⚙'],

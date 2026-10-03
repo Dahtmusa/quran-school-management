@@ -15,6 +15,7 @@ const roleRoutes:{prefix:string;roles:string[]}[]=[
  {prefix:'/admin/users',roles:['super_admin','admin','principal']},
  {prefix:'/attendance/scan',roles:['security','super_admin','admin','principal']},
  {prefix:'/attendance',roles:['super_admin','admin','principal']},
+ {prefix:'/notifications',roles:['super_admin','admin','principal']},
  {prefix:'/evaluations',roles:['super_admin','admin','principal']},
  {prefix:'/reports',roles:['super_admin','admin','principal','parent']},
  {prefix:'/calendar',roles:['super_admin','admin','principal']},

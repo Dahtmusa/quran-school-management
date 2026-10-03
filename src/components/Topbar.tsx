@@ -14,6 +14,24 @@ export default function Topbar({title}:{title:string}){
  const [editProfile,setEditProfile]=useState(false),[phone,setPhone]=useState(''),[profileBusy,setProfileBusy]=useState(false),[profileMsg,setProfileMsg]=useState('');
  const [mySig,setMySig]=useState<any|null>(null),[sigBusy,setSigBusy]=useState(false);
  const [photoBusy,setPhotoBusy]=useState(false);
+ type Notif={id:string;kind:string;title:string;body:string|null;link:string|null;read_at:string|null;created_at:string};
+ const [notifOpen,setNotifOpen]=useState(false);
+ const [notifs,setNotifs]=useState<Notif[]>([]);
+ const [unread,setUnread]=useState(0);
+ const loadNotifs=async()=>{
+   try{
+     const r=await fetch('/api/notifications/mine?limit=15',{cache:'no-store'});
+     if(!r.ok)return;
+     const b=await r.json();
+     setNotifs(b.items||[]);
+     setUnread(Number(b.unread||0));
+   }catch{}
+ };
+ useEffect(()=>{if(!me)return;loadNotifs();const id=setInterval(loadNotifs,60_000);return()=>clearInterval(id);},[me?.id]);
+ async function markRead(ids:string[]){
+   try{await fetch('/api/notifications/mark-read',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids})});}catch{}
+   await loadNotifs();
+ }
  async function uploadTopbarPhoto(file:File|null){
    if(!file)return;
    setPhotoBusy(true);setProfileMsg('');
@@ -53,8 +71,39 @@ async function openEditProfile(){
    <button aria-label="Open navigation" aria-expanded={open} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg font-black text-emerald-950 md:hidden" onClick={()=>{setProfile(false);setQuery('');setResults([]);setOpen(true)}}>☰</button>
    <div className="min-w-0 flex-1"><div className="hidden text-[10px] font-black uppercase tracking-[.16em] text-teal-700 lg:block">AMQM · Aliyu and Maimuna Center for Qur'anic Memorization</div><h1 className="truncate text-lg font-black text-slate-900 md:text-xl">{title}</h1></div>
    {isAdmin&&<div ref={searchBox} className="relative ml-auto hidden max-w-xl flex-1 md:block"><div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 shadow-sm focus-within:border-emerald-500 focus-within:bg-white"><span className="mr-2 text-slate-400">⌕</span><input ref={searchInput} aria-label="Global search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search students, staff, classes, admissions, media…" className="h-11 w-full bg-transparent text-sm outline-none"/><kbd className="hidden rounded-md border bg-white px-2 py-1 text-[10px] text-slate-400 lg:block">⌘K</kbd></div>{query.trim().length>=2&&<div className="absolute left-0 right-0 top-14 z-[80] max-h-[min(70vh,520px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">{searching&&<div className="p-4 text-sm text-slate-500">Searching…</div>}{!searching&&!results.length&&<div className="p-4 text-sm text-slate-500">No matches for “{query}”.</div>}{!searching&&results.map((r,i)=><Link key={`${r.type}-${i}`} href={r.href} onClick={()=>{setQuery('');setResults([])}} className="flex items-center gap-3 rounded-xl p-3 hover:bg-emerald-50"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">{r.type.slice(0,1)}</span><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-900">{r.title}</span><span className="block truncate text-xs text-slate-500">{r.type}{r.subtitle?` · ${r.subtitle}`:''}</span></span><span className="ml-auto text-slate-400">→</span></Link>)}</div>}</div>}
-   <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0"><Link className="hidden rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold hover:bg-slate-50 md:block" href="/">View website</Link><button onClick={()=>{setOpen(false);setQuery('');setResults([]);setProfile(!profile)}} aria-label="Account menu" className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold"><span className="hidden max-w-40 truncate sm:inline">{me?.full_name??'Account'}</span><span className="sm:hidden">{me?.full_name?.charAt(0)??'A'}</span><span>⌄</span></button></div>
+   <div className="ml-auto flex shrink-0 items-center gap-2 md:ml-0"><Link className="hidden rounded-xl border border-slate-300 px-3 py-2 text-sm font-bold hover:bg-slate-50 md:block" href="/">View website</Link>
+     <button onClick={()=>{setProfile(false);setNotifOpen(v=>!v);}} aria-label="Notifications" className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-lg font-black">
+       🔔
+       {unread>0&&<span className="absolute -right-1 -top-1 grid min-h-[18px] min-w-[18px] place-items-center rounded-full bg-rose-600 px-1 text-[10px] font-black text-white">{unread>99?'99+':unread}</span>}
+     </button>
+     <button onClick={()=>{setOpen(false);setQuery('');setResults([]);setNotifOpen(false);setProfile(!profile)}} aria-label="Account menu" className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold"><span className="hidden max-w-40 truncate sm:inline">{me?.full_name??'Account'}</span><span className="sm:hidden">{me?.full_name?.charAt(0)??'A'}</span><span>⌄</span></button>
+   </div>
  </div>{isAdmin&&<div className="px-3 pb-3 md:hidden"><div ref={mobileSearchBox} className="relative"><div className="flex items-center rounded-2xl border border-slate-200 bg-slate-50 px-3 shadow-sm focus-within:border-emerald-500 focus-within:bg-white"><span className="mr-2 text-slate-400">⌕</span><input aria-label="Global search" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search students, staff, classes…" className="h-11 w-full bg-transparent text-sm outline-none"/></div>{query.trim().length>=2&&<div className="absolute left-0 right-0 top-13 z-[80] max-h-[55vh] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl">{searching&&<div className="p-4 text-sm text-slate-500">Searching…</div>}{!searching&&!results.length&&<div className="p-4 text-sm text-slate-500">No matches for “{query}”.</div>}{!searching&&results.map((r,i)=><Link key={`m-${r.type}-${i}`} href={r.href} onClick={()=>{setQuery('');setResults([])}} className="flex items-center gap-3 rounded-xl p-3 hover:bg-emerald-50"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">{r.type.slice(0,1)}</span><span className="min-w-0"><span className="block truncate text-sm font-black text-slate-900">{r.title}</span><span className="block truncate text-xs text-slate-500">{r.type}{r.subtitle?` · ${r.subtitle}`:''}</span></span><span className="ml-auto text-slate-400">→</span></Link>)}</div>}</div></div>}
+ {notifOpen&&<div className="absolute right-16 top-16 z-[90] w-80 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:right-20 md:right-24">
+   <div className="flex items-center justify-between border-b bg-slate-50 p-3">
+     <div className="text-xs font-black uppercase tracking-wide text-slate-600">Notifications{unread>0&&` · ${unread} unread`}</div>
+     {unread>0&&<button className="text-[11px] font-bold text-emerald-700 hover:underline" onClick={()=>markRead([])}>Mark all read</button>}
+   </div>
+   <div className="max-h-[70vh] overflow-y-auto">
+     {notifs.length===0?<div className="p-6 text-center text-sm text-slate-400">No notifications yet.</div>:
+      notifs.map(n=>{
+        const inner=<div className={'flex items-start gap-3 border-b p-3 '+(n.read_at?'bg-white':'bg-emerald-50/60')}>
+          <div className={'mt-1 h-2 w-2 flex-none rounded-full '+(n.read_at?'bg-slate-200':'bg-emerald-500')}></div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-black text-slate-900">{n.title}</div>
+            {n.body&&<div className="mt-0.5 line-clamp-2 text-xs text-slate-600">{n.body}</div>}
+            <div className="mt-1 text-[10px] text-slate-400">{new Date(n.created_at).toLocaleString('en-NG',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</div>
+          </div>
+        </div>;
+        const click=async()=>{
+          if(!n.read_at)await markRead([n.id]);
+          setNotifOpen(false);
+          if(n.link)window.location.href=n.link;
+        };
+        return <button key={n.id} onClick={click} className="block w-full text-left hover:bg-slate-50">{inner}</button>;
+      })}
+   </div>
+ </div>}
  {profile&&<div className="absolute right-3 top-16 z-[90] w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl sm:right-4 md:right-7"><div className="px-3 py-3"><div className="text-sm font-black">{me?.full_name??'Account'}</div><div className="text-xs capitalize text-slate-500">{me?.role??'—'}</div>{me?.staff_id&&<div className="mt-1 text-[11px] font-bold text-emerald-700">{me.staff_id}</div>}</div><button className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50" onClick={openEditProfile}>Edit profile</button><Link href="/" className="block rounded-xl px-3 py-2 text-sm hover:bg-slate-50">View public website</Link><button className="w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50" onClick={signOut}>Sign out</button></div>}
  </header>
  {open&&<div className="fixed inset-0 z-[100] md:hidden"><button aria-label="Close navigation overlay" className="absolute inset-0 bg-slate-950/55" onClick={()=>setOpen(false)}/><aside className="absolute inset-y-0 left-0 flex w-[88vw] max-w-sm flex-col bg-[#062d2a] p-5 pb-[max(20px,env(safe-area-inset-bottom))] text-white shadow-2xl"><div className="flex items-center justify-between border-b border-white/10 pb-5"><div><div className="text-2xl font-black">AMQM</div><div className="mt-1 text-xs capitalize text-emerald-200/70">{me?.role||'Account'} workspace</div></div><button aria-label="Close navigation" onClick={()=>setOpen(false)} className="h-10 w-10 rounded-xl bg-white/10 text-xl">×</button></div><div className="mt-6 flex-1 overflow-y-auto overscroll-contain"><nav className="space-y-1.5">{links.map(([href,label])=><Link onClick={()=>setOpen(false)} className="flex items-center justify-between rounded-2xl px-4 py-3.5 text-sm font-bold text-emerald-50 hover:bg-white/10" href={href} key={href}>{label}<span className="text-emerald-300">→</span></Link>)}</nav></div><Link onClick={()=>setOpen(false)} href="/" className="mt-5 block rounded-2xl bg-white px-4 py-3 text-center text-sm font-black text-emerald-950">View website</Link><button onClick={signOut} className="mt-2 block w-full rounded-2xl bg-white/10 px-4 py-3 text-sm font-bold text-white">Sign out</button></aside></div>}
