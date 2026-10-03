@@ -108,11 +108,13 @@ function schoolHeader(logoUrl: string, schoolName: string, schoolAddress: string
   </div>`;
 }
 
-function printReceipt(student: any, payment: any, bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+function printReceipt(student: any, payment: any, bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '', terms: any[] = []) {
   const w = window.open('', '_blank', 'width=520,height=780');
   if (!w) return;
   const date = new Date(payment.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'long', year: 'numeric' });
   const refNo = String(payment.id || '').slice(-8).toUpperCase();
+  const paymentTerm = terms.find((t: any) => t.id === payment.term_id);
+  const termLabel = paymentTerm ? `${tLabel(paymentTerm)} · ${paymentTerm.academic_years?.name || ''}`.trim() : '';
   const accent = '#062d2a';
   w.document.write(`<!DOCTYPE html><html><head><title>Receipt · ${student.name||student.full_name||''}</title>
   <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;padding:30px;font-size:13px;color:#1a1a1a}.top{text-align:center;padding-bottom:16px;border-bottom:3px solid ${accent};margin-bottom:16px}.school{font-size:16px;font-weight:800;letter-spacing:-.01em}.sub{font-size:11px;color:#555;margin-top:3px}.badge{display:inline-block;color:#fff;padding:4px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.06em;margin-top:9px}.ab{background:#f0fdf4;border:2px solid #86efac;border-radius:12px;text-align:center;padding:14px;margin:16px 0}.al{font-size:11px;color:#166534;font-weight:700;text-transform:uppercase;letter-spacing:.06em}.av{font-size:28px;font-weight:900;color:${accent};margin-top:4px}table{width:100%;border-collapse:collapse;margin-bottom:12px}td{padding:6px 4px;border-bottom:1px solid #f0f0f0;vertical-align:top}td:first-child{color:#666;width:40%}td:last-child{font-weight:600}.st{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:#888;margin:12px 0 5px}.footer{margin-top:16px;text-align:center;font-size:11px;color:#999;border-top:1px solid #eee;padding-top:12px}@media print{body{padding:16px}}</style>
@@ -120,10 +122,11 @@ function printReceipt(student: any, payment: any, bank: any, currency: string, s
   ${schoolHeader(logoUrl, schoolName, schoolAddress, 'PAYMENT RECEIPT', accent)}
   <div class="ab"><div class="al">Amount Paid</div><div class="av">${currency} ${Number(payment.amount||0).toLocaleString()}</div></div>
   <div class="st">Receipt details</div>
-  <table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr><tr><td>Method</td><td>${payment.method||'Cash'}</td></tr>${payment.reference?`<tr><td>Reference</td><td>${payment.reference}</td></tr>`:''}</table>
+  <table><tr><td>Receipt No.</td><td>REC-${refNo}</td></tr><tr><td>Date</td><td>${date}</td></tr>${termLabel?`<tr><td>Payment for</td><td><b>${termLabel}</b></td></tr>`:''}<tr><td>Method</td><td>${payment.method||'Cash'}</td></tr>${payment.reference?`<tr><td>Reference</td><td>${payment.reference}</td></tr>`:''}</table>
   <div class="st">Student</div>
   <table><tr><td>Name</td><td>${student.name||student.full_name||'—'}</td></tr><tr><td>Admission No.</td><td>${student.admissionNo||student.admission_no||'—'}</td></tr><tr><td>Class</td><td>${student.className||'—'}</td></tr><tr><td>Section</td><td>${student.section||'—'}</td></tr></table>
   ${bank?.bank_name?`<div class="st">School bank account</div><table><tr><td>Bank</td><td>${bank.bank_name}</td></tr><tr><td>Account name</td><td>${bank.account_name||'—'}</td></tr><tr><td>Account No.</td><td>${bank.account_number||'—'}</td></tr></table>`:''}
+  <div style="margin-top:22px;border-top:1px solid #e5e7eb;padding-top:30px"><div style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:.08em;text-transform:uppercase">Cashier's signature</div><div style="margin-top:3px;border-bottom:1px dotted #94a3b8;height:18px"></div></div>
   <div class="footer"><div>Official ${schoolName||'AMQM'} payment receipt · Keep for your records</div><div style="margin-top:4px">Printed ${new Date().toLocaleDateString('en-NG')}</div></div>
   <script>window.onload=()=>window.print();<\/script></body></html>`);
   w.document.close();
@@ -170,7 +173,7 @@ function printInvoice(student: any, nextTerm: any, structs: any[], bank: any, cu
   w.document.close();
 }
 
-function bulkPrintReceipts(students: Student[], payments: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '') {
+function bulkPrintReceipts(students: Student[], payments: any[], bank: any, currency: string, schoolName: string, logoUrl = '', schoolAddress = '', terms: any[] = []) {
   // 4-up receipts per A4 sheet, each in its own tile with a dashed border
   // and a ✂ scissors icon on the shared cut lines so admin can trim the
   // paper into 4 individual receipts after printing. Massively cuts paper
@@ -186,6 +189,8 @@ function bulkPrintReceipts(students: Student[], payments: any[], bank: any, curr
   const tile = (s: Student, p: any) => {
     const date  = new Date(p.paid_on || Date.now()).toLocaleDateString('en-NG', { day: '2-digit', month: 'short', year: 'numeric' });
     const refNo = String(p.id || '').slice(-8).toUpperCase();
+    const paymentTerm = terms.find((t: any) => t.id === p.term_id);
+    const termLabel = paymentTerm ? `${tLabel(paymentTerm)}${paymentTerm.academic_years?.name ? ' · ' + paymentTerm.academic_years.name : ''}` : '';
     return `<article class="tile">
       <header>
         ${logoTag}
@@ -201,6 +206,7 @@ function bulkPrintReceipts(students: Student[], payments: any[], bank: any, curr
         <div class="col">
           <div class="row"><span>Receipt</span><b>REC-${refNo}</b></div>
           <div class="row"><span>Date</span><b>${date}</b></div>
+          ${termLabel ? `<div class="row"><span>For</span><b>${termLabel}</b></div>` : ''}
           <div class="row"><span>Method</span><b>${p.method || 'Cash'}</b></div>
           ${p.reference ? `<div class="row"><span>Ref</span><b>${p.reference}</b></div>` : ''}
         </div>
@@ -212,7 +218,7 @@ function bulkPrintReceipts(students: Student[], payments: any[], bank: any, curr
         </div>
       </div>
       ${bank?.bank_name ? `<footer class="bank">${bank.bank_name} · ${bank.account_number || '—'}</footer>` : ''}
-      <div class="sig">Received by ______________________</div>
+      <div class="sig">Cashier's signature: ______________________</div>
     </article>`;
   };
 
@@ -705,7 +711,7 @@ export default function Fees() {
       const payment = await recordPayment({ studentId: payTarget.id, termId: selectedTermId, amount: Number(payAmount), method: payMethod, reference: payRef || undefined });
       await refresh();
       setPayTarget(null);
-      printReceipt(payTarget, payment, bank, currency, schoolName, logoUrl, schoolAddress);
+      printReceipt(payTarget, payment, bank, currency, schoolName, logoUrl, schoolAddress, terms);
     } catch (e: any) { setMessage(e?.message || 'Payment failed'); }
     finally { setPaying(false); }
   }
@@ -757,7 +763,7 @@ export default function Fees() {
     try {
       const payment = await recordPayment({ studentId: s.id, termId: selectedTermId, amount: bal, method: 'Cash' });
       await refresh();
-      printReceipt(s, payment, bank, currency, schoolName, logoUrl, schoolAddress);
+      printReceipt(s, payment, bank, currency, schoolName, logoUrl, schoolAddress, terms);
     } catch (e: any) { setMessage(e?.message || 'Failed to record payment'); }
   }
 
@@ -1119,7 +1125,7 @@ export default function Fees() {
             <div className="text-xs font-bold text-emerald-800"><b>{selectedIds.size}</b> student{selectedIds.size === 1 ? '' : 's'} selected</div>
             <div className="flex flex-wrap gap-2">
               <button onClick={() => generateBulkInvoices(selectedStudents, true)} disabled={generatingInvoices} className="rounded-lg bg-amber-500 px-3 py-2 text-[11px] font-black text-white hover:bg-amber-600 disabled:opacity-40">▤ Print invoices (4 per sheet)</button>
-              <button onClick={() => bulkPrintReceipts(selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress)} disabled={!selectedPaidStudents.length} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-40">▤ Print receipts (4 per sheet)</button>
+              <button onClick={() => bulkPrintReceipts(selectedPaidStudents, summary.payments, bank, currency, schoolName, logoUrl, schoolAddress, terms)} disabled={!selectedPaidStudents.length} className="rounded-lg bg-emerald-600 px-3 py-2 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-40">▤ Print receipts (4 per sheet)</button>
               <button onClick={clearSelection} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-500 hover:bg-slate-50">Clear</button>
             </div>
           </div>}
@@ -1230,7 +1236,7 @@ export default function Fees() {
                         <td className="py-3 pl-2">
                           <div className="flex gap-1.5 justify-end">
                             <button
-                              onClick={() => printReceipt(historyTarget, p, bank, currency, schoolName, logoUrl, schoolAddress)}
+                              onClick={() => printReceipt(historyTarget, p, bank, currency, schoolName, logoUrl, schoolAddress, terms)}
                               className="btn bg-emerald-50 text-emerald-700 border border-emerald-100 text-xs py-1 px-2"
                             >
                               Receipt
