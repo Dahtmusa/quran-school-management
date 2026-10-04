@@ -144,8 +144,19 @@ export default function Students(){
  const [removeNotes,setRemoveNotes]=useState('');
  const [removeBusy,setRemoveBusy]=useState(false);
 
- async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null)}
- useEffect(()=>{refresh()},[]);
+ async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null);return students;}
+ useEffect(()=>{refresh().then(students=>{
+   // Open a specific student's profile when the URL carries ?id= (used by
+   // the Topbar global search so a search result is clickable).
+   try{
+     const url=new URL(window.location.href);
+     const id=url.searchParams.get('id');
+     if(id){
+       const match=(students||[]).find((s:any)=>s.id===id);
+       if(match)setSelected(match);
+     }
+   }catch{}
+ })},[]);
 
  useEffect(()=>{
    if(!selected) return;

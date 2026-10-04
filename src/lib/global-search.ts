@@ -18,10 +18,10 @@ export async function globalSearch(term: string): Promise<GlobalSearchResult[]> 
     client.from('pages').select('id,title,slug').or(`title.ilike.${like},slug.ilike.${like}`).limit(6),
   ]);
   return [
-    ...(students.data || []).map((x: any) => ({ type: 'Student', title: x.full_name, subtitle: `${x.admission_no} · ${x.section}`, href: '/students' })),
-    ...(staff.data || []).map((x: any) => ({ type: 'Staff', title: x.full_name, subtitle: `${x.staff_id || 'No staff ID'} · ${x.role}`, href: '/cms' })),
+    ...(students.data || []).map((x: any) => ({ type: 'Student', title: x.full_name, subtitle: `${x.admission_no} · ${x.section}`, href: `/students?id=${encodeURIComponent(x.id)}` })),
+    ...(staff.data || []).map((x: any) => ({ type: 'Staff', title: x.full_name, subtitle: `${x.staff_id || 'No staff ID'} · ${x.role}`, href: `/staff?id=${encodeURIComponent(x.id)}` })),
     ...(classes.data || []).map((x: any) => ({ type: 'Class', title: x.name, subtitle: x.code, href: '/classes' })),
-    ...(admissions.data || []).map((x: any) => ({ type: 'Admission', title: x.applicant_name, subtitle: `${x.application_no} · ${x.status}`, href: '/admissions/manage' })),
+    ...(admissions.data || []).map((x: any) => ({ type: 'Admission', title: x.applicant_name, subtitle: `${x.application_no} · ${x.status}`, href: `/admissions/manage?id=${encodeURIComponent(x.id)}` })),
     ...(media.data || []).map((x: any) => ({ type: 'Website media', title: x.title, subtitle: x.category, href: '/cms?tab=media' })),
     ...(pages.data || []).map((x: any) => ({ type: 'Website page', title: x.title, subtitle: `/${x.slug}`, href: '/cms' })),
   ].slice(0, 30);

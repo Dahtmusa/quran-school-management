@@ -56,8 +56,19 @@ export default function AdmissionsManage(){
    setSavedSnapshot(rawSaved?merged:null);
    setReqDraft((Array.isArray(saved.requirements)?saved.requirements:DEFAULT_ADMISSION_SETTINGS.requirements).join('\n'));
    try{const {data:row}=await (await import('@/lib/supabase/client')).createClient().from('site_settings').select('updated_at').eq('key','admission_settings').maybeSingle();setSavedAt((row as any)?.updated_at||null);}catch{setSavedAt(null);}
+   return a;
  };
- useEffect(()=>{refresh()},[]);
+ useEffect(()=>{refresh().then(list=>{
+   // Open an application when the URL carries ?id= (Topbar global search).
+   try{
+     const url=new URL(window.location.href);
+     const id=url.searchParams.get('id');
+     if(id){
+       const match=(list||[]).find((x:any)=>x.id===id);
+       if(match)setSelected(match);
+     }
+   }catch{}
+ })},[]);
  const portal=settings.admission_portal||{};
  const payment=settings.school_payment||{};
 

@@ -56,10 +56,23 @@ export default function StaffPage(){
 
  const refresh=async()=>{
    const [s,c,t,settings]=await Promise.all([loadStaffProfiles(),loadClasses(),loadAdminTeam(),loadCMSSettings()]);
-   setStaff(s as unknown as StaffProfile[]);setClasses(c);setTeam(t as TeamProfile[]);
+   const staffList=s as unknown as StaffProfile[];
+   setStaff(staffList);setClasses(c);setTeam(t as TeamProfile[]);
    setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null);
+   return staffList;
  };
- useEffect(()=>{refresh()},[]);
+ useEffect(()=>{refresh().then(list=>{
+   // Open a staff profile when the URL carries ?id= (used by the Topbar
+   // global search so a staff search result is clickable).
+   try{
+     const url=new URL(window.location.href);
+     const id=url.searchParams.get('id');
+     if(id){
+       const match=(list||[]).find((x:StaffProfile)=>x.id===id);
+       if(match)setEditT(match as any);
+     }
+   }catch{}
+ })},[]);
 
  async function printStaffId(a:StaffProfile){const managementRoles=['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];const type=managementRoles.includes(a.role)?'MANAGEMENT':'STAFF';const linkedTeam=team.find(t=>t.full_name.trim().toLowerCase()===a.full_name.trim().toLowerCase());await printAcademicIdCard({type,name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url||linkedTeam?.photo_url||null,jobTitle:a.job_title??linkedTeam?.role_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
 
