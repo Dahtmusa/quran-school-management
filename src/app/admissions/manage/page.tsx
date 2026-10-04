@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import {loadAdmissionApplications,updateAdmissionApplication,enrollAdmissionApplication,loadClasses,scheduleAdmissionScreening,saveAdmissionScreening} from '@/lib/live-store';
 import {loadCMSSettings,saveCMSSetting} from '@/lib/cms-live-store';
 import {printAdmissionLetter} from '@/lib/admission-letter';
-import {useEffect,useMemo,useState} from 'react';
+import {Suspense,useEffect,useMemo,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
 
 const DEFAULT_ADMISSION_SETTINGS = {
@@ -40,7 +40,8 @@ async function notifyParent(applicationId: string, kind: 'screening_success'|'sc
   return body as { sent: boolean; to: string; message: string };
 }
 
-export default function AdmissionsManage(){
+export default function AdmissionsManage(){return <Suspense fallback={null}><AdmissionsManageInner/></Suspense>;}
+function AdmissionsManageInner(){
  const [items,setItems]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]),[settings,setSettings]=useState<any>({}),[selected,setSelected]=useState<any|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
  const [scheduleAt,setScheduleAt]=useState('');
  const [admissionSettings,setAdmissionSettings]=useState<AdmissionSettings>(DEFAULT_ADMISSION_SETTINGS);

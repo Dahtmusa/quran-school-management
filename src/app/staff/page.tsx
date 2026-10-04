@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow } from '@/lib/live-store';
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile, loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
-import { useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 type StaffProfile={id:string;full_name:string;role:string;gender:string|null;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
@@ -14,7 +14,8 @@ const ROLE_TITLES=['Director','Assistant Director','School Supervisor','Principa
 const STATUS_OPTS=['active','inactive','suspended','left'];
 const blankTeam:TeamProfile={full_name:'',role_title:'Director',category:'leadership',photo_url:null,brief_bio:'',full_profile:'',display_on_homepage:false,published:true,sort_order:0,qualifications:'',experience:'',subjects:''};
 
-export default function StaffPage(){
+export default function StaffPage(){return <Suspense fallback={null}><StaffPageInner/></Suspense>;}
+function StaffPageInner(){
  const [tab,setTab]=useState<'people'|'signatures'>('people');
  const [staff,setStaff]=useState<StaffProfile[]>([]);
  const [classes,setClasses]=useState<LiveClass[]>([]);
