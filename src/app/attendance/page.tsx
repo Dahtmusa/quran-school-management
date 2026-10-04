@@ -14,7 +14,7 @@ import {
   type StaffFineRow, type AttendanceSettings, type FinesPayload,
 } from '@/lib/attendance/api';
 
-type Tab = 'day' | 'boarding' | 'staff' | 'fines' | 'settings';
+type Tab = 'day' | 'boarding' | 'staff' | 'fines' | 'analytics' | 'settings';
 const STATUS_STYLES: Record<string, string> = {
   present: 'bg-emerald-50 text-emerald-700',
   late:    'bg-amber-50 text-amber-700',
@@ -85,7 +85,9 @@ export default function AttendanceDashboard() {
 
       <TabBar tab={tab} onTab={setTab} summary={summary} />
 
-      {tab === 'settings' ? (
+      {tab === 'analytics' ? (
+        <AnalyticsPanel onError={setError} />
+      ) : tab === 'settings' ? (
         <SettingsPanel onSaved={() => setBanner('Settings saved.')} />
       ) : tab === 'fines' ? (
         <FinesPanel />
@@ -141,7 +143,12 @@ function TabBar({ tab, onTab, summary }: { tab: Tab; onTab: (t: Tab) => void; su
   const k = (key: 'day' | 'boarding' | 'staff') =>
     summary?.counts?.[key] || { total: 0, present: 0, late: 0, absent: 0, excused: 0, not_marked: 0 };
   const groups: [Tab, string][] = [['day','Day students'], ['boarding','Boarding students'], ['staff','Staff']];
-  return <div className="grid gap-3 md:grid-cols-5">
+  const extraMeta: Record<string, [string, string, string]> = {
+    fines:     ['Staff Fines', '₦', 'Late & absent penalties'],
+    analytics: ['Analytics',   '📊', 'Trends · forecast · compare'],
+    settings:  ['Settings',    '⚙',  'Cutoff · fines · SMS'],
+  };
+  return <div className="grid gap-3 md:grid-cols-6">
     {groups.map(([key, label]) => {
       const c = k(key as any);
       const active = tab === key;
@@ -155,16 +162,15 @@ function TabBar({ tab, onTab, summary }: { tab: Tab; onTab: (t: Tab) => void; su
         </div>
       </button>;
     })}
-    {(['fines','settings'] as Tab[]).map(t => (
-      <button key={t} onClick={() => onTab(t)}
+    {(['fines','analytics','settings'] as Tab[]).map(t => {
+      const [label, icon, sub] = extraMeta[t];
+      return <button key={t} onClick={() => onTab(t)}
         className={'rounded-2xl border p-4 text-left ' + (tab === t ? 'border-emerald-700 bg-emerald-50' : 'border-slate-200 bg-white')}>
-        <div className="text-xs font-black uppercase tracking-wide text-slate-500">{t === 'fines' ? 'Staff Fines' : 'Settings'}</div>
-        <div className="mt-1 text-2xl font-black">{t === 'fines' ? '₦' : '⚙'}</div>
-        <div className="mt-2 text-[11px] font-bold text-slate-500">
-          {t === 'fines' ? 'Late & absent penalties' : 'Cutoff · fines · SMS'}
-        </div>
-      </button>
-    ))}
+        <div className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</div>
+        <div className="mt-1 text-2xl font-black">{icon}</div>
+        <div className="mt-2 text-[11px] font-bold text-slate-500">{sub}</div>
+      </button>;
+    })}
   </div>;
 }
 
@@ -738,3 +744,358 @@ function Field({ label, full, children }: { label: string; full?: boolean; child
     <div className="mt-1">{children}</div>
   </div>;
 }
+
+// ---------- Analytics tab -------------------------------------------
+// Everything about trends, comparisons and forecasts for admins. Pulls
+// a daily-aggregated series + per-person breakdown from the API, then
+// does all the slicing (week / month / term / forecast) in the browser.
+function AnalyticsPanel({ onError }: { onError: (m: string) => void }) {
+  const todayLagos = new Date().toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const [personType, setPersonType] = useState<'student' | 'staff'>('student');
+  const [section, setSection] = useState<'all' | 'day' | 'boarding'>('all');
+  const [from, setFrom] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 90);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  });
+  const [to, setTo] = useState(todayLagos);
+  const [data, setData] = useState<Awaited<ReturnType<typeof attendanceApi.analytics>> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [personFilter, setPersonFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'pct_asc' | 'pct_desc' | 'absent'>('pct_asc');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const sec = personType === 'student' && section !== 'all' ? section : undefined;
+      setData(await attendanceApi.analytics(personType, from, to, sec));
+    } catch (e: any) { onError(e?.message || 'Could not load analytics.'); }
+    finally { setLoading(false); }
+  }, [personType, section, from, to, onError]);
+  useEffect(() => { load(); }, [load]);
+
+  const metrics = useMemo(() => data ? computeMetrics(data.daily, data.terms) : null, [data]);
+  const people = useMemo(() => {
+    if (!data) return [];
+    const q = personFilter.toLowerCase().trim();
+    const filtered = q
+      ? data.people.filter(p => [p.full_name, p.identifier, p.class_name, p.job_title].filter(Boolean).some(v => String(v).toLowerCase().includes(q)))
+      : data.people;
+    const sorted = [...filtered];
+    if (sortBy === 'name')     sorted.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    if (sortBy === 'pct_asc')  sorted.sort((a, b) => Number(a.attendance_pct) - Number(b.attendance_pct));
+    if (sortBy === 'pct_desc') sorted.sort((a, b) => Number(b.attendance_pct) - Number(a.attendance_pct));
+    if (sortBy === 'absent')   sorted.sort((a, b) => b.absent - a.absent);
+    return sorted;
+  }, [data, personFilter, sortBy]);
+
+  return <section className="space-y-4">
+    {/* Toolbar */}
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="inline-flex overflow-hidden rounded-xl border border-slate-200">
+          {(['student','staff'] as const).map(t => (
+            <button key={t} onClick={() => setPersonType(t)}
+              className={'px-4 py-2 text-sm font-black ' + (personType === t ? 'bg-[#062d2a] text-white' : 'bg-white text-slate-700 hover:bg-slate-50')}>
+              {t === 'student' ? 'Students' : 'Staff'}
+            </button>
+          ))}
+        </div>
+        {personType === 'student' && (
+          <select value={section} onChange={e => setSection(e.target.value as any)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+            <option value="all">All sections</option><option value="day">Day</option><option value="boarding">Boarding</option>
+          </select>
+        )}
+        <label className="flex items-center gap-2 text-xs font-black text-slate-500">From
+          <input type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+        </label>
+        <label className="flex items-center gap-2 text-xs font-black text-slate-500">To
+          <input type="date" value={to} min={from} max={todayLagos} onChange={e => setTo(e.target.value)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+        </label>
+        <div className="ml-auto flex gap-1 text-xs font-black">
+          {([['7d', 7], ['30d', 30], ['90d', 90], ['6mo', 183], ['1y', 365]] as const).map(([label, days]) => (
+            <button key={label} onClick={() => {
+              const d = new Date(); d.setDate(d.getDate() - days);
+              setFrom(d.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }));
+              setTo(todayLagos);
+            }} className="rounded-lg border border-slate-200 bg-white px-3 py-2 hover:bg-slate-50">{label}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    {loading && !data ? (
+      <div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">Loading analytics…</div>
+    ) : !metrics ? (
+      <div className="rounded-2xl bg-white p-10 text-center text-sm text-slate-400">No attendance data in this range yet.</div>
+    ) : <>
+      {/* Comparison cards */}
+      <div className="grid gap-3 md:grid-cols-4">
+        <TrendCard label="This week"  current={metrics.thisWeek}  previous={metrics.lastWeek}  />
+        <TrendCard label="This month" current={metrics.thisMonth} previous={metrics.lastMonth} />
+        <TrendCard label="This term"  current={metrics.thisTerm}  previous={metrics.lastTerm}  termName={metrics.currentTermLabel} />
+        <ForecastCard metrics={metrics} />
+      </div>
+
+      {/* Charts */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ChartCard title="Weekly attendance rate" subtitle={`Last ${metrics.weekly.length} weeks`}>
+          <BarChart data={metrics.weekly.map(w => ({ label: w.label, value: w.pct, hint: `${w.present + w.late + w.excused}/${w.total_marked} · ${w.pct}%` }))} />
+        </ChartCard>
+        <ChartCard title="Monthly attendance rate" subtitle={`Last ${metrics.monthly.length} months`}>
+          <BarChart data={metrics.monthly.map(m => ({ label: m.label, value: m.pct, hint: `${m.present + m.late + m.excused}/${m.total_marked} · ${m.pct}%` }))} />
+        </ChartCard>
+      </div>
+
+      {/* Per-person table */}
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b bg-slate-50 p-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <div className="font-black text-slate-800">Per-{personType === 'student' ? 'student' : 'staff'} attendance</div>
+            <div className="text-xs text-slate-500">{people.length} {personType === 'student' ? 'students' : 'staff'} · {from} → {to}</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input value={personFilter} onChange={e => setPersonFilter(e.target.value)} placeholder="Search name, ID, class…"
+              className="h-10 rounded-lg border border-slate-200 px-3 text-sm" />
+            <select value={sortBy} onChange={e => setSortBy(e.target.value as any)} className="h-10 rounded-lg border border-slate-200 px-3 text-sm">
+              <option value="pct_asc">Lowest attendance %</option>
+              <option value="pct_desc">Highest attendance %</option>
+              <option value="absent">Most absent days</option>
+              <option value="name">Name A→Z</option>
+            </select>
+          </div>
+        </div>
+        <div className="max-h-[500px] overflow-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="sticky top-0 bg-white text-[10px] uppercase tracking-wide text-slate-400">
+              <tr>
+                <th className="px-5 py-3">Person</th>
+                <th>{personType === 'student' ? 'Class' : 'Role'}</th>
+                <th className="text-right">Present</th>
+                <th className="text-right">Late</th>
+                <th className="text-right">Absent</th>
+                <th className="text-right">Excused</th>
+                <th className="text-right">Marked</th>
+                <th className="text-right">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.length === 0 ? <tr><td colSpan={8} className="p-8 text-center text-slate-400">No matching people.</td></tr>
+              : people.map(p => (
+                <tr key={p.person_id} className="border-t">
+                  <td className="px-5 py-3">
+                    <div className="font-black">{p.full_name}</div>
+                    <div className="text-[10px] text-slate-400">{p.identifier || '—'}</div>
+                  </td>
+                  <td className="text-xs text-slate-500">{p.class_name || p.job_title || '—'}</td>
+                  <td className="text-right font-bold text-emerald-700">{p.present}</td>
+                  <td className="text-right font-bold text-amber-700">{p.late}</td>
+                  <td className="text-right font-bold text-rose-700">{p.absent}</td>
+                  <td className="text-right font-bold text-sky-700">{p.excused}</td>
+                  <td className="text-right text-slate-700">{p.total_marked}</td>
+                  <td className="px-5 py-3 text-right">
+                    <PctPill pct={Number(p.attendance_pct)} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>}
+  </section>;
+}
+
+// --- Analytics helpers --------------------------------------------
+type DailyRow = { attendance_date: string; present: number; late: number; absent: number; excused: number; total_marked: number };
+
+function computeMetrics(daily: DailyRow[], terms: any[]) {
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+
+  const sumRange = (fromStr: string, toStr: string) => {
+    const rows = daily.filter(d => d.attendance_date >= fromStr && d.attendance_date <= toStr);
+    const totals = rows.reduce((a, r) => ({
+      present: a.present + r.present, late: a.late + r.late,
+      absent: a.absent + r.absent,   excused: a.excused + r.excused,
+      total_marked: a.total_marked + r.total_marked,
+    }), { present: 0, late: 0, absent: 0, excused: 0, total_marked: 0 });
+    const effective = totals.present + totals.late + totals.excused;
+    const pct = totals.total_marked > 0 ? Math.round((effective / totals.total_marked) * 1000) / 10 : 0;
+    return { ...totals, pct, days: rows.length };
+  };
+
+  const shift = (base: Date, days: number) => {
+    const d = new Date(base); d.setDate(d.getDate() + days);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  };
+
+  // Weekly series (last 12 weeks)
+  const weekly: { label: string; present: number; late: number; absent: number; excused: number; total_marked: number; pct: number }[] = [];
+  const dayOfWeek = today.getDay() || 7; // Mon=1 … Sun=7
+  const thisMonday = new Date(today); thisMonday.setDate(today.getDate() - (dayOfWeek - 1));
+  for (let i = 11; i >= 0; i--) {
+    const weekStart = new Date(thisMonday); weekStart.setDate(thisMonday.getDate() - i * 7);
+    const weekEnd   = new Date(weekStart);  weekEnd.setDate(weekStart.getDate() + 6);
+    const r = sumRange(
+      weekStart.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
+      weekEnd.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
+    );
+    weekly.push({
+      label: new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', day: '2-digit', month: 'short' }).format(weekStart),
+      ...r,
+    });
+  }
+
+  // Monthly series (last 6 months)
+  const monthly: { label: string; present: number; late: number; absent: number; excused: number; total_marked: number; pct: number }[] = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthStart = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const monthEnd   = new Date(today.getFullYear(), today.getMonth() - i + 1, 0);
+    const r = sumRange(
+      monthStart.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
+      monthEnd.toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' }),
+    );
+    monthly.push({
+      label: new Intl.DateTimeFormat('en-NG', { timeZone: 'Africa/Lagos', month: 'short' }).format(monthStart),
+      ...r,
+    });
+  }
+
+  // This week vs last week
+  const thisWeekStart = shift(thisMonday, 0);
+  const thisWeek = sumRange(thisWeekStart, todayStr);
+  const lastWeekEnd   = shift(thisMonday, -1);
+  const lastWeekStart = shift(thisMonday, -7);
+  const lastWeek = sumRange(lastWeekStart, lastWeekEnd);
+
+  // This month vs last month
+  const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const thisMonth = sumRange(thisMonthStart, todayStr);
+  const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const lastMonthEnd   = new Date(today.getFullYear(), today.getMonth(), 0).toLocaleDateString('en-CA', { timeZone: 'Africa/Lagos' });
+  const lastMonth = sumRange(lastMonthStart, lastMonthEnd);
+
+  // Current + previous term from the terms table
+  const sortedTerms = [...(terms || [])].sort((a: any, b: any) =>
+    String(a.starts_on || '').localeCompare(String(b.starts_on || '')),
+  );
+  const currentTerm = sortedTerms.find((t: any) => t.is_current)
+    || sortedTerms.find((t: any) => todayStr >= String(t.starts_on || '') && todayStr <= String(t.ends_on || ''))
+    || sortedTerms[sortedTerms.length - 1];
+  const prevTerm = currentTerm ? sortedTerms[sortedTerms.indexOf(currentTerm) - 1] : null;
+  const thisTerm = currentTerm
+    ? sumRange(String(currentTerm.starts_on), String(currentTerm.ends_on || todayStr))
+    : { present: 0, late: 0, absent: 0, excused: 0, total_marked: 0, pct: 0, days: 0 };
+  const lastTerm = prevTerm
+    ? sumRange(String(prevTerm.starts_on), String(prevTerm.ends_on))
+    : { present: 0, late: 0, absent: 0, excused: 0, total_marked: 0, pct: 0, days: 0 };
+
+  const currentTermLabel = currentTerm
+    ? `${currentTerm.name || 'Term'}${currentTerm.academic_years?.name ? ' · ' + currentTerm.academic_years.name : ''}`
+    : '—';
+
+  // Forecast: use the average attendance rate across the last 4 full weeks
+  // (ignoring the current partial week), applied to the number of calendar
+  // days in the next period.
+  const recent4 = weekly.slice(-5, -1);
+  const avgRate = recent4.length ? recent4.reduce((n, w) => n + w.pct, 0) / recent4.length : thisMonth.pct;
+  const avgDaily = recent4.length ? recent4.reduce((n, w) => n + w.total_marked, 0) / recent4.length / 7 : 0;
+
+  const nextWeekDays = 7;
+  const daysInNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0).getDate();
+
+  const forecastWeek = {
+    pct: Math.round(avgRate * 10) / 10,
+    expectedMarked: Math.round(avgDaily * nextWeekDays),
+    expectedPresent: Math.round(avgDaily * nextWeekDays * avgRate / 100),
+  };
+  const forecastMonth = {
+    pct: Math.round(avgRate * 10) / 10,
+    expectedMarked: Math.round(avgDaily * daysInNextMonth),
+    expectedPresent: Math.round(avgDaily * daysInNextMonth * avgRate / 100),
+  };
+
+  return {
+    thisWeek, lastWeek, thisMonth, lastMonth,
+    thisTerm, lastTerm, currentTermLabel,
+    weekly, monthly,
+    forecastWeek, forecastMonth,
+  };
+}
+
+function TrendCard({ label, current, previous, termName }: {
+  label: string;
+  current: { pct: number; present: number; late: number; absent: number; total_marked: number };
+  previous: { pct: number; total_marked: number };
+  termName?: string;
+}) {
+  const delta = Math.round((current.pct - previous.pct) * 10) / 10;
+  const up = delta > 0;
+  return <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">{label}</div>
+    {termName && <div className="mt-0.5 truncate text-[11px] font-bold text-emerald-700">{termName}</div>}
+    <div className="mt-2 text-3xl font-black text-slate-900">{current.pct}%</div>
+    <div className="mt-1 text-xs text-slate-500">{current.total_marked} marked</div>
+    <div className={'mt-3 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-black ' +
+      (delta === 0 ? 'bg-slate-100 text-slate-500'
+       : up ? 'bg-emerald-50 text-emerald-700'
+            : 'bg-rose-50 text-rose-700')}>
+      {delta === 0 ? '—' : up ? '↑' : '↓'} {Math.abs(delta)}%
+      <span className="font-normal opacity-70">vs previous</span>
+    </div>
+  </div>;
+}
+
+function ForecastCard({ metrics }: { metrics: ReturnType<typeof computeMetrics> }) {
+  return <div className="rounded-2xl border border-sky-100 bg-sky-50 p-5">
+    <div className="text-[10px] font-black uppercase tracking-wide text-sky-700">Forecast</div>
+    <div className="mt-0.5 text-[11px] font-bold text-sky-800">Based on last 4 weeks</div>
+    <div className="mt-3 space-y-2 text-sm">
+      <div className="flex items-center justify-between">
+        <span className="text-slate-600">Next 7 days:</span>
+        <b className="text-sky-900">~{metrics.forecastWeek.expectedPresent} present / {metrics.forecastWeek.expectedMarked}</b>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-slate-600">Next 30 days:</span>
+        <b className="text-sky-900">~{metrics.forecastMonth.expectedPresent} present / {metrics.forecastMonth.expectedMarked}</b>
+      </div>
+      <div className="flex items-center justify-between pt-1 text-xs">
+        <span className="text-slate-500">Expected rate:</span>
+        <b className="text-sky-800">{metrics.forecastWeek.pct}%</b>
+      </div>
+    </div>
+  </div>;
+}
+
+function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="mb-3">
+      <div className="font-black text-slate-800">{title}</div>
+      <div className="text-xs text-slate-500">{subtitle}</div>
+    </div>
+    {children}
+  </section>;
+}
+
+function BarChart({ data }: { data: { label: string; value: number; hint: string }[] }) {
+  const max = Math.max(100, ...data.map(d => d.value));
+  return <div className="flex h-48 items-end gap-2 border-b border-slate-100">
+    {data.map((d, i) => (
+      <div key={i} className="flex h-full flex-1 flex-col items-center justify-end gap-1" title={d.hint}>
+        <div className={'w-full rounded-t-md ' + (d.value >= 90 ? 'bg-emerald-500' : d.value >= 75 ? 'bg-emerald-400' : d.value >= 50 ? 'bg-amber-400' : 'bg-rose-400')}
+          style={{ height: Math.max(2, (d.value / max) * 100) + '%' }} />
+        <div className="text-[9px] font-bold text-slate-500">{d.label}</div>
+        <div className="text-[9px] font-black text-slate-700">{d.value}%</div>
+      </div>
+    ))}
+  </div>;
+}
+
+function PctPill({ pct }: { pct: number }) {
+  const cls = pct >= 90 ? 'bg-emerald-100 text-emerald-800'
+    : pct >= 75 ? 'bg-emerald-50 text-emerald-700'
+    : pct >= 50 ? 'bg-amber-50 text-amber-700'
+    : 'bg-rose-50 text-rose-700';
+  return <span className={'inline-block rounded-full px-3 py-1 text-[11px] font-black ' + cls}>{pct}%</span>;
+}
+

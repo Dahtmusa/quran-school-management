@@ -187,6 +187,15 @@ export const attendanceApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId, status, date }),
     }).then(json<{ id: string }>),
+  analytics: (personType: 'student' | 'staff', from: string, to: string, section?: 'day' | 'boarding') => {
+    const qs = new URLSearchParams({ personType, from, to });
+    if (section) qs.set('section', section);
+    return fetch('/api/attendance/analytics?' + qs.toString(), { cache: 'no-store' }).then(json<{
+      daily:  { attendance_date: string; present: number; late: number; absent: number; excused: number; total_marked: number }[];
+      people: { person_id: string; full_name: string; identifier: string; section: string; class_name: string | null; job_title: string | null; present: number; late: number; absent: number; excused: number; total_marked: number; attendance_pct: number }[];
+      terms:  any[];
+    }>);
+  },
   recentScans: (limit = 10) =>
     fetch('/api/attendance/recent-scans?limit=' + limit, { cache: 'no-store' })
       .then(json<{ date: string; rows: RecentScanRow[] }>),
