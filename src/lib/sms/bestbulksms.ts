@@ -29,6 +29,29 @@ export function normalizeNigerianPhone(raw: string): string | null {
   return digits;
 }
 
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+async function postOnce(endpoint: string, apiKey: string, payload: object, sourceUrl: string) {
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type':  'application/json',
+      'Accept':        'application/json, text/plain, */*',
+      'Accept-Language': 'en-NG,en;q=0.9',
+      'User-Agent':    UA,
+      'Referer':       sourceUrl,
+      'Origin':        new URL(sourceUrl).origin,
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let parsed: any = null;
+  try { parsed = JSON.parse(text); } catch {}
+  const looksLikeCfChallenge = !parsed && /just a moment|cf-chl|challenge-platform|cloudflare/i.test(text);
+  return { res, text, parsed, looksLikeCfChallenge };
+}
+
 export async function sendBestBulkSms(to: string, message: string): Promise<SmsResult> {
   const apiKey    = process.env.BESTBULKSMS_API_KEY || '';
   const senderId  = process.env.BESTBULKSMS_SENDER  || 'AMQM';
@@ -40,41 +63,28 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
   if (!phone) return { ok: false, providerResponse: 'Invalid recipient phone.', to, message };
 
   if (!apiKey) {
-    // Stub mode: no API key configured yet. Log and return a soft-success so
-    // the admin UI keeps working during development without spending credits.
     console.warn('[bestbulksms] BESTBULKSMS_API_KEY not set; logging only.', { phone, message });
     return { ok: true, providerResponse: 'stub: BESTBULKSMS_API_KEY not set', to: phone, message };
   }
 
+  const payload = { sender_id: senderId, to: [phone], message, route, source_url: sourceUrl };
+
   try {
-    // BestBulkSMS sits behind Cloudflare. Without a browser-like
-    // User-Agent, Cloudflare "Managed Challenge" returns the "Just a
-    // moment..." HTML page instead of the JSON API response, which the
-    // code below then treats as a failed send. The attendance SMS flow
-    // used to work; the challenge was tightened recently so we now
-    // declare a stable UA + Referer the provider recognises.
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type':  'application/json',
-        'Accept':        'application/json',
-        'User-Agent':    'AMQM-School/1.0 (+https://aliyumaimuna.com.ng; contact=admin@aliyumaimuna.com.ng)',
-        'Referer':       sourceUrl,
-        'Origin':        new URL(sourceUrl).origin,
-      },
-      body: JSON.stringify({
-        sender_id:  senderId,
-        to:         [phone],
-        message,
-        route,
-        source_url: sourceUrl,
-      }),
-    });
-    const text = await res.text();
-    let parsed: any = null;
-    try { parsed = JSON.parse(text); } catch {}
-    const looksLikeCfChallenge = !parsed && /just a moment|cf-chl|challenge-platform|cloudflare/i.test(text);
+    // Cloudflare's Managed Challenge in front of BestBulkSMS is probabilistic:
+    // most hits pass, but a 403 "Just a moment" interstitial comes back
+    // intermittently. Attendance SMS mostly gets through because each hit is
+    // one request; fee reminders and other batched sends surface the misses
+    // as failures. Retry a couple of times with a short backoff when we see
+    // the HTML challenge, which gives Cloudflare's edge a chance to resolve
+    // us as "clean" without any human intervention.
+    let last: Awaited<ReturnType<typeof postOnce>> | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      last = await postOnce(endpoint, apiKey, payload, sourceUrl);
+      if (!last.looksLikeCfChallenge && last.res.status !== 403) break;
+      await new Promise(r => setTimeout(r, 400 + attempt * 400));
+    }
+    const { res, text, parsed, looksLikeCfChallenge } = last!;
+
     const providerResponse = parsed
       ? JSON.stringify({
           status: parsed.status,
@@ -83,12 +93,9 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
           invalid_recipients: parsed.invalid_recipients,
         })
       : looksLikeCfChallenge
-        ? `Cloudflare challenge blocked the request (HTTP ${res.status}). Ask BestBulkSMS to allow-list our server IPs or disable bot-protection on /api/sms/send.`
+        ? `Cloudflare challenge blocked the request after 3 attempts (HTTP ${res.status}). Ask BestBulkSMS to allow-list our server IPs on /api/sms/send.`
         : (text.slice(0, 300) || `HTTP ${res.status}`);
-    // BestBulkSMS returns different positive tokens depending on where the
-    // message sits in their pipeline: "success" (docs), "sent" (live API),
-    // sometimes "queued" / "accepted". Anything not explicitly negative is
-    // treated as success as long as the HTTP status was 2xx.
+
     const status = String(parsed?.status || '').toLowerCase();
     const positive = new Set(['success','sent','queued','accepted','ok','delivered']);
     const negative = new Set(['error','failed','rejected','invalid']);
