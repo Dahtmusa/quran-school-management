@@ -50,6 +50,9 @@ export async function POST(req: NextRequest) {
   let sent = 0, failed = 0, skippedNoPhone = 0, skippedNoBalance = 0;
   const logRows: any[] = [];
   const perStudentResult: any[] = [];
+  // Capture up to 5 failure reasons so the admin UI can show WHY the
+  // SMS gateway rejected the batch instead of just a bare "failed 4".
+  const failureSamples: { student: string; phone: string; reason: string }[] = [];
 
   await Promise.all((students || []).map(async (s: any) => {
     const phone = s.parent_phone || s.guardian_phone;
@@ -63,7 +66,11 @@ export async function POST(req: NextRequest) {
       outstanding:  outstanding.toLocaleString('en-NG'),
     });
     const result = await sendBestBulkSms(phone, message);
-    if (result.ok) sent++; else failed++;
+    if (result.ok) sent++;
+    else {
+      failed++;
+      if (failureSamples.length < 5) failureSamples.push({ student: s.full_name, phone: result.to || phone, reason: result.providerResponse });
+    }
     perStudentResult.push({ student_id: s.id, status: result.ok ? 'sent' : 'failed' });
     logRows.push({
       student_id: s.id,
@@ -84,5 +91,6 @@ export async function POST(req: NextRequest) {
     skipped_no_phone: skippedNoPhone,
     skipped_no_balance: skippedNoBalance,
     details: perStudentResult,
+    failures: failureSamples,
   });
 }

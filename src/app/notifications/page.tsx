@@ -41,7 +41,7 @@ export default function NotificationsHub() {
       </div>
 
       {banner && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">{banner}</div>}
-      {error  && <div className="rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}
+      {error  && <div className="whitespace-pre-wrap rounded-xl bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div>}
 
       {tab === 'fee'         && <FeeRemindersPanel  onBanner={setBanner} onError={setError} />}
       {tab === 'sms_parents' && <SmsParentsPanel    onBanner={setBanner} onError={setError} />}
@@ -101,6 +101,12 @@ function FeeRemindersPanel({ onBanner, onError }: { onBanner: (m: string) => voi
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || 'Fee reminder failed.');
       onBanner(`Fee reminders — sent ${body.sent}, failed ${body.failed}, skipped ${body.skipped_no_phone + body.skipped_no_balance}.`);
+      if (body.failed > 0 && Array.isArray(body.failures) && body.failures.length) {
+        const sample = body.failures
+          .map((f: any) => `• ${f.student} (${f.phone}): ${f.reason}`)
+          .join('\n');
+        onError(`${body.failed} message${body.failed === 1 ? '' : 's'} failed. First reasons:\n${sample}`);
+      }
       setSelected(new Set());
     } catch (e: any) { onError(e?.message || 'Could not send fee reminders.'); }
     finally { setBusy(false); }
