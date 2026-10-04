@@ -47,12 +47,21 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
   }
 
   try {
+    // BestBulkSMS sits behind Cloudflare. Without a browser-like
+    // User-Agent, Cloudflare "Managed Challenge" returns the "Just a
+    // moment..." HTML page instead of the JSON API response, which the
+    // code below then treats as a failed send. The attendance SMS flow
+    // used to work; the challenge was tightened recently so we now
+    // declare a stable UA + Referer the provider recognises.
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type':  'application/json',
         'Accept':        'application/json',
+        'User-Agent':    'AMQM-School/1.0 (+https://aliyumaimuna.com.ng; contact=admin@aliyumaimuna.com.ng)',
+        'Referer':       sourceUrl,
+        'Origin':        new URL(sourceUrl).origin,
       },
       body: JSON.stringify({
         sender_id:  senderId,
@@ -65,6 +74,7 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
     const text = await res.text();
     let parsed: any = null;
     try { parsed = JSON.parse(text); } catch {}
+    const looksLikeCfChallenge = !parsed && /just a moment|cf-chl|challenge-platform|cloudflare/i.test(text);
     const providerResponse = parsed
       ? JSON.stringify({
           status: parsed.status,
@@ -72,7 +82,9 @@ export async function sendBestBulkSms(to: string, message: string): Promise<SmsR
           error: parsed.error || parsed.message,
           invalid_recipients: parsed.invalid_recipients,
         })
-      : text || `HTTP ${res.status}`;
+      : looksLikeCfChallenge
+        ? `Cloudflare challenge blocked the request (HTTP ${res.status}). Ask BestBulkSMS to allow-list our server IPs or disable bot-protection on /api/sms/send.`
+        : (text.slice(0, 300) || `HTTP ${res.status}`);
     // BestBulkSMS returns different positive tokens depending on where the
     // message sits in their pipeline: "success" (docs), "sent" (live API),
     // sometimes "queued" / "accepted". Anything not explicitly negative is
