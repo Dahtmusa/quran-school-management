@@ -5,6 +5,7 @@ import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffC
 import { loadAdminTeam, saveTeamProfile, deleteTeamProfile, loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
 import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 type StaffProfile={id:string;full_name:string;role:string;gender:string|null;email:string|null;phone:string|null;avatar_url:string|null;staff_id:string|null;employment_status:string;job_title:string|null;department:string|null;joined_on:string|null;id_expires_on:string|null;bio:string|null;show_on_website:boolean;username:string|null;qualifications:string|null;experience:string|null;subjects:string|null;preferred_email:string|null};
 type TeamProfile={id?:string;full_name:string;role_title:string;category:string;photo_url:string|null;brief_bio:string|null;full_profile:string;display_on_homepage:boolean;published:boolean;sort_order:number;qualifications?:string|null;experience?:string|null;subjects?:string|null};
@@ -61,18 +62,17 @@ export default function StaffPage(){
    setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null);
    return staffList;
  };
- useEffect(()=>{refresh().then(list=>{
-   // Open a staff profile when the URL carries ?id= (used by the Topbar
-   // global search so a staff search result is clickable).
-   try{
-     const url=new URL(window.location.href);
-     const id=url.searchParams.get('id');
-     if(id){
-       const match=(list||[]).find((x:StaffProfile)=>x.id===id);
-       if(match)setEditT(match as any);
-     }
-   }catch{}
- })},[]);
+ useEffect(()=>{refresh()},[]);
+ // Open a staff profile whenever the URL carries ?id=. Watches search
+ // params so clicking a global-search result from any page (including
+ // /staff itself) reactively opens the modal.
+ const _searchParams=useSearchParams();
+ useEffect(()=>{
+   const id=_searchParams?.get('id');
+   if(!id)return;
+   const match=staff.find(x=>x.id===id);
+   if(match)setEditT(match as any);
+ },[_searchParams,staff]);
 
  async function printStaffId(a:StaffProfile){const managementRoles=['admin','super_admin','principal','finance','admissions','security','librarian','accountant'];const type=managementRoles.includes(a.role)?'MANAGEMENT':'STAFF';const linkedTeam=team.find(t=>t.full_name.trim().toLowerCase()===a.full_name.trim().toLowerCase());await printAcademicIdCard({type,name:a.full_name,id:a.staff_id||a.id,photoUrl:a.avatar_url||linkedTeam?.photo_url||null,jobTitle:a.job_title??linkedTeam?.role_title??undefined,department:a.department??undefined,phone:a.phone??undefined,expiry:a.id_expires_on??null,logoUrl});}
 

@@ -6,6 +6,7 @@ import MemorizationBadge from '@/components/MemorizationBadge';
 import { Student } from '@/lib/data';
 import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
 import { label, SURAHS } from '@/lib/quran';
@@ -145,18 +146,18 @@ export default function Students(){
  const [removeBusy,setRemoveBusy]=useState(false);
 
  async function refresh(){const [students,cls,quran,settings]=await Promise.all([loadStudents(),loadClasses(),loadSurahs(),loadCMSSettings()]);setAll(students);setClasses(cls);setSurahs(quran);setLogoUrl((settings as any).logo_url?.url||(settings as any).logo_url||null);return students;}
- useEffect(()=>{refresh().then(students=>{
-   // Open a specific student's profile when the URL carries ?id= (used by
-   // the Topbar global search so a search result is clickable).
-   try{
-     const url=new URL(window.location.href);
-     const id=url.searchParams.get('id');
-     if(id){
-       const match=(students||[]).find((s:any)=>s.id===id);
-       if(match)setSelected(match);
-     }
-   }catch{}
- })},[]);
+ useEffect(()=>{refresh()},[]);
+ // Opens the matched student's profile whenever the URL carries ?id=.
+ // Must watch the search params because Next.js keeps the component
+ // mounted when navigating from /students to /students?id=... so
+ // useEffect([]) would not fire a second time.
+ const _searchParams=useSearchParams();
+ useEffect(()=>{
+   const id=_searchParams?.get('id');
+   if(!id)return;
+   const match=all.find(s=>s.id===id);
+   if(match)setSelected(match);
+ },[_searchParams,all]);
 
  useEffect(()=>{
    if(!selected) return;
