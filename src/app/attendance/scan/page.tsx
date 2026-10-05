@@ -30,7 +30,27 @@ export default function GateScannerPage() {
   const lastRef   = useRef('');
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [camera, setCamera] = useState(false);
-  const [manual, setManual] = useState('');
+  // Pre-fill the ID prefix so admins typing by hand only key the tail
+  // digits (e.g. "003"). Picks the current year so "AMQM/STU/2026/" is
+  // the default; the Student/Staff toggle flips STU/STF.
+  const prefixYear = new Date().getFullYear();
+  const [manualKind, setManualKind] = useState<'STU'|'STF'>('STU');
+  const prefix = `AMQM/${manualKind}/${prefixYear}/`;
+  const [manual, setManual] = useState(prefix);
+  const manualRef = useRef<HTMLInputElement|null>(null);
+  // When the kind toggle flips, swap the prefix in the input but keep
+  // whatever tail the admin had already typed.
+  useEffect(() => {
+    setManual(prev => {
+      const tail = prev.replace(/^AMQM\/(STU|STF)\/\d{4}\//, '');
+      return `AMQM/${manualKind}/${prefixYear}/` + tail;
+    });
+    // Put the caret at the end so the next keypress is a tail digit.
+    requestAnimationFrame(() => {
+      const el = manualRef.current;
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    });
+  }, [manualKind]);
   const [message, setMessage] = useState('Ready — scan an AMQM Student or Staff ID.');
   const [result,  setResult]  = useState<ScanResult | null>(null);
   const [recent,  setRecent]  = useState<RecentScanRow[]>([]);
@@ -277,12 +297,38 @@ export default function GateScannerPage() {
         <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
           <div className="text-xs font-black uppercase tracking-[.18em] text-emerald-700">USB scanner / manual</div>
           <h2 className="mt-1 text-lg font-black">Scan or type the ID</h2>
-          <p className="mt-2 text-xs leading-5 text-slate-500">USB barcode scanners behave like keyboards. They type the printed Admission No or Staff ID here and press Enter.</p>
-          <input autoFocus value={manual} onChange={e => setManual(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { record(manual); setManual(''); } }}
-            placeholder="e.g. AMQM/STF/2026/005"
-            className="mt-4 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600" />
-          <button onClick={() => { record(manual); setManual(''); }} disabled={!manual.trim()}
+          <p className="mt-2 text-xs leading-5 text-slate-500">Prefix is pre-filled. Just type the tail (e.g. <b>003</b>) and press Enter.</p>
+          <div className="mt-3 inline-flex rounded-xl bg-slate-100 p-1 text-xs font-black">
+            <button type="button" onClick={() => setManualKind('STU')}
+              className={'rounded-lg px-3 py-1.5 ' + (manualKind==='STU' ? 'bg-emerald-700 text-white' : 'text-slate-600')}>Student</button>
+            <button type="button" onClick={() => setManualKind('STF')}
+              className={'rounded-lg px-3 py-1.5 ' + (manualKind==='STF' ? 'bg-emerald-700 text-white' : 'text-slate-600')}>Staff</button>
+          </div>
+          <input autoFocus ref={manualRef} value={manual}
+            onChange={e => {
+              // Protect the prefix from accidental backspace into it; if
+              // the admin wipes it, snap back to the current prefix.
+              const v = e.target.value;
+              setManual(v.startsWith('AMQM/') ? v : prefix);
+            }}
+            onKeyDown={e => {
+              if (e.key !== 'Enter') return;
+              // A USB scanner types the FULL "AMQM/..." barcode even when
+              // the admin had already typed a prefix, producing something
+              // like "AMQM/STU/2026/AMQM/STU/2026/003". Keep only the last
+              // full "AMQM/..." token so scanned barcodes just work.
+              const idx = manual.lastIndexOf('AMQM/');
+              const cleaned = idx > 0 ? manual.slice(idx) : manual;
+              record(cleaned);
+              setManual(prefix);
+            }}
+            placeholder={prefix + '003'}
+            className="mt-3 h-12 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-emerald-600" />
+          <button onClick={() => {
+              const idx = manual.lastIndexOf('AMQM/');
+              const cleaned = idx > 0 ? manual.slice(idx) : manual;
+              record(cleaned); setManual(prefix);
+            }} disabled={manual.length <= prefix.length}
             className="mt-3 w-full rounded-xl bg-[#062d2a] px-4 py-3 text-sm font-black text-white disabled:opacity-40">
             Record attendance
           </button>
