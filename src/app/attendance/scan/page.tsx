@@ -31,9 +31,11 @@ export default function GateScannerPage() {
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [camera, setCamera] = useState(false);
   // Pre-fill the ID prefix so admins typing by hand only key the tail
-  // digits (e.g. "003"). Picks the current year so "AMQM/STU/2026/" is
-  // the default; the Student/Staff toggle flips STU/STF.
-  const prefixYear = new Date().getFullYear();
+  // digits (e.g. "003"). Default year is 2025 because the current intake
+  // (2025 admissions) is the majority at the gate; the Student/Staff
+  // toggle flips STU/STF, and admins can still edit the year inline for
+  // the handful of older/newer IDs.
+  const prefixYear = 2025;
   const [manualKind, setManualKind] = useState<'STU'|'STF'>('STU');
   const prefix = `AMQM/${manualKind}/${prefixYear}/`;
   const [manual, setManual] = useState(prefix);
