@@ -278,9 +278,14 @@ export type AdminStudentPatch = {
   emergency_contact_phone?: string | null;
   clear_photo?: boolean;
   clear_class?: boolean;
+  // Opt into automatic renumbering when the admin changes program_year
+  // (Year 1 <-> Year 2). Backend picks the next vacant number using
+  // the student's existing admission_date year. Only takes effect
+  // when program_year actually differs from the stored value.
+  auto_regenerate_admission_no?: boolean;
 };
-export async function adminUpdateStudentProfile(studentId: string, patch: AdminStudentPatch): Promise<void> {
-  const { error } = await supabase().rpc('admin_update_student_profile', {
+export async function adminUpdateStudentProfile(studentId: string, patch: AdminStudentPatch): Promise<{ admission_no: string }> {
+  const { data, error } = await supabase().rpc('admin_update_student_profile', {
     p_student_id: studentId,
     p_full_name: patch.full_name ?? null,
     p_admission_no: patch.admission_no ?? null,
@@ -307,8 +312,11 @@ export async function adminUpdateStudentProfile(studentId: string, patch: AdminS
     p_emergency_contact_phone: patch.emergency_contact_phone ?? null,
     p_clear_photo: !!patch.clear_photo,
     p_clear_class: !!patch.clear_class,
+    p_auto_regenerate_admission_no: !!patch.auto_regenerate_admission_no,
   });
   if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return { admission_no: (row as any)?.admission_no ?? '' };
 }
 
 type EvalMetrics={ayahs:number;pages:number;hizbs:number;score:number;rubric:number;grade:string};

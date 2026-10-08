@@ -179,14 +179,16 @@ function Students(){
      let photoUrl=edit.photoUrl||null;
      if(photoFile){photoUrl=await uploadProfileImage(photoFile,'students');}
      const cls=classes.find(c=>c.name===edit.className);
-     // One admin RPC updates every editable column atomically. Validates
-     // the admission_no change before writing, so a duplicate shows a
-     // friendly message instead of a raw Postgres constraint error.
-     await adminUpdateStudentProfile(edit.id, {
+     // One admin RPC updates every editable column atomically. We no
+     // longer send admission_no explicitly -- when the admin changed
+     // program_year, the backend auto-generates the next vacant number
+     // for the student's intake year and preserves every linked record
+     // via the UUID identity.
+     const result = await adminUpdateStudentProfile(edit.id, {
        full_name: edit.name,
-       admission_no: edit.admissionNo,
        section: edit.section==='Boarding' ? 'boarding' : 'day',
        program_year: edit.year==='Year 2' ? 'year_2' : 'year_1',
+       auto_regenerate_admission_no: true,
        class_id: cls?.id ?? null,
        clear_class: !cls?.id,
        photo_url: photoUrl,
@@ -212,7 +214,15 @@ function Students(){
      // Quran position / direction still goes through its own RPC
      // because it does validation and audit of its own.
      await updateStudentMemorization(edit.id,{memorization_direction:edit.direction==='Baqarah-to-Nas'?'baqarah_to_nas':'nas_to_baqarah',start_surah:edit.start.surah,start_ayah:edit.start.ayah,current_surah:edit.current.surah,current_ayah:edit.current.ayah,program_year:edit.year==='Year 2'?'year_2':'year_1'});
-     await refresh(); setEdit(null); setPhotoFile(null); setMessage('Student updated successfully.');
+     await refresh(); setEdit(null); setPhotoFile(null);
+     // If the backend reassigned the admission number, surface it so the
+     // admin knows the student is now known by the new ID (ID card
+     // should be reprinted). Otherwise just confirm the save.
+     if (result.admission_no && result.admission_no !== edit.admissionNo) {
+       setMessage(`Student updated. New admission number: ${result.admission_no}. Reprint their ID card so the barcode matches.`);
+     } else {
+       setMessage('Student updated successfully.');
+     }
    }catch(e:any){setMessage(e?.message??'Unable to update student.')}finally{setSaving(false)}
  }
 
@@ -457,19 +467,13 @@ function Students(){
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Basic info</div>
        <label className="text-xs font-bold">Full name<input className="input mt-1 w-full" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label>
-       <label className="text-xs font-bold">Admission number
-         <div className="mt-1 flex gap-2">
-           <input className="input w-full font-mono" value={edit.admissionNo} onChange={e=>setEdit({...edit,admissionNo:e.target.value})} placeholder="AMQM/STU/2025/003"/>
-           <button type="button" onClick={()=>setEdit({...edit,admissionNo:'auto'})}
-             className="shrink-0 rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-800 hover:bg-emerald-100">
-             Auto
-           </button>
+       <div className="rounded-xl bg-slate-50 px-3 py-2 text-xs">
+         <span className="font-bold text-slate-500">Admission number:</span>{' '}
+         <span className="font-mono font-black text-slate-800">{edit.admissionNo}</span>
+         <div className="mt-1 text-[11px] font-normal text-slate-400">
+           Managed by the system. If you change <b>Program year</b> below, the admission number is reassigned automatically and every record stays linked.
          </div>
-         <span className="mt-1 block text-[11px] font-normal text-slate-400">
-           Type to fix a typo, or tap <b>Auto</b> to let the system find the next vacant number for this student's intake year.
-           To pick a different year explicitly, type <code>auto 2026</code>.
-         </span>
-       </label>
+       </div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Section<select className="input mt-1 w-full" value={edit.section} onChange={e=>setEdit({...edit,section:e.target.value as any})}><option>Day</option><option>Boarding</option></select></label>
          <label className="text-xs font-bold">Class<select className="input mt-1 w-full" value={edit.className??''} onChange={e=>setEdit({...edit,className:e.target.value||null})}><option value="">Unassigned</option>{classes.filter(c=>c.active).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></label>
