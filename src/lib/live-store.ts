@@ -248,6 +248,69 @@ export async function openAcademicSession(academicYearId:string,notes?:string){c
 export async function loadStudentExtended(studentId:string){const {data,error}=await supabase().from('students').select('blood_group,genotype,home_address,nationality,state_of_origin,local_government,parent_name,parent_phone,parent_email,guardian_name,guardian_phone,guardian_email,guardian_relationship,emergency_contact_name,emergency_contact_phone,date_of_birth,gender').eq('id',studentId).maybeSingle();if(error||!data)return null;return data;}
 export async function updateStudentExtended(studentId:string,input:any){const {data,error}=await supabase().from('students').update(input).eq('id',studentId).select('id');if(error)throw error;if(!data||!data.length)throw new Error('Permission denied updating student profile (0 rows). Sign out and back in, then retry.');}
 
+// Single-shot admin profile edit. Prefer this over the four scattered
+// updateStudent* calls -- it goes through SECURITY DEFINER so RLS can
+// never silently drop the write, and it turns duplicate admission_no
+// into a friendly error instead of a raw Postgres constraint message.
+export type AdminStudentPatch = {
+  full_name?: string | null;
+  admission_no?: string | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+  section?: 'day' | 'boarding' | null;
+  program_year?: 'year_1' | 'year_2' | null;
+  class_id?: string | null;
+  photo_url?: string | null;
+  blood_group?: string | null;
+  genotype?: string | null;
+  nationality?: string | null;
+  state_of_origin?: string | null;
+  local_government?: string | null;
+  home_address?: string | null;
+  parent_name?: string | null;
+  parent_phone?: string | null;
+  parent_email?: string | null;
+  guardian_name?: string | null;
+  guardian_phone?: string | null;
+  guardian_email?: string | null;
+  guardian_relationship?: string | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  clear_photo?: boolean;
+  clear_class?: boolean;
+};
+export async function adminUpdateStudentProfile(studentId: string, patch: AdminStudentPatch): Promise<void> {
+  const { error } = await supabase().rpc('admin_update_student_profile', {
+    p_student_id: studentId,
+    p_full_name: patch.full_name ?? null,
+    p_admission_no: patch.admission_no ?? null,
+    p_date_of_birth: patch.date_of_birth ?? null,
+    p_gender: patch.gender ?? null,
+    p_section: patch.section ?? null,
+    p_program_year: patch.program_year ?? null,
+    p_class_id: patch.class_id ?? null,
+    p_photo_url: patch.photo_url ?? null,
+    p_blood_group: patch.blood_group ?? null,
+    p_genotype: patch.genotype ?? null,
+    p_nationality: patch.nationality ?? null,
+    p_state_of_origin: patch.state_of_origin ?? null,
+    p_local_government: patch.local_government ?? null,
+    p_home_address: patch.home_address ?? null,
+    p_parent_name: patch.parent_name ?? null,
+    p_parent_phone: patch.parent_phone ?? null,
+    p_parent_email: patch.parent_email ?? null,
+    p_guardian_name: patch.guardian_name ?? null,
+    p_guardian_phone: patch.guardian_phone ?? null,
+    p_guardian_email: patch.guardian_email ?? null,
+    p_guardian_relationship: patch.guardian_relationship ?? null,
+    p_emergency_contact_name: patch.emergency_contact_name ?? null,
+    p_emergency_contact_phone: patch.emergency_contact_phone ?? null,
+    p_clear_photo: !!patch.clear_photo,
+    p_clear_class: !!patch.clear_class,
+  });
+  if (error) throw error;
+}
+
 type EvalMetrics={ayahs:number;pages:number;hizbs:number;score:number;rubric:number;grade:string};
 export type HistoricalEvalEntry={studentId:string;startSurah:number;startAyah:number;eval1Surah?:number;eval1Ayah?:number;eval2Surah?:number;eval2Ayah?:number;eval1?:EvalMetrics;eval2?:EvalMetrics;eval3Surah?:number;eval3Ayah?:number;eval3?:EvalMetrics;direction?:string};
 export async function bulkImportHistoricalEvals(entries:HistoricalEvalEntry[],termId:string,mode:'eval1_eval2'|'eval3'|'capture_term'='eval1_eval2'):Promise<{imported:number}>{if(!entries.length)throw new Error('No valid entries to import');const {data,error}=await supabase().rpc('bulk_import_historical_evals',{p_term_id:termId,p_entries:entries as any,p_mode:mode});if(error)throw error;return {imported:(data as any)?.imported??0};}

@@ -4,7 +4,7 @@ import QuranProgress from '@/components/QuranProgress';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import { Student } from '@/lib/data';
-import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentBasic, updateStudentClass, updateStudentSection, updateStudentMemorization, uploadProfileImage, loadStudentExtended, updateStudentExtended, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
+import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentMemorization, uploadProfileImage, loadStudentExtended, adminUpdateStudentProfile, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { loadCMSSettings } from '@/lib/cms-live-store';
@@ -178,11 +178,39 @@ function Students(){
    try{
      let photoUrl=edit.photoUrl||null;
      if(photoFile){photoUrl=await uploadProfileImage(photoFile,'students');}
-     await updateStudentBasic(edit.id,{full_name:edit.name,photo_url:photoUrl});
-     await updateStudentSection(edit.id,edit.section==='Boarding'?'boarding':'day');
      const cls=classes.find(c=>c.name===edit.className);
-     await updateStudentClass(edit.id,cls?.id??null);
-     await updateStudentExtended(edit.id,editExt);
+     // One admin RPC updates every editable column atomically. Validates
+     // the admission_no change before writing, so a duplicate shows a
+     // friendly message instead of a raw Postgres constraint error.
+     await adminUpdateStudentProfile(edit.id, {
+       full_name: edit.name,
+       admission_no: edit.admissionNo,
+       section: edit.section==='Boarding' ? 'boarding' : 'day',
+       program_year: edit.year==='Year 2' ? 'year_2' : 'year_1',
+       class_id: cls?.id ?? null,
+       clear_class: !cls?.id,
+       photo_url: photoUrl,
+       clear_photo: !photoUrl,
+       date_of_birth: editExt.date_of_birth,
+       gender: editExt.gender,
+       blood_group: editExt.blood_group,
+       genotype: editExt.genotype,
+       nationality: editExt.nationality,
+       state_of_origin: editExt.state_of_origin,
+       local_government: editExt.local_government,
+       home_address: editExt.home_address,
+       parent_name: editExt.parent_name,
+       parent_phone: editExt.parent_phone,
+       parent_email: editExt.parent_email,
+       guardian_name: editExt.guardian_name,
+       guardian_phone: editExt.guardian_phone,
+       guardian_email: editExt.guardian_email,
+       guardian_relationship: editExt.guardian_relationship,
+       emergency_contact_name: editExt.emergency_contact_name,
+       emergency_contact_phone: editExt.emergency_contact_phone,
+     });
+     // Quran position / direction still goes through its own RPC
+     // because it does validation and audit of its own.
      await updateStudentMemorization(edit.id,{memorization_direction:edit.direction==='Baqarah-to-Nas'?'baqarah_to_nas':'nas_to_baqarah',start_surah:edit.start.surah,start_ayah:edit.start.ayah,current_surah:edit.current.surah,current_ayah:edit.current.ayah,program_year:edit.year==='Year 2'?'year_2':'year_1'});
      await refresh(); setEdit(null); setPhotoFile(null); setMessage('Student updated successfully.');
    }catch(e:any){setMessage(e?.message??'Unable to update student.')}finally{setSaving(false)}
@@ -429,6 +457,10 @@ function Students(){
      <div className="p-5 space-y-3">
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Basic info</div>
        <label className="text-xs font-bold">Full name<input className="input mt-1 w-full" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label>
+       <label className="text-xs font-bold">Admission number
+         <input className="input mt-1 w-full font-mono" value={edit.admissionNo} onChange={e=>setEdit({...edit,admissionNo:e.target.value})} placeholder="AMQM/STU/2025/003"/>
+         <span className="mt-1 block text-[11px] font-normal text-slate-400">Fix typos made during enrollment. Must be unique.</span>
+       </label>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Section<select className="input mt-1 w-full" value={edit.section} onChange={e=>setEdit({...edit,section:e.target.value as any})}><option>Day</option><option>Boarding</option></select></label>
          <label className="text-xs font-bold">Class<select className="input mt-1 w-full" value={edit.className??''} onChange={e=>setEdit({...edit,className:e.target.value||null})}><option value="">Unassigned</option>{classes.filter(c=>c.active).map(c=><option key={c.id} value={c.name}>{c.name}</option>)}</select></label>
