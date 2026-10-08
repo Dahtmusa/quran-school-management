@@ -458,8 +458,17 @@ function Students(){
        <div className="text-xs font-black uppercase tracking-wide text-emerald-700">Basic info</div>
        <label className="text-xs font-bold">Full name<input className="input mt-1 w-full" value={edit.name} onChange={e=>setEdit({...edit,name:e.target.value})}/></label>
        <label className="text-xs font-bold">Admission number
-         <input className="input mt-1 w-full font-mono" value={edit.admissionNo} onChange={e=>setEdit({...edit,admissionNo:e.target.value})} placeholder="AMQM/STU/2025/003"/>
-         <span className="mt-1 block text-[11px] font-normal text-slate-400">Fix typos made during enrollment. Must be unique.</span>
+         <div className="mt-1 flex gap-2">
+           <input className="input w-full font-mono" value={edit.admissionNo} onChange={e=>setEdit({...edit,admissionNo:e.target.value})} placeholder="AMQM/STU/2025/003"/>
+           <button type="button" onClick={()=>setEdit({...edit,admissionNo:'auto 2025'})}
+             className="shrink-0 rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-800 hover:bg-emerald-100">
+             Auto
+           </button>
+         </div>
+         <span className="mt-1 block text-[11px] font-normal text-slate-400">
+           Type to fix a typo, or tap <b>Auto</b> to let the system assign the next free number for 2025.
+           You can also type <code>auto 2026</code> to pick a different year.
+         </span>
        </label>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Section<select className="input mt-1 w-full" value={edit.section} onChange={e=>setEdit({...edit,section:e.target.value as any})}><option>Day</option><option>Boarding</option></select></label>
