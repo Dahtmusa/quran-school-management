@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, loadTeacherEvalWindows, type TeacherEvalWindow, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -30,6 +30,9 @@ function teacherHonorific(profile:any): string {
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [evalWindows, setEvalWindows] = useState<TeacherEvalWindow[]>([]);
+  const [now, setNow] = useState<number>(Date.now());
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const [me, setMe] = useState<any>(null);
   const [selected, setSelected] = useState<any>(null);
   const [selectedTab, setSelectedTab] = useState<'academic'|'personal'|'contacts'>('academic');
@@ -70,14 +73,16 @@ export default function TeacherDashboard() {
   const [addMsg, setAddMsg] = useState('');
 
   const refresh = async () => {
-    const [studentRows, evaluationRows, attendanceRows] = await Promise.all([
+    const [studentRows, evaluationRows, attendanceRows, windows] = await Promise.all([
       loadTeacherDirectory(),
       loadTeacherEvaluations(),
       loadTeacherBoardingAttendanceToday(),
+      loadTeacherEvalWindows(),
     ]);
     setStudents(studentRows);
     setEvaluations(evaluationRows);
     setBoardingAttendance(attendanceRows);
+    setEvalWindows(windows);
     return studentRows;
   };
   useEffect(() => { refresh(); getCurrentProfile().then(setMe); fetch('/api/attendance/my-fines').then(r=>r.json()).then(d=>{if(d.fines){setMyFines(d.fines);setMyFineTotal(Number(d.pendingAmount||0));setFinePaymentAccount(d.paymentAccount||finePaymentAccount);}}).catch(()=>{}); }, []);
@@ -241,6 +246,38 @@ export default function TeacherDashboard() {
         </div>
       </section>
     )}
+
+    {/* Anchor for the Evaluations sidebar link */}
+    <div id="evaluations" aria-hidden className="scroll-mt-24" />
+
+    {/* Countdown bar -- one row per open round for one of my classes.
+        Updates every second via the `now` tick. Shown ABOVE the
+        campaign cards so the deadline is impossible to miss. */}
+    {evalWindows.length > 0 && <section className="rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 p-4 text-white shadow-xl">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div className="text-[11px] font-black uppercase tracking-[.2em] text-amber-100">Current evaluation window{evalWindows.length>1?'s':''}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            {evalWindows.map(w => {
+              const ms = Math.max(0, new Date(w.closes_at).getTime() - now);
+              const d = Math.floor(ms / 86400000);
+              const h = Math.floor((ms % 86400000) / 3600000);
+              const m = Math.floor((ms % 3600000) / 60000);
+              const s = Math.floor((ms % 60000) / 1000);
+              const pad = (n:number) => String(n).padStart(2, '0');
+              return <div key={w.campaign_id} className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-sm">
+                <div className="text-sm font-black">{w.title}</div>
+                <div className="mt-0.5 font-mono text-xl font-black tabular-nums">{d}d {pad(h)}:{pad(m)}:{pad(s)}</div>
+                <div className="mt-0.5 text-[11px] text-amber-100/90">{w.my_eval_count} row{w.my_eval_count===1?'':'s'} assigned to you</div>
+              </div>;
+            })}
+          </div>
+        </div>
+        <div className="rounded-xl bg-white/15 p-3 text-xs leading-5 backdrop-blur-sm md:max-w-xs">
+          Scroll down to the evaluation card to enter scores. <b>Do NOT type results into student profiles</b> — that corrupts final grades.
+        </div>
+      </div>
+    </section>}
 
     {/* Campaign evaluation sections */}
     {byCampaign.map(({ campaign, evals: campEvals }) => {

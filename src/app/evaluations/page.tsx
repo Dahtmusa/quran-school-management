@@ -2,7 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
-import { closeTermAndStartNext, createEvaluationCampaign, loadClasses, loadEvaluationCampaigns, loadEvaluations, loadOperationalTerms, reviewEvaluation, loadCurrentAcademicTerm } from '@/lib/live-store';
+import { closeTermAndStartNext, createEvaluationCampaign, loadClasses, loadEvaluationCampaigns, loadEvaluations, loadOperationalTerms, reviewEvaluation, loadCurrentAcademicTerm, loadAdminEvalRoundState, adminToggleEvaluation, type AdminEvalRoundState } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 import { loadCMSSettings } from '@/lib/cms-live-store';
 
@@ -13,7 +13,21 @@ export default function EvaluationsAdmin(){
   const [expandedClass,setExpandedClass]=useState<string|null>(null),[returnId,setReturnId]=useState<string|null>(null),[returnReason,setReturnReason]=useState('');
   const [detailEvalId,setDetailEvalId]=useState<string|null>(null);
   const [historicalVerified,setHistoricalVerified]=useState(false);
-  const refresh=async()=>{const [e,c,t,cl,cur,settings]=await Promise.all([loadEvaluations(),loadEvaluationCampaigns(),loadOperationalTerms(),loadClasses(),loadCurrentAcademicTerm(),loadCMSSettings()]);setEvals(e);setCampaigns(c);setTerms(t);setClasses(cl);setCurrentTerm(cur);setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));if(cur?.term_id&&!termId)setTermId(cur.term_id);};
+  const [roundState,setRoundState]=useState<AdminEvalRoundState[]>([]);
+  const [toggleClosesAt,setToggleClosesAt]=useState('');
+  const refresh=async()=>{const [e,c,t,cl,cur,settings]=await Promise.all([loadEvaluations(),loadEvaluationCampaigns(),loadOperationalTerms(),loadClasses(),loadCurrentAcademicTerm(),loadCMSSettings()]);setEvals(e);setCampaigns(c);setTerms(t);setClasses(cl);setCurrentTerm(cur);setHistoricalVerified(Boolean(settings.amqm_historical_import_verified));if(cur?.term_id&&!termId)setTermId(cur.term_id);const target=cur?.term_id||termId;if(target){const rs=await loadAdminEvalRoundState(target);setRoundState(rs);}};
+  async function toggleRound(n:1|2|3,action:'open'|'close'){
+    if(!termId){setMessage('Pick a term first.');return;}
+    if(action==='open'&&!toggleClosesAt){setMessage('Set a closing date/time first.');return;}
+    setBusy(true);setMessage('');
+    try{
+      const r=await adminToggleEvaluation(termId,n,action,action==='open'?new Date(toggleClosesAt).toISOString():undefined);
+      if(action==='open'){setMessage(`Evaluation ${n} opened. ${r?.students_affected||0} student rows created across ${r?.classes_affected||0} classes. Closes ${new Date(r?.closes_at||'').toLocaleString('en-NG')}.`);}
+      else{setMessage(`Evaluation ${n} closed. Teachers can no longer edit submissions.`);}
+      await refresh();
+    }catch(e:any){setMessage(e?.message||'Toggle failed.');}
+    finally{setBusy(false);}
+  }
   useEffect(()=>{refresh()},[]);
   const activeCampaigns=campaigns.filter(c=>c.status==='open'||c.status==='scheduled');
   const pending=evals.filter(e=>e.status==='Pending Approval');
@@ -49,7 +63,48 @@ export default function EvaluationsAdmin(){
         <a href="/evaluations/historical" className="shrink-0 bg-amber-500 hover:bg-amber-600 text-white text-sm font-bold rounded-xl px-5 py-2.5 transition-colors text-center">Open Import Tool →</a>
       </div>}
 
-      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black uppercase tracking-wider text-emerald-700">Current academic term</div><div className="mt-1 text-lg font-black text-emerald-950">{currentTerm?.academic_year?.name||'Not configured'} · {currentTerm?.term?.name||'Select a term'}</div></div><span className="pill bg-white text-emerald-700">{currentTerm?.term?.lifecycle_status==='historical_baseline'?'Historical baseline':'Digital operations'}</span></div></section><section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><b>First Term is historical only.</b> Its imported evaluations are preserved as the baseline. Do not create new First-Term evaluations; configure Second-Term windows in Calendar when the school is ready.</section><section className="card overflow-hidden"><div className="border-b p-5"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-black">Create & send a digital evaluation</h2><p className="text-sm text-slate-500">Second Term is the first fully digital operational term. Configure its windows from the Calendar; this page is for review and controlled campaign management.</p></div><span className="pill bg-emerald-50 text-emerald-700">Admin only</span></div></div><div className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><div className="text-xs font-black uppercase tracking-wider text-emerald-700">Current academic term</div><div className="mt-1 text-lg font-black text-emerald-950">{currentTerm?.academic_year?.name||'Not configured'} · {currentTerm?.term?.name||'Select a term'}</div></div><span className="pill bg-white text-emerald-700">{currentTerm?.term?.lifecycle_status==='historical_baseline'?'Historical baseline':'Digital operations'}</span></div></section>
+
+      {/* Simple manual-toggle control. One click per round opens the
+          evaluation for every active class in the current term, with the
+          admin-chosen closing date. No auto-close -- admin presses Close
+          when ready. Teachers see a countdown to closes_at on their
+          dashboard. */}
+      <section className="card overflow-hidden">
+        <div className="border-b bg-slate-50 p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black">Open / close an evaluation</h2>
+              <p className="mt-1 text-sm text-slate-500">Opens an evaluation for every active class in the chosen term. Teachers see it instantly on their dashboard with a countdown.</p>
+            </div>
+            <label className="block text-xs font-black uppercase tracking-wide text-slate-500">
+              Closing date &amp; time (teachers can enter scores until this)
+              <input type="datetime-local" className="input mt-1 min-w-[200px]" value={toggleClosesAt} onChange={e=>setToggleClosesAt(e.target.value)}/>
+            </label>
+          </div>
+        </div>
+        <div className="grid gap-3 p-5 sm:grid-cols-3">
+          {[1,2,3].map(n=>{
+            const rs=roundState.find(r=>r.evaluation_number===n);
+            const isOpen=rs?.status==='open';
+            const isScheduled=rs?.status==='scheduled';
+            const isClosed=rs?.status==='closed';
+            const toneBg=isOpen?'border-emerald-300 bg-emerald-50':isScheduled?'border-blue-200 bg-blue-50':isClosed?'border-slate-300 bg-slate-50':'border-slate-200 bg-white';
+            return <div key={n} className={`rounded-2xl border-2 p-4 ${toneBg}`}>
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-black">Evaluation {n}</div>
+                <span className={`pill ${isOpen?'bg-emerald-700 text-white':isClosed?'bg-slate-700 text-white':'bg-slate-200 text-slate-700'}`}>{rs?.status||'not opened'}</span>
+              </div>
+              {rs?.closes_at&&<div className="mt-2 text-[11px] text-slate-500">Closes {new Date(rs.closes_at).toLocaleString('en-NG',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',hour12:true})}</div>}
+              {rs?.students_affected!=null&&<div className="mt-1 text-[11px] text-slate-500">{rs.students_affected} student row{rs.students_affected===1?'':'s'}</div>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!isOpen&&<button className="btn btn-primary flex-1" disabled={busy||!termId||!toggleClosesAt} onClick={()=>toggleRound(n as 1|2|3,'open')}>{isClosed?'Re-open':'Open'}</button>}
+                {isOpen&&<button className="btn bg-rose-50 text-rose-700 flex-1" disabled={busy} onClick={()=>toggleRound(n as 1|2|3,'close')}>Close now</button>}
+              </div>
+            </div>;
+          })}
+        </div>
+      </section><section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"><b>First Term is historical only.</b> Its imported evaluations are preserved as the baseline. Do not create new First-Term evaluations; configure Second-Term windows in Calendar when the school is ready.</section><section className="card overflow-hidden"><div className="border-b p-5"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-xl font-black">Create & send a digital evaluation</h2><p className="text-sm text-slate-500">Second Term is the first fully digital operational term. Configure its windows from the Calendar; this page is for review and controlled campaign management.</p></div><span className="pill bg-emerald-50 text-emerald-700">Admin only</span></div></div><div className="grid gap-5 p-5 lg:grid-cols-[1fr_1fr]">
         <div className="space-y-3"><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Operational term<select className="input mt-1" value={termId} onChange={e=>{setTermId(e.target.value)}}><option value="">Select term</option>{terms.map(t=><option key={t.id} value={t.id}>{t.academic_years?.name||'Academic year'} · {t.name} · {t.starts_on} → {t.ends_on}</option>)}</select></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Evaluation<select className="input mt-1" value={number} onChange={e=>{setNumber(Number(e.target.value) as 1|2|3);setTitle(`Evaluation ${e.target.value}`)}}><option value="1">Evaluation 1</option><option value="2">Evaluation 2</option><option value="3">Evaluation 3</option></select></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Title<input className="input mt-1" value={title} onChange={e=>setTitle(e.target.value)}/></label><div className="grid gap-3 sm:grid-cols-2"><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Opens<input className="input mt-1" type="datetime-local" value={opensAt} onChange={e=>setOpensAt(e.target.value)}/></label><label className="block text-xs font-black uppercase tracking-wide text-slate-500">Closes<input className="input mt-1" type="datetime-local" min={opensAt||undefined} value={closesAt} onChange={e=>setClosesAt(e.target.value)}/></label></div></div>
         <div><div className="text-xs font-black uppercase tracking-wide text-slate-500">Send to classes</div><div className="mt-1 rounded-2xl border bg-slate-50 p-3"><label className="flex items-center gap-3 rounded-xl bg-white p-3 font-bold"><input type="checkbox" checked={selectedClasses.length===classes.filter(c=>c.active).length&&classes.length>0} onChange={e=>setSelectedClasses(e.target.checked?classes.filter(c=>c.active).map(c=>c.id):[])}/><span>All active classes</span></label><div className="mt-2 grid gap-2 sm:grid-cols-2">{classes.filter(c=>c.active).map(c=><label key={c.id} className={`flex items-center justify-between rounded-xl border p-3 ${selectedClasses.includes(c.id)?'border-emerald-500 bg-emerald-50':'bg-white'}`}><span className="min-w-0"><input type="checkbox" className="mr-2" checked={selectedClasses.includes(c.id)} onChange={e=>setSelectedClasses(v=>e.target.checked?[...v,c.id]:v.filter(x=>x!==c.id))}/><b>{c.name}</b><span className="ml-1 text-xs text-slate-400">{c.code}</span></span><span className="text-xs text-slate-500">{c.teachers?.length||0} teacher(s)</span></label>)}</div></div><div className="mt-4 rounded-2xl bg-emerald-950 p-4 text-sm text-emerald-50"><b className="text-white">What happens next?</b><ul className="mt-2 space-y-1 text-xs leading-5 text-emerald-100/80"><li>• Draft evaluation records are created for students in the selected classes.</li><li>• They automatically open to assigned teachers at the calendar start time.</li><li>• At the closing time, unfinished drafts are auto-submitted for Admin review.</li><li>• Submitted records disappear from the teacher until Admin returns one.</li></ul></div></div>
       </div><div className="flex flex-wrap justify-end gap-2 border-t bg-slate-50 p-4"><button className="btn bg-white" onClick={()=>{setTermId('');setOpensAt('');setClosesAt('');setSelectedClasses([])}}>Reset</button><button className="btn btn-primary" disabled={busy||!termId||!opensAt||!closesAt||new Date(closesAt)<=new Date(opensAt)||!selectedClasses.length||!!currentCampaign} onClick={createCampaign}>{currentCampaign?'Already created':'Create & send evaluation'}</button></div></section>
