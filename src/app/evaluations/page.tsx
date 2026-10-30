@@ -13,11 +13,6 @@ export default function EvaluationsAdmin() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [roundState, setRoundState] = useState<AdminEvalRoundState[]>([]);
-  // Per-card inline open flow: pending holds the round number the admin
-  // tapped Open on, and draft holds the typed closing date for that
-  // specific round. One at a time.
-  const [pendingOpen, setPendingOpen] = useState<1 | 2 | 3 | null>(null);
-  const [pendingClosesAt, setPendingClosesAt] = useState('');
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
   const [returnId, setReturnId] = useState<string | null>(null);
   const [returnReason, setReturnReason] = useState('');
@@ -37,16 +32,13 @@ export default function EvaluationsAdmin() {
   };
   useEffect(() => { refresh(); }, []);
 
-  async function toggleRound(n: 1 | 2 | 3, action: 'open' | 'close', closesAtOverride?: string) {
+  async function toggleRound(n: 1 | 2 | 3, action: 'open' | 'close') {
     if (!termId) { setMessage('Pick a term first.'); return; }
-    if (action === 'open' && !closesAtOverride) { setMessage('Pick a closing date & time first.'); return; }
     setBusy(true); setMessage('');
     try {
-      const r = await adminToggleEvaluation(termId, n, action, action === 'open' ? new Date(closesAtOverride!).toISOString() : undefined);
-      if (action === 'open') setMessage(`Evaluation ${n} opened. ${r?.students_affected || 0} student rows across ${r?.classes_affected || 0} classes. Closes ${new Date(r?.closes_at || '').toLocaleString('en-NG')}.`);
+      const r = await adminToggleEvaluation(termId, n, action);
+      if (action === 'open') setMessage(`Evaluation ${n} opened. ${r?.students_affected || 0} student rows across ${r?.classes_affected || 0} classes. Closes ${new Date(r?.closes_at || '').toLocaleString('en-NG')} (from School Calendar).`);
       else setMessage(`Evaluation ${n} closed.`);
-      setPendingOpen(null);
-      setPendingClosesAt('');
       await refresh();
     } catch (e: any) { setMessage(e?.message || 'Toggle failed.'); }
     finally { setBusy(false); }
@@ -105,57 +97,50 @@ export default function EvaluationsAdmin() {
         </div>
       </section>
 
-      {/* Toggle panel. Each card: tap Open -> an inline date picker
-          appears right in that card. Admin confirms, round opens. */}
+      {/* Toggle panel. Dates come from the School Calendar; admin
+          only decides when to open / close. Any calendar edit syncs
+          to this card instantly via a DB trigger. */}
       <section className="card overflow-hidden">
         <div className="border-b bg-slate-50 p-5">
-          <h2 className="text-xl font-black">Open / close an evaluation</h2>
-          <p className="mt-1 text-sm text-slate-500">Press Open on a round, pick a closing date & time, confirm. Teachers see a live countdown.</p>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="text-xl font-black">Open / close an evaluation</h2>
+              <p className="mt-1 text-sm text-slate-500">Dates come from the <a href="/calendar" className="font-black text-emerald-700 underline">School Calendar</a>. Change them there and this page follows automatically.</p>
+            </div>
+          </div>
         </div>
         <div className="grid gap-3 p-5 sm:grid-cols-3">
           {[1, 2, 3].map(n => {
             const rs = roundState.find(r => r.evaluation_number === n);
             const isOpen = rs?.status === 'open';
             const isClosed = rs?.status === 'closed';
-            const isPending = pendingOpen === n;
-            const toneBg = isPending ? 'border-amber-300 bg-amber-50' : isOpen ? 'border-emerald-300 bg-emerald-50' : isClosed ? 'border-slate-300 bg-slate-50' : 'border-slate-200 bg-white';
+            const calClose = rs?.calendar_closes_at ? new Date(rs.calendar_closes_at) : null;
+            const calClosePast = calClose ? calClose.getTime() <= Date.now() : false;
+            const canOpen = !!rs?.calendar_closes_at && !calClosePast;
+            const toneBg = isOpen ? 'border-emerald-300 bg-emerald-50' : isClosed ? 'border-slate-300 bg-slate-50' : 'border-slate-200 bg-white';
             return <div key={n} className={`rounded-2xl border-2 p-4 ${toneBg}`}>
               <div className="flex items-center justify-between">
                 <div className="text-sm font-black">Evaluation {n}</div>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${isOpen ? 'bg-emerald-700 text-white' : isClosed ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-700'}`}>{isOpen ? 'OPEN' : isClosed ? 'CLOSED' : 'NOT OPENED'}</span>
               </div>
 
-              {/* Status line. Only shown when meaningful. */}
-              {isOpen && rs?.closes_at && <div className="mt-2 text-[11px] text-slate-600">Closes {new Date(rs.closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</div>}
-              {isClosed && rs?.closes_at && <div className="mt-2 text-[11px] text-slate-500">Closed {new Date(rs.closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</div>}
+              {/* Calendar dates (source of truth). */}
+              {calClose ? <div className="mt-2 rounded-lg bg-white px-2 py-1.5 text-[11px] ring-1 ring-slate-200">
+                <div className="text-[9px] font-black uppercase tracking-wide text-slate-400">Calendar close</div>
+                <div className={`font-black ${calClosePast ? 'text-rose-600' : 'text-slate-800'}`}>
+                  {calClose.toLocaleString('en-NG', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
+                </div>
+                {calClosePast && <div className="text-[10px] font-bold text-rose-600">Past — set a new date in Calendar</div>}
+              </div> : <div className="mt-2 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] font-bold text-amber-800 ring-1 ring-amber-200">
+                Not configured. Set this round's dates on the <a href="/calendar" className="underline">Calendar</a>.
+              </div>}
+
               {rs?.students_affected != null && rs.students_affected > 0 && <div className="mt-1 text-[11px] text-slate-500">{rs.students_affected} student row{rs.students_affected === 1 ? '' : 's'}</div>}
 
-              {/* Pending open: show date picker + Confirm/Cancel.
-                  If the calendar has suggested dates for this round
-                  we offer a "Use calendar close" shortcut. */}
-              {isPending && <div className="mt-3 space-y-2">
-                {rs?.calendar_closes_at && new Date(rs.calendar_closes_at).getTime() > Date.now() && <button type="button" className="w-full rounded-lg bg-emerald-100 px-3 py-1.5 text-[11px] font-black text-emerald-800 hover:bg-emerald-200"
-                  onClick={() => {
-                    const d = new Date(rs.calendar_closes_at!);
-                    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                    setPendingClosesAt(local);
-                  }}>
-                  Use calendar close: {new Date(rs.calendar_closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
-                </button>}
-                <label className="block text-[10px] font-black uppercase tracking-wide text-amber-800">Closing date &amp; time
-                  <input type="datetime-local" autoFocus className="input mt-1 w-full" value={pendingClosesAt} onChange={e => setPendingClosesAt(e.target.value)} />
-                </label>
-                <div className="flex gap-2">
-                  <button className="btn btn-primary flex-1" disabled={busy || !pendingClosesAt} onClick={() => toggleRound(n as 1 | 2 | 3, 'open', pendingClosesAt)}>Confirm &amp; open</button>
-                  <button className="btn bg-white" disabled={busy} onClick={() => { setPendingOpen(null); setPendingClosesAt(''); }}>Cancel</button>
-                </div>
-              </div>}
-
-              {/* Idle actions. */}
-              {!isPending && <div className="mt-3 flex flex-wrap gap-2">
-                {!isOpen && <button className="btn btn-primary flex-1" disabled={busy || !termId} onClick={() => { setPendingOpen(n as 1 | 2 | 3); setPendingClosesAt(''); }}>{isClosed ? 'Re-open' : 'Open'}</button>}
+              <div className="mt-3 flex flex-wrap gap-2">
+                {!isOpen && <button className="btn btn-primary flex-1" disabled={busy || !termId || !canOpen} onClick={() => toggleRound(n as 1 | 2 | 3, 'open')}>{isClosed ? 'Re-open' : 'Open'}</button>}
                 {isOpen && <button className="btn bg-rose-50 text-rose-700 flex-1" disabled={busy} onClick={() => toggleRound(n as 1 | 2 | 3, 'close')}>Close now</button>}
-              </div>}
+              </div>
             </div>;
           })}
         </div>
