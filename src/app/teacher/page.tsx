@@ -4,7 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
-import { loadTeacherDirectory, loadTeacherEvaluations, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
+import { loadTeacherDirectory, loadTeacherEvaluations, loadTeacherOpenCampaigns, type TeacherOpenCampaign, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -30,6 +30,7 @@ function teacherHonorific(profile:any): string {
 export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
+  const [openCampaigns, setOpenCampaigns] = useState<TeacherOpenCampaign[]>([]);
   const [me, setMe] = useState<any>(null);
   const [selected, setSelected] = useState<any>(null);
   const [selectedTab, setSelectedTab] = useState<'academic'|'personal'|'contacts'>('academic');
@@ -70,14 +71,16 @@ export default function TeacherDashboard() {
   const [addMsg, setAddMsg] = useState('');
 
   const refresh = async () => {
-    const [studentRows, evaluationRows, attendanceRows] = await Promise.all([
+    const [studentRows, evaluationRows, attendanceRows, campaignRows] = await Promise.all([
       loadTeacherDirectory(),
       loadTeacherEvaluations(),
       loadTeacherBoardingAttendanceToday(),
+      loadTeacherOpenCampaigns(),
     ]);
     setStudents(studentRows);
     setEvaluations(evaluationRows);
     setBoardingAttendance(attendanceRows);
+    setOpenCampaigns(campaignRows);
     return studentRows;
   };
   useEffect(() => { refresh(); getCurrentProfile().then(setMe); fetch('/api/attendance/my-fines').then(r=>r.json()).then(d=>{if(d.fines){setMyFines(d.fines);setMyFineTotal(Number(d.pendingAmount||0));setFinePaymentAccount(d.paymentAccount||finePaymentAccount);}}).catch(()=>{}); }, []);
@@ -243,6 +246,7 @@ export default function TeacherDashboard() {
     )}
 
     {/* Campaign evaluation sections */}
+    {byCampaign.length > 0 && <div id="evaluations" aria-hidden className="scroll-mt-24" />}
     {byCampaign.map(({ campaign, evals: campEvals }) => {
       const allDone = campEvals.every(ev => hasMoved(ev));
       const doneHere = campEvals.filter(ev => hasMoved(ev)).length;
@@ -371,10 +375,43 @@ export default function TeacherDashboard() {
       </section>;
     })}
 
-    {activeEvals.length === 0 && <section className="card p-12 text-center">
+    {activeEvals.length === 0 && openCampaigns.length === 0 && <section id="evaluations" className="card p-12 text-center">
       <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-3xl">📋</div>
       <h3 className="text-lg font-black text-slate-700">No open evaluation windows</h3>
       <p className="mt-2 text-sm text-slate-400">When Admin opens an evaluation for your class, it will appear here.</p>
+    </section>}
+
+    {/* Open campaign explainer -- shows when admin has opened a window
+        for one of this teacher's classes but there are no draft eval
+        rows for them to work on (e.g. student not in campaign class,
+        campaign was created before this teacher was assigned, or no
+        students currently in the class). Removes the confusion that
+        was causing teachers to type results into the students table. */}
+    {activeEvals.length === 0 && openCampaigns.length > 0 && <section id="evaluations" className="card border-2 border-amber-200 bg-amber-50 p-6">
+      <div className="flex items-start gap-4">
+        <div className="h-12 w-12 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl flex-none">⚠️</div>
+        <div className="flex-1">
+          <h3 className="text-lg font-black text-amber-900">Open evaluation window — nothing assigned to you yet</h3>
+          <p className="mt-2 text-sm text-amber-900/80">The admin has opened the window below for your class, but no evaluation rows reached your account. <b>Please contact the Admin</b> — do NOT record results in the student profile; that corrupts the final report card calculations.</p>
+          <div className="mt-4 space-y-3">
+            {openCampaigns.map(c => (
+              <div key={c.campaign_id} className="rounded-xl bg-white p-4 ring-1 ring-amber-200">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-black text-slate-900">{c.title}</div>
+                    <div className="mt-0.5 text-[11px] text-slate-500">Evaluation #{c.evaluation_number} · Classes: {c.class_names?.join(', ') || '—'}</div>
+                  </div>
+                  <div className="text-right text-[11px] text-slate-500">
+                    <div>Opens {new Date(c.opens_at).toLocaleString('en-NG', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>
+                    <div>Closes {new Date(c.closes_at).toLocaleString('en-NG', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}</div>
+                  </div>
+                </div>
+                <div className="mt-2 text-[11px] font-bold text-amber-700">Eval rows reaching you: {c.my_eval_count}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </section>}
 
     {/* My students — proper table */}
