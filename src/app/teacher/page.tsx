@@ -247,174 +247,30 @@ export default function TeacherDashboard() {
       </section>
     )}
 
-    {/* Anchor for the Evaluations sidebar link */}
-    <div id="evaluations" aria-hidden className="scroll-mt-24" />
-
-    {/* Countdown bar -- one row per open round for one of my classes.
-        Updates every second via the `now` tick. Shown ABOVE the
-        campaign cards so the deadline is impossible to miss. */}
+    {/* Compact banner inviting teachers to the dedicated evaluations
+        workspace when a round is open. The full countdown + entry
+        grid lives at /teacher/evaluations. */}
     {evalWindows.length > 0 && <section className="rounded-2xl bg-gradient-to-r from-amber-500 to-rose-500 p-4 text-white shadow-xl">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <a href="/teacher/evaluations" className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] font-black uppercase tracking-[.2em] text-amber-100">Current evaluation window{evalWindows.length>1?'s':''}</div>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
-            {evalWindows.map(w => {
-              const ms = Math.max(0, new Date(w.closes_at).getTime() - now);
-              const d = Math.floor(ms / 86400000);
-              const h = Math.floor((ms % 86400000) / 3600000);
-              const m = Math.floor((ms % 3600000) / 60000);
-              const s = Math.floor((ms % 60000) / 1000);
-              const pad = (n:number) => String(n).padStart(2, '0');
-              return <div key={w.campaign_id} className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-sm">
-                <div className="text-sm font-black">{w.title}</div>
-                <div className="mt-0.5 font-mono text-xl font-black tabular-nums">{d}d {pad(h)}:{pad(m)}:{pad(s)}</div>
-                <div className="mt-0.5 text-[11px] text-amber-100/90">{w.my_eval_count} row{w.my_eval_count===1?'':'s'} assigned to you</div>
-              </div>;
-            })}
-          </div>
+          <div className="text-[11px] font-black uppercase tracking-[.2em] text-amber-100">{evalWindows.length} evaluation{evalWindows.length>1?'s':''} open</div>
+          <div className="mt-1 text-lg font-black">{evalWindows.map(w => w.title).join(' · ')}</div>
+          <div className="mt-0.5 text-xs text-amber-100/90">Tap to enter scores →</div>
         </div>
-        <div className="rounded-xl bg-white/15 p-3 text-xs leading-5 backdrop-blur-sm md:max-w-xs">
-          Scroll down to the evaluation card to enter scores. <b>Do NOT type results into student profiles</b> — that corrupts final grades.
-        </div>
-      </div>
-    </section>}
-
-    {/* Campaign evaluation sections */}
-    {byCampaign.map(({ campaign, evals: campEvals }) => {
-      const allDone = campEvals.every(ev => hasMoved(ev));
-      const doneHere = campEvals.filter(ev => hasMoved(ev)).length;
-      const hasReturned = campEvals.some(ev => ev.status === 'returned');
-      const pct = campEvals.length ? Math.round((doneHere / campEvals.length) * 100) : 0;
-
-      return <section key={campaign?.id || 'none'} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className={`border-b p-5 ${hasReturned ? 'bg-rose-50' : 'bg-slate-50'}`}>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-black">{campaign?.title || 'Evaluation'}</h2>
-                {hasReturned && <span className="pill bg-rose-100 text-rose-700 border border-rose-200">⚠ Contains returned evaluations</span>}
-                {allDone && !hasReturned && <span className="pill bg-emerald-100 text-emerald-700">Ready to submit</span>}
-              </div>
-              <div className="mt-1 text-xs text-slate-500">Window: {campaign?.opens_at ? new Date(campaign.opens_at).toLocaleString() : '—'} → {campaign?.closes_at ? new Date(campaign.closes_at).toLocaleString() : '—'}</div>
-              <div className="mt-3 flex items-center gap-3">
-                <div className="h-2.5 w-48 overflow-hidden rounded-full bg-slate-200">
-                  <div className={`h-full rounded-full transition-all ${allDone ? 'bg-emerald-500' : 'bg-amber-400'}`} style={{ width: `${pct}%` }} />
-                </div>
-                <span className="text-sm font-black text-slate-600">{doneHere}/{campEvals.length} students ready</span>
-                <span className="text-xs text-slate-400">{pct}%</span>
-              </div>
-            </div>
-            <button className={`btn shrink-0 px-5 ${allDone ? 'btn-primary' : 'cursor-not-allowed bg-slate-100 text-slate-400'}`} disabled={busy || !allDone} onClick={() => submitClass(campEvals)}>
-              {busy ? 'Submitting…' : allDone ? '✓ Submit class evaluation' : `${campEvals.length - doneHere} remaining`}
-            </button>
-          </div>
-        </div>
-
-        <div className="divide-y">
-          {campEvals.map(ev => {
-            const f = forms[ev.id];
-            const done = hasMoved(ev);
-            const isOpen = expandedEval === ev.id;
-            const dir = ev.students?.memorization_direction;
-            const isBtoN = dir === 'baqarah_to_nas';
-            const start = { surah: Number(ev.from_surah), ayah: Number(ev.from_ayah) };
-            const stop = f ? { surah: f.toSurah, ayah: f.toAyah } : start;
-            const calc = done ? calculateEvaluation(start, stop, isBtoN ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah') : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
-            const score = f ? Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100) : 0;
-            const grade = score >= 90 ? 'Excellent' : score >= 80 ? 'Very Good' : score >= 70 ? 'Good' : score >= 60 ? 'Satisfactory' : 'Needs Improvement';
-            const evCurrSurah = Number(ev.students?.current_surah || start.surah);
-            const _tot = isBtoN ? Math.max(1, 114 - start.surah) : Math.max(1, start.surah - 2);
-            const _done = isBtoN ? Math.max(0, evCurrSurah - start.surah) : Math.max(0, start.surah - evCurrSurah);
-            const progress = Math.min(100, (_done / _tot) * 100);
-            const maxAyah = (SURAHS.find(x => x.id === (f?.toSurah || 2)) || SURAHS[0]).ayahs;
-            const isReturned = ev.status === 'returned';
-
-            return <div key={ev.id} className={`${isOpen ? 'bg-slate-50' : isReturned ? 'bg-rose-50/40' : ''}`}>
-              <button className="flex w-full items-center gap-3 p-4 text-left hover:bg-slate-50 transition-colors" onClick={() => setExpandedEval(isOpen ? null : ev.id)}>
-                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl bg-slate-100 border border-slate-200">
-                  {ev.students?.photo_url ? <img src={ev.students.photo_url} className="h-full w-full object-cover" alt="" /> : <div className="grid h-full place-items-center text-lg font-black text-slate-300">{ev.students?.full_name?.charAt(0)}</div>}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-black">{ev.students?.full_name}</span>
-                    <span className="text-xs text-slate-400">{ev.students?.admission_no}</span>
-                    <MemorizationBadge direction={dir} />
-                    <SectionBadge section={ev.students?.section === 'boarding' ? 'Boarding' : 'Day'} />
-                    {isReturned && <span className="pill bg-rose-100 text-rose-700 border border-rose-200 text-[11px]">Returned — needs correction</span>}
-                    {done && !isReturned && <span className="pill bg-emerald-50 text-emerald-700 text-[11px]">{score}% · {grade}</span>}
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <div className="h-1.5 w-36 overflow-hidden rounded-full bg-slate-200">
-                      <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-amber-400" style={{ width: `${progress}%` }} />
-                    </div>
-                    <span className="text-[11px] text-slate-400">S.{ev.students?.current_surah||'?'} · {Math.round(progress)}% of journey</span>
-                  </div>
-                </div>
-                <div className="ml-2 shrink-0 text-xl">{done ? <span className="text-emerald-500">✓</span> : <span className="text-slate-300">○</span>}</div>
-                <div className="ml-1 text-xs text-slate-400">{isOpen ? '▲' : '▼'}</div>
-              </button>
-
-              {isOpen && f && <div className="border-t bg-white p-5 space-y-4">
-                {isReturned && ev.admin_comment && <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm"><span className="font-black text-rose-700">Admin returned: </span><span className="text-rose-600">{ev.admin_comment}</span></div>}
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <InfoCard color="emerald" label="Starting from" value={label(start)}/>
-                  <InfoCard color="blue" label="Covered so far" value={done?`${calc.memorizedAyahs} ayahs · ${calc.memorizedPages} pages`:'Not entered yet'}/>
-                  <InfoCard color={score>=75?'emerald':score>=60?'amber':'rose'} label="Current score" value={done?`${score}% · ${grade}`:'—'}/>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">Stopping Surah
-                    <select className="input mt-1 w-full" value={f.toSurah} onChange={e => updateForm(ev.id, { toSurah: Number(e.target.value), toAyah: 1 })}>
-                      {SURAHS.map(x => <option key={x.id} value={x.id}>{x.id}. {x.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="text-xs font-black uppercase tracking-wide text-slate-500">Stopping Ayah
-                    <select className="input mt-1 w-full" value={f.toAyah} onChange={e => updateForm(ev.id, { toAyah: Number(e.target.value) })}>
-                      {Array.from({ length: maxAyah }, (_, i) => i + 1).map(n => (
-                        <option key={n} value={n}>{n}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                {!done && <div className="rounded-xl bg-rose-50 border border-rose-200 p-3 text-sm font-semibold text-rose-800">The stopping position must move {isBtoN ? 'forward (higher surah/ayah)' : 'backward (lower surah/ayah)'} from {label(start)}.</div>}
-
-                <div>
-                  <div className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">Rubric scores — 1 (weak) to 5 (excellent)</div>
-                  <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                    {([['Memorization', 'mem'], ['Accuracy', 'acc'], ['Fluency', 'flu'], ['Tajweed', 'taj'], ['Retention', 'ret']] as [string, keyof EvalForm][]).map(([name, key]) =>
-                      <div key={key} className="text-center">
-                        <div className="text-[11px] font-bold text-slate-500 mb-1">{name}</div>
-                        <select className="input w-full text-center font-black" value={f[key] as number} onChange={e => updateForm(ev.id, { [key]: Number(e.target.value) })}>
-                          {[1, 2, 3, 4, 5].map(n => <option key={n}>{n}</option>)}
-                        </select>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-xl border bg-slate-50 p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-black uppercase tracking-wide text-slate-500">Teacher comment</span>
-                    <button className="btn bg-amber-50 text-amber-900 text-xs" type="button" onClick={() => updateForm(ev.id, { comment: automatedComment(f.mem as any, f.acc as any, f.flu as any, f.taj as any, f.ret as any) })}>Auto-generate</button>
-                  </div>
-                  <textarea className="input w-full min-h-[72px] resize-none text-sm bg-white" value={f.comment} onChange={e => updateForm(ev.id, { comment: e.target.value })} placeholder="Write an observation or click Auto-generate…" />
-                </div>
-                <div className="text-right text-xs text-slate-400">Progress saves automatically — you can close and continue later.</div>
-              </div>}
-            </div>;
+        <div className="rounded-xl bg-white/15 px-4 py-2 backdrop-blur-sm text-right">
+          {evalWindows.map(w => {
+            const ms = Math.max(0, new Date(w.closes_at).getTime() - now);
+            const d = Math.floor(ms / 86400000);
+            const h = Math.floor((ms % 86400000) / 3600000);
+            const m = Math.floor((ms % 3600000) / 60000);
+            const pad = (n: number) => String(n).padStart(2, '0');
+            return <div key={w.campaign_id} className="font-mono text-sm font-black tabular-nums">{d}d {pad(h)}:{pad(m)}</div>;
           })}
         </div>
-      </section>;
-    })}
-
-    {activeEvals.length === 0 && <section className="card p-12 text-center">
-      <div className="mx-auto mb-4 h-16 w-16 rounded-2xl bg-emerald-50 flex items-center justify-center text-3xl">📋</div>
-      <h3 className="text-lg font-black text-slate-700">No open evaluation windows</h3>
-      <p className="mt-2 text-sm text-slate-400">When Admin opens an evaluation for your class, it will appear here.</p>
+      </a>
     </section>}
 
-    {/* My students — proper table */}
+        {/* My students — proper table */}
     <section className="card overflow-hidden">
       <div className="flex flex-col gap-3 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
