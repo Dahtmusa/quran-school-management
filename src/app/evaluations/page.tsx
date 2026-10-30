@@ -130,8 +130,18 @@ export default function EvaluationsAdmin() {
               {isClosed && rs?.closes_at && <div className="mt-2 text-[11px] text-slate-500">Closed {new Date(rs.closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}</div>}
               {rs?.students_affected != null && rs.students_affected > 0 && <div className="mt-1 text-[11px] text-slate-500">{rs.students_affected} student row{rs.students_affected === 1 ? '' : 's'}</div>}
 
-              {/* Pending open: show date picker + Confirm/Cancel. */}
+              {/* Pending open: show date picker + Confirm/Cancel.
+                  If the calendar has suggested dates for this round
+                  we offer a "Use calendar close" shortcut. */}
               {isPending && <div className="mt-3 space-y-2">
+                {rs?.calendar_closes_at && new Date(rs.calendar_closes_at).getTime() > Date.now() && <button type="button" className="w-full rounded-lg bg-emerald-100 px-3 py-1.5 text-[11px] font-black text-emerald-800 hover:bg-emerald-200"
+                  onClick={() => {
+                    const d = new Date(rs.calendar_closes_at!);
+                    const local = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                    setPendingClosesAt(local);
+                  }}>
+                  Use calendar close: {new Date(rs.calendar_closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}
+                </button>}
                 <label className="block text-[10px] font-black uppercase tracking-wide text-amber-800">Closing date &amp; time
                   <input type="datetime-local" autoFocus className="input mt-1 w-full" value={pendingClosesAt} onChange={e => setPendingClosesAt(e.target.value)} />
                 </label>
