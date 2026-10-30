@@ -191,6 +191,9 @@ grant execute on function public.admin_toggle_evaluation(uuid, smallint, text, t
 
 -- 3. Return calendar hints alongside the round state so the admin UI
 -- can show "Calendar suggests closes at X" below each card.
+-- Drop first because the return columns changed since the earlier
+-- version; CREATE OR REPLACE cannot alter the return type.
+drop function if exists public.amqm_admin_evaluation_round_state(uuid);
 create or replace function public.amqm_admin_evaluation_round_state(p_term_id uuid)
 returns table (
   evaluation_number smallint,
