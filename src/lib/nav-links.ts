@@ -24,7 +24,6 @@ export const teacherLinks: NavLink[] = [
   ['/teacher', 'My Dashboard', '⌂'],
   ['/teacher/students', 'My Students', '◉'],
   ['/teacher/attendance', 'Attendance', '✓'],
-  ['/teacher#evaluations', 'Evaluations', '☾'],
   ['/teacher/fines', 'My Fines', '₦'],
 ];
 export const parentLinks: NavLink[] = [['/parent', 'My Children', '⌂'], ['/reports', 'Reports', '▤']];
