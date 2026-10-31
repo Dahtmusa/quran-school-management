@@ -4,6 +4,7 @@ import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
+import { PriorityTile, PriorityTileGrid } from '@/components/PriorityTile';
 import { loadTeacherDirectory, loadTeacherEvaluations, loadTeacherEvalWindows, type TeacherEvalWindow, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
@@ -193,13 +194,44 @@ export default function TeacherDashboard() {
 
     {message && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</div>}
 
-    {/* Stats */}
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <StatCard label="My students" value={students.length} color="emerald"/>
-      <StatCard label="Day students" value={dayCount} color="blue"/>
-      <StatCard label="Boarding students" value={boardingCount} color="violet"/>
-      <StatCard label={activeEvals.length ? `${doneCount}/${activeEvals.length} done` : 'No active eval'} value={returnedCount>0?`${returnedCount} returned`:(activeEvals.length?`${Math.round((doneCount/activeEvals.length)*100)}%`:'—')} color={returnedCount>0?'rose':'amber'} label2={returnedCount>0?'Returned evals':activeEvals.length?'Progress':'Evaluations'}/>
-    </div>
+    {/* Priority scorecard - same aesthetic as the admin dashboard. */}
+    <section>
+      <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-500">Today</h3>
+      <PriorityTileGrid>
+        <PriorityTile
+          title="Current evaluation"
+          value={evalWindows.length ? `Eval ${evalWindows[0].evaluation_number}` : '—'}
+          note={evalWindows.length ? `${evalWindows[0].my_eval_count} students · closes ${new Date(evalWindows[0].closes_at).toLocaleString('en-NG', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })}` : 'No open round'}
+          status={evalWindows.length ? 'warn' : 'neutral'}
+          cta={evalWindows.length ? 'Enter scores' : 'Open evaluations'}
+          href="/teacher/evaluations"
+        />
+        <PriorityTile
+          title="My students"
+          value={String(students.length)}
+          note={`${dayCount} Day · ${boardingCount} Boarding`}
+          status="neutral"
+          cta="View students"
+          href="/teacher/students"
+        />
+        <PriorityTile
+          title="Boarding attendance"
+          value={boardingCount ? `${boardingCount} today` : '—'}
+          note={boardingCount ? 'Tap to mark' : 'No boarders assigned'}
+          status={boardingCount ? 'warn' : 'neutral'}
+          cta="Mark attendance"
+          href="/teacher/attendance"
+        />
+        <PriorityTile
+          title="My fines"
+          value={myFineTotal > 0 ? `₦${myFineTotal.toLocaleString()}` : '₦0'}
+          note={myFines.filter(f => f.status === 'pending').length > 0 ? `${myFines.filter(f => f.status === 'pending').length} unpaid` : 'All clear'}
+          status={myFineTotal > 0 ? 'alert' : 'ok'}
+          cta="View fines"
+          href="/teacher/fines"
+        />
+      </PriorityTileGrid>
+    </section>
 
     {/* Attendance quick access */}
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

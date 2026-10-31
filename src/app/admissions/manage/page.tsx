@@ -6,6 +6,7 @@ import {loadCMSSettings,saveCMSSetting} from '@/lib/cms-live-store';
 import {printAdmissionLetter} from '@/lib/admission-letter';
 import {Suspense,useEffect,useMemo,useState} from 'react';
 import {useSearchParams} from 'next/navigation';
+import {PriorityTile, PriorityTileGrid} from '@/components/PriorityTile';
 
 const DEFAULT_ADMISSION_SETTINGS = {
   admission_fee_ngn: 5000,
@@ -120,8 +121,25 @@ function AdmissionsManageInner(){
  }
  async function enroll(a:any){setBusy(true);try{const r=await enrollAdmissionApplication(a.id,a.class_id||null,a.starting_surah?Number(a.starting_surah):null,a.starting_ayah?Number(a.starting_ayah):null,a.screening_score?Number(a.screening_score):null,a.screening_notes||'');setMessage('Enrolled '+r.admission_no+'. Quran starting position preserved.');await refresh()}catch(e:any){setMessage(e?.message||'Unable to enroll')}finally{setBusy(false)}}
 
+ const awaitingPayment = items.filter(a => a.payment_status !== 'verified').length;
+ const needsScreeningSchedule = items.filter(a => a.payment_status === 'verified' && !a.screening_scheduled_at && !a.screening_outcome).length;
+ const needsEnrolment = items.filter(a => a.screening_outcome === 'successful' && !a.enrolled_student_id).length;
+ const screeningScheduledCount = items.filter(a => a.screening_scheduled_at && !a.screening_outcome).length;
+
  return <AdminShell title="Admissions Management"><div className="space-y-6">
   <section className="rounded-3xl bg-gradient-to-br from-slate-950 to-emerald-950 p-6 text-white"><div><div className="text-xs font-bold uppercase tracking-[.22em] text-amber-300">Admissions lifecycle</div><h2 className="mt-2 text-3xl font-black">Application → Screening → Decision → Class → Quran start.</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-emerald-50/75">Adamawa applicants are scheduled for physical screening. Applicants outside Adamawa are scheduled into AMQM's own secure browser video room with a unique link.</p></div></section>
+
+  {/* Priority scorecard - same aesthetic as admin dashboard. */}
+  <section>
+    <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-500">Priorities</h3>
+    <PriorityTileGrid>
+      <PriorityTile title="Payment unverified"       value={String(awaitingPayment)}          note={awaitingPayment ? 'Tap to verify' : 'All cleared'}        status={awaitingPayment > 0 ? 'warn' : 'ok'}  cta="Verify payments" href="#applications" />
+      <PriorityTile title="Needs screening date"     value={String(needsScreeningSchedule)}   note="Verified but not scheduled"                               status={needsScreeningSchedule > 0 ? 'warn' : 'neutral'} cta="Schedule"        href="#applications" />
+      <PriorityTile title="Screening scheduled"      value={String(screeningScheduledCount)}  note="Awaiting outcome"                                         status={screeningScheduledCount > 0 ? 'neutral' : 'ok'} cta="Open list"       href="#applications" />
+      <PriorityTile title="Ready to enrol"           value={String(needsEnrolment)}           note={needsEnrolment ? 'Successful, awaiting enrolment' : 'None'} status={needsEnrolment > 0 ? 'alert' : 'ok'} cta="Enrol now"       href="#applications" />
+    </PriorityTileGrid>
+  </section>
+
   {message&&<div className="rounded-xl bg-emerald-50 p-3 text-sm font-semibold text-emerald-800">{message}</div>}
   <section className="grid gap-4 lg:grid-cols-3">
    <div className="card p-5 lg:col-span-2">
@@ -237,7 +255,7 @@ function AdmissionsManageInner(){
     </div>
   </details>
 
-  <section className="card overflow-hidden"><div className="border-b p-5"><h2 className="font-black">Application queue</h2><p className="text-xs text-slate-500">Submitted → payment verified → screening scheduled → successful / unsuccessful / further assessment → enrolled.</p></div><div className="divide-y">
+  <section id="applications" className="card overflow-hidden scroll-mt-24"><div className="border-b p-5"><h2 className="font-black">Application queue</h2><p className="text-xs text-slate-500">Submitted → payment verified → screening scheduled → successful / unsuccessful / further assessment → enrolled.</p></div><div className="divide-y">
    {items.map(a=><div key={a.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-black">{a.applicant_name}</h3>{(()=>{
   // One authoritative "stage" pill so the row never contradicts itself.
   // Highest applicable stage wins.

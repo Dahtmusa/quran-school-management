@@ -11,29 +11,9 @@ import {
 import { loadCMSSettings } from '@/lib/cms-live-store';
 import { useEffect, useState } from 'react';
 
-type Readiness = Record<string, number | boolean | null | undefined>;
+import { PriorityTile, PriorityTileGrid } from '@/components/PriorityTile';
 
-function PriorityTile({ title, value, status, cta, href, note }:
-  { title: string; value: string; status: 'ok' | 'warn' | 'alert' | 'neutral'; cta: string; href: string; note?: string }) {
-  const tone =
-    status === 'ok'     ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-  : status === 'warn'   ? 'border-amber-200 bg-amber-50 text-amber-900'
-  : status === 'alert'  ? 'border-rose-200 bg-rose-50 text-rose-900'
-  :                       'border-slate-200 bg-white text-slate-900';
-  const btn =
-    status === 'ok'     ? 'bg-emerald-700 text-white hover:bg-emerald-800'
-  : status === 'warn'   ? 'bg-amber-600  text-white hover:bg-amber-700'
-  : status === 'alert'  ? 'bg-rose-600   text-white hover:bg-rose-700'
-  :                       'bg-slate-900  text-white hover:bg-slate-800';
-  return <div className={`flex flex-col rounded-2xl border-2 p-5 ${tone}`}>
-    <div className="text-[10px] font-black uppercase tracking-wider opacity-70">{title}</div>
-    <div className="mt-1 text-3xl font-black">{value}</div>
-    {note && <div className="mt-1 text-[11px] opacity-80">{note}</div>}
-    <Link href={href} className={`mt-4 inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black transition ${btn}`}>
-      {cta} →
-    </Link>
-  </div>;
-}
+type Readiness = Record<string, number | boolean | null | undefined>;
 
 export default function AdminDashboard() {
   const [snapshot, setSnapshot] = useState<any>(null);
@@ -95,7 +75,7 @@ export default function AdminDashboard() {
       {/* Today's priority scorecard. Each tile == one thing to act on. */}
       <section>
         <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-500">Priorities</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <PriorityTileGrid>
           <PriorityTile
             title="Pending reviews"
             value={String(pendingEvals)}
@@ -128,7 +108,7 @@ export default function AdminDashboard() {
             cta="Open admissions"
             href="/admissions/manage"
           />
-        </div>
+        </PriorityTileGrid>
       </section>
 
       {/* Launch readiness -- the admin liked this exact card. */}
