@@ -1,37 +1,166 @@
 'use client';
+// Admin landing page. One pattern throughout: a scorecard of
+// "what needs your attention now" tiles that each lead to one CTA.
+// Mirrors the Digital School Launch Readiness aesthetic the admin
+// liked. Everything else moved to its dedicated page.
 import Link from 'next/link';
 import AdminShell from '@/components/AdminShell';
-import { loadEvaluations, loadStudents, loadStaffProfiles, loadClasses, loadAdminDashboardSnapshot, loadDigitalLaunchReadiness } from '@/lib/live-store';
-import { loadFinanceSummary } from '@/lib/admin-management-store';
+import {
+  loadEvaluations, loadStudents, loadStaffProfiles, loadAdminDashboardSnapshot, loadDigitalLaunchReadiness
+} from '@/lib/live-store';
 import { loadCMSSettings } from '@/lib/cms-live-store';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
-const quick=[['/students','Students','Manage active students and class placement','◉'],['/admissions/manage','Admissions','Screen, verify payments & enrol','▣'],['/evaluations','Qur’an evaluations','Review digital evaluation activity','☾'],['/cms','Website CMS','Homepage, media, staff & branding','✦'],['/fees','Finance','Fees, payments & school account','₦'],['/calendar','School calendar','Terms, evaluation windows & launch control','◷']];
-function Metric({label,value,sub,icon,href,kind}:{label:string;value:string;sub:string;icon:string;href:string;kind:string}){return <Link href={href} className={`group relative overflow-hidden rounded-[1.4rem] p-5 text-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl ${kind}`}><div className="flex items-start justify-between"><div><div className="text-xs font-bold uppercase tracking-[.14em] text-white/65">{label}</div><div className="mt-2 text-3xl font-black">{value}</div><div className="mt-1 text-xs text-white/70">{sub}</div></div><div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/15 text-xl">{icon}</div></div><div className="absolute -bottom-8 -right-8 h-24 w-24 rounded-full bg-white/10"/></Link>}
-const money=(n:number)=>`₦${Number(n||0).toLocaleString()}`;
-export default function Admin(){
- const [students,setStudents]=useState<any[]>([]),[evaluations,setEvaluations]=useState<any[]>([]),[staff,setStaff]=useState<any[]>([]),[classes,setClasses]=useState<any[]>([]),[finance,setFinance]=useState<any>({fees:[],payments:[]}),[snapshot,setSnapshot]=useState<any>(null),[readiness,setReadiness]=useState<any>(null),[settings,setSettings]=useState<any>({}),[loading,setLoading]=useState(true),[error,setError]=useState('');
- useEffect(()=>{Promise.all([loadStudents(),loadEvaluations(),loadStaffProfiles(),loadClasses(),loadFinanceSummary(),loadCMSSettings(),loadAdminDashboardSnapshot(),loadDigitalLaunchReadiness()]).then(([s,e,st,c,f,ss,d,r])=>{setStudents(s);setEvaluations(e);setStaff(st);setClasses(c);setFinance(f);setSettings(ss);setSnapshot(d);setReadiness(r)}).catch((e:any)=>setError(e?.message||'Some dashboard data could not be loaded.')).finally(()=>setLoading(false))},[]);
- const currency=settings.currency?.symbol||'₦';
- const activeStaff=Number(snapshot?.active_staff ?? staff.filter(s=>s.employment_status==='active'&&s.role!=='parent').length);
- const teachers=Number(snapshot?.teachers ?? staff.filter(s=>s.role==='teacher'&&s.employment_status==='active').length);
- const pending=Number(snapshot?.evaluations_pending ?? evaluations.filter(e=>e.status==='Pending Approval').length);
- const approved=Number(snapshot?.evaluations_approved ?? evaluations.filter(e=>e.status==='Approved').length);
- const expected=Number(snapshot?.fees_due ?? 0), collected=Number(snapshot?.fees_paid ?? 0), outstanding=Math.max(0,expected-collected);
- const attendanceToday=Number(snapshot?.attendance_today ?? 0), attendancePresentToday=Number(snapshot?.attendance_present_today ?? 0);
- const distribution=useMemo(()=>Object.entries(students.reduce((m:any,s:any)=>{const k=s.className||'Unassigned';m[k]=(m[k]||0)+1;return m},{})).sort((a:any,b:any)=>b[1]-a[1]).slice(0,6),[students]);
- const maxClass=Math.max(1,...distribution.map((x:any)=>Number(x[1])));
- const historical=Boolean(snapshot?.is_historical_baseline);
- return <AdminShell title="Admin Dashboard"><div className="space-y-6">
-   {error&&<div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">{error}</div>}
-   <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#06372f] via-emerald-900 to-[#a77d25] p-6 text-white shadow-xl md:p-8"><div className="grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center"><div><div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">AMQM Control Center</div><h2 className="mt-2 text-3xl font-black sm:text-4xl">Good day, Administrator.</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50/75">{historical?'First Term is the imported historical baseline. Second Term is the first fully digital operational term.':'Live operational control for the current digital term.'}</p><div className="mt-5 flex flex-wrap gap-2"><Link href="/calendar" className="btn bg-white text-emerald-950">Launch control</Link><Link href="/students" className="btn border border-white/20 bg-white/10 text-white">Manage students</Link><Link href="/fees" className="btn border border-white/20 bg-white/10 text-white">Finance</Link></div></div><div className="rounded-[1.6rem] border border-white/15 bg-white/10 p-5 backdrop-blur"><div className="text-xs font-bold uppercase tracking-wider text-amber-200">Current snapshot</div><div className="mt-3 grid grid-cols-2 gap-4 text-sm"><div><div className="text-2xl font-black">{snapshot?.students??students.length}</div><div className="text-white/60">Active students</div></div><div><div className="text-2xl font-black">{activeStaff}</div><div className="text-white/60">Active staff</div></div><div><div className="text-2xl font-black">{pending}</div><div className="text-white/60">Pending reviews</div></div><div><div className="text-2xl font-black">{attendanceToday}</div><div className="text-white/60">Attendance recorded today</div></div></div></div></div></section>
-   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><Metric label="Active students" value={String(snapshot?.students??students.length)} sub={`${snapshot?.day_students??students.filter(s=>s.section==='Day').length} Day · ${snapshot?.boarding_students??students.filter(s=>s.section==='Boarding').length} Boarding`} icon="◉" href="/students" kind="bg-gradient-to-br from-emerald-700 to-emerald-900"/><Metric label="Active staff" value={String(activeStaff)} sub={`${teachers} teachers · excludes parents`} icon="♧" href="/staff" kind="bg-gradient-to-br from-sky-600 to-indigo-700"/><Metric label="Attendance today" value={attendanceToday?`${attendancePresentToday}/${attendanceToday}`:'—'} sub={attendanceToday?'Present-equivalent / recorded':'No student attendance recorded today'} icon="✓" href="/attendance" kind="bg-gradient-to-br from-violet-600 to-purple-800"/><Metric label={historical?'Imported evaluations':'Pending evaluations'} value={historical?String(approved):String(pending)} sub={historical?'Historical First-Term baseline':'Awaiting administrative review'} icon="☾" href="/evaluations" kind="bg-gradient-to-br from-amber-500 to-orange-700"/></div>
-   <section className="card p-6"><div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between"><div><h2 className="text-xl font-black">Digital school launch readiness</h2><p className="mt-1 text-sm text-slate-500">The system will not start Second Term until the historical baseline and required operational setup are complete.</p></div><Link href="/calendar" className="btn bg-slate-100">Open launch control →</Link></div><div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Ready label="Historical baseline" value={`${readiness?.baseline_rows??0}/${readiness?.active_students??0}`} ok={Number(readiness?.missing_baseline??1)===0}/><Ready label="Second-Term fees" value={String(readiness?.second_term_fee_structures??0)} ok={Number(readiness?.second_term_fee_structures??0)>=2}/><Ready label="Evaluation windows" value={`${readiness?.second_term_evaluation_windows??0}/3`} ok={Number(readiness?.second_term_evaluation_windows??0)===3}/><Ready label="Second-Term enrolment" value={`${readiness?.second_term_enrollments??0}/${readiness?.active_students??0}`} ok={Number(readiness?.missing_second_term_enrollments??1)===0}/></div><div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm"><b>{readiness?.ready?'Ready for digital launch':'Not ready for digital launch yet.'}</b> {Number(readiness?.students_without_parent_link??0)>0&&<span className="text-slate-500"> Parent links still missing for {readiness.students_without_parent_link} active students; this is a warning, not an academic/finance launch blocker.</span>}</div></section>
-   <div className="grid gap-5 lg:grid-cols-[1.45fr_.85fr]">
-    <section className="card p-6"><div className="flex items-center justify-between gap-4"><div><h2 className="text-xl font-black">{historical?'Historical financial baseline':'Financial pulse'}</h2><p className="mt-1 text-sm text-slate-500">Active-student fee obligations and recorded payments for the selected operational snapshot.</p></div><Link href="/fees" className="btn bg-slate-100">Open finance →</Link></div><div className="mt-6 grid gap-3 sm:grid-cols-3"><div className="rounded-2xl bg-slate-50 p-4"><div className="text-xs font-bold uppercase text-slate-400">Expected</div><div className="mt-2 text-2xl font-black">{currency}{expected.toLocaleString()}</div></div><div className="rounded-2xl bg-emerald-50 p-4"><div className="text-xs font-bold uppercase text-emerald-600">Collected</div><div className="mt-2 text-2xl font-black text-emerald-900">{currency}{collected.toLocaleString()}</div></div><div className="rounded-2xl bg-amber-50 p-4"><div className="text-xs font-bold uppercase text-amber-700">Outstanding</div><div className="mt-2 text-2xl font-black text-amber-900">{currency}{outstanding.toLocaleString()}</div></div></div><div className="mt-4 text-xs text-slate-500">Collection rate: <b>{expected?Math.round(collected/expected*100):0}%</b> · Active students only.</div></section>
-    <section className="card p-6"><div className="flex items-center justify-between"><div><h2 className="text-xl font-black">{historical?'Historical evaluation baseline':'Evaluation health'}</h2><p className="mt-1 text-sm text-slate-500">{historical?'Imported First-Term records are preserved and not part of the live review queue.':'Current digital approval pipeline.'}</p></div><Link href="/evaluations" className="text-sm font-black text-emerald-800">Review →</Link></div><div className="mt-6 space-y-4"><div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900"><b>{approved}</b> approved records {historical?'in the historical baseline.':'in the current digital term.'}</div><div className="flex justify-between text-sm font-bold"><span>Pending approval</span><span>{pending}</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-amber-500" style={{width:`${snapshot?.evaluations_total?pending/snapshot.evaluations_total*100:0}%`}}/></div></div></section>
-   </div>
-   <div className="grid gap-5 lg:grid-cols-[1fr_1fr]"><section className="card p-6"><div className="flex items-center justify-between"><div><h2 className="text-xl font-black">Students by class</h2><p className="mt-1 text-sm text-slate-500">Active student population only.</p></div><Link href="/classes" className="text-sm font-black text-emerald-800">Classes →</Link></div><div className="mt-5 space-y-4">{distribution.map(([name,count]:any)=><div key={name}><div className="mb-1 flex justify-between text-sm font-semibold"><span>{name}</span><span>{count}</span></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-emerald-700" style={{width:`${Number(count)/maxClass*100}%`}}/></div></div>)}</div></section><section className="card p-6"><div className="flex items-center justify-between"><div><h2 className="text-xl font-black">Quick actions</h2><p className="mt-1 text-sm text-slate-500">Jump directly to the work that matters.</p></div></div><div className="mt-5 grid gap-3 sm:grid-cols-2">{quick.map(([href,label,sub,icon])=><Link key={href} href={href} className="group rounded-2xl border p-4 transition hover:border-emerald-200 hover:bg-emerald-50"><div className="flex items-start gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-100 text-emerald-800">{icon}</span><span><span className="block font-black text-slate-900">{label}</span><span className="mt-1 block text-xs leading-5 text-slate-500">{sub}</span></span><span className="ml-auto text-slate-300 transition group-hover:text-emerald-700">→</span></div></Link>)}</div></section></div>
- </div></AdminShell>
+type Readiness = Record<string, number | boolean | null | undefined>;
+
+function PriorityTile({ title, value, status, cta, href, note }:
+  { title: string; value: string; status: 'ok' | 'warn' | 'alert' | 'neutral'; cta: string; href: string; note?: string }) {
+  const tone =
+    status === 'ok'     ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+  : status === 'warn'   ? 'border-amber-200 bg-amber-50 text-amber-900'
+  : status === 'alert'  ? 'border-rose-200 bg-rose-50 text-rose-900'
+  :                       'border-slate-200 bg-white text-slate-900';
+  const btn =
+    status === 'ok'     ? 'bg-emerald-700 text-white hover:bg-emerald-800'
+  : status === 'warn'   ? 'bg-amber-600  text-white hover:bg-amber-700'
+  : status === 'alert'  ? 'bg-rose-600   text-white hover:bg-rose-700'
+  :                       'bg-slate-900  text-white hover:bg-slate-800';
+  return <div className={`flex flex-col rounded-2xl border-2 p-5 ${tone}`}>
+    <div className="text-[10px] font-black uppercase tracking-wider opacity-70">{title}</div>
+    <div className="mt-1 text-3xl font-black">{value}</div>
+    {note && <div className="mt-1 text-[11px] opacity-80">{note}</div>}
+    <Link href={href} className={`mt-4 inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black transition ${btn}`}>
+      {cta} →
+    </Link>
+  </div>;
 }
-function Ready({label,value,ok}:{label:string,value:string,ok:boolean}){return <div className={`rounded-2xl border p-4 ${ok?'border-emerald-200 bg-emerald-50':'border-amber-200 bg-amber-50'}`}><div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</div><div className={`mt-1 text-2xl font-black ${ok?'text-emerald-800':'text-amber-900'}`}>{value}</div><div className={`mt-1 text-xs font-bold ${ok?'text-emerald-700':'text-amber-700'}`}>{ok?'Ready':'Needs setup'}</div></div>}
+
+export default function AdminDashboard() {
+  const [snapshot, setSnapshot] = useState<any>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
+  const [settings, setSettings]   = useState<any>({});
+  const [studentCount, setStudentCount] = useState<number>(0);
+  const [staffCount, setStaffCount]     = useState<number>(0);
+  const [pendingEvals, setPendingEvals] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      loadStudents(), loadEvaluations(), loadStaffProfiles(),
+      loadCMSSettings(), loadAdminDashboardSnapshot(), loadDigitalLaunchReadiness(),
+    ]).then(([s, e, st, ss, d, r]) => {
+      setStudentCount(s.length);
+      setStaffCount(st.filter((p: any) => p.employment_status === 'active' && p.role !== 'parent').length);
+      setPendingEvals(e.filter((ev: any) => ev.status === 'Pending Approval').length);
+      setSettings(ss);
+      setSnapshot(d);
+      setReadiness(r as Readiness);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const currency = settings.currency?.symbol || '₦';
+  const expected    = Number(snapshot?.fees_due ?? 0);
+  const collected   = Number(snapshot?.fees_paid ?? 0);
+  const outstanding = Math.max(0, expected - collected);
+  const collectRate = expected ? Math.round((collected / expected) * 100) : 0;
+  const presentToday = Number(snapshot?.attendance_present_today ?? 0);
+  const recordedToday = Number(snapshot?.attendance_today ?? 0);
+  const totalActive = Number(snapshot?.students ?? studentCount);
+  const attRate = totalActive ? Math.round((presentToday / totalActive) * 100) : 0;
+
+  const parentLinksMissing = Number(readiness?.students_without_parent_link ?? 0);
+  const ready = Boolean(readiness?.ready);
+
+  return <AdminShell title="Admin Dashboard">
+    <div className="space-y-6">
+      {/* Hero. Short and quiet. The scorecard carries the detail. */}
+      <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#06372f] via-emerald-900 to-[#a77d25] p-6 text-white shadow-xl md:p-7">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <div className="text-[11px] font-black uppercase tracking-[.24em] text-amber-300">AMQM Control Center</div>
+            <h2 className="mt-1 text-3xl font-black sm:text-4xl">Here's what's due today.</h2>
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-emerald-50/80">
+              {snapshot?.term?.name ? `${snapshot?.term?.name} · ` : ''}
+              {totalActive} active students · {staffCount} active staff
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white/10 px-5 py-3 text-sm backdrop-blur-sm ring-1 ring-white/15">
+            <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Digital launch</div>
+            <div className="mt-1 text-xl font-black">{ready ? 'Ready' : 'Not yet'}</div>
+            <Link href="/calendar" className="mt-1 inline-block text-[11px] font-bold text-amber-200 hover:text-white">Launch control →</Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Today's priority scorecard. Each tile == one thing to act on. */}
+      <section>
+        <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-500">Priorities</h3>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <PriorityTile
+            title="Pending reviews"
+            value={String(pendingEvals)}
+            note={pendingEvals ? 'Teachers waiting for approval' : 'No reviews waiting'}
+            status={pendingEvals > 0 ? 'warn' : 'ok'}
+            cta={pendingEvals > 0 ? 'Review now' : 'Open evaluations'}
+            href="/evaluations"
+          />
+          <PriorityTile
+            title="Outstanding fees"
+            value={`${currency}${outstanding.toLocaleString()}`}
+            note={expected ? `${collectRate}% collection rate` : 'No fees configured'}
+            status={outstanding > expected * 0.5 ? 'alert' : outstanding > 0 ? 'warn' : 'ok'}
+            cta="Open finance"
+            href="/fees"
+          />
+          <PriorityTile
+            title="Attendance today"
+            value={recordedToday ? `${presentToday}/${totalActive}` : '—'}
+            note={recordedToday ? `${attRate}% present` : 'Not marked yet today'}
+            status={recordedToday === 0 ? 'alert' : attRate >= 90 ? 'ok' : 'warn'}
+            cta="Open attendance"
+            href="/attendance"
+          />
+          <PriorityTile
+            title="Admissions pipeline"
+            value={String(snapshot?.pending_admissions ?? 0)}
+            note="Applicants awaiting a decision"
+            status={Number(snapshot?.pending_admissions ?? 0) > 0 ? 'warn' : 'neutral'}
+            cta="Open admissions"
+            href="/admissions/manage"
+          />
+        </div>
+      </section>
+
+      {/* Launch readiness -- the admin liked this exact card. */}
+      <section className="card p-6">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-xl font-black">Digital school launch readiness</h2>
+            <p className="mt-1 text-sm text-slate-500">The system will not start Second Term until the historical baseline and required operational setup are complete.</p>
+          </div>
+          <Link href="/calendar" className="btn bg-slate-100">Open launch control →</Link>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Ready label="Historical baseline"      value={`${readiness?.baseline_rows ?? 0}/${readiness?.active_students ?? 0}`}            ok={Number(readiness?.missing_baseline ?? 1) === 0} />
+          <Ready label="Second-Term fees"         value={String(readiness?.second_term_fee_structures ?? 0)}                               ok={Number(readiness?.second_term_fee_structures ?? 0) >= 2} />
+          <Ready label="Evaluation windows"       value={`${readiness?.second_term_evaluation_windows ?? 0}/3`}                            ok={Number(readiness?.second_term_evaluation_windows ?? 0) === 3} />
+          <Ready label="Second-Term enrolment"    value={`${readiness?.second_term_enrollments ?? 0}/${readiness?.active_students ?? 0}`} ok={Number(readiness?.missing_second_term_enrollments ?? 1) === 0} />
+        </div>
+        <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm">
+          <b>{ready ? 'Ready for digital launch' : 'Not ready for digital launch yet.'}</b>
+          {parentLinksMissing > 0 && <span className="text-slate-500"> Parent links still missing for {parentLinksMissing} active students; this is a warning, not an academic/finance launch blocker.</span>}
+        </div>
+      </section>
+
+      {!loading && null /* placeholder in case we want a last section later */}
+    </div>
+  </AdminShell>;
+}
+
+function Ready({ label, value, ok }: { label: string; value: string; ok: boolean }) {
+  return <div className={`rounded-2xl border p-4 ${ok ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+    <div className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</div>
+    <div className={`mt-1 text-2xl font-black ${ok ? 'text-emerald-800' : 'text-amber-900'}`}>{value}</div>
+    <div className={`mt-1 text-xs font-bold ${ok ? 'text-emerald-700' : 'text-amber-700'}`}>{ok ? 'Ready' : 'Needs setup'}</div>
+  </div>;
+}
