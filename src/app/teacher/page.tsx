@@ -316,7 +316,6 @@ export default function TeacherDashboard() {
             ))}
           </div>
           <input value={studentSearch} onChange={e => setStudentSearch(e.target.value)} placeholder="Search student…" className="rounded-xl border px-3 py-2 text-sm w-44" />
-          <button onClick={openAddStudent} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white hover:bg-emerald-700 transition-colors whitespace-nowrap">+ Add student</button>
         </div>
       </div>
       <div className="overflow-x-auto">
@@ -372,21 +371,7 @@ export default function TeacherDashboard() {
                 </div>
               </td>
               <td className="px-4 py-3 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <button className="rounded-xl bg-teal-50 px-3 py-1.5 text-xs font-black text-teal-700 hover:bg-teal-100 transition-colors" onClick={() => {
-                    setQuranEditTarget(s);
-                    setQuranEditDirection(s.direction === 'Baqarah-to-Nas' ? 'baqarah_to_nas' : 'nas_to_baqarah');
-                    setQuranEditStartSurah(Number(s.start?.surah || 114));
-                    setQuranEditStartAyah(Number(s.start?.ayah || 1));
-                    setQuranEditSurah(Number(s.current?.surah || s.start?.surah || 114));
-                    setQuranEditAyah(Number(s.current?.ayah || s.start?.ayah || 1));
-                    setQuranEditMsg('');
-                  }}>Edit Quran</button>
-                  <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>Profile</button>
-                  {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-amber-50 px-3 py-1.5 text-xs font-black text-amber-700" onClick={() => handleSetStudentStatus(s,'suspended')}>Freeze</button>}
-                  {s.status === 'active' && <button disabled={busy} className="rounded-xl bg-rose-50 px-3 py-1.5 text-xs font-black text-rose-700" onClick={() => handleSetStudentStatus(s,'withdrawn')}>Inactive</button>}
-                  {s.status !== 'active' && <button disabled={busy} className="rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700" onClick={() => handleSetStudentStatus(s,'active')}>Reactivate</button>}
-                </div>
+                <button className="rounded-xl bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700 hover:bg-slate-200 transition-colors" onClick={() => { setSelected(s); setSelectedTab('academic'); }}>View profile</button>
               </td>
             </tr>
           );
