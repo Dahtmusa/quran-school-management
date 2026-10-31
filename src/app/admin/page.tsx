@@ -64,11 +64,16 @@ export default function AdminDashboard() {
               {totalActive} active students · {staffCount} active staff
             </p>
           </div>
-          <div className="rounded-2xl bg-white/10 px-5 py-3 text-sm backdrop-blur-sm ring-1 ring-white/15">
+          {!ready && <div className="rounded-2xl bg-white/10 px-5 py-3 text-sm backdrop-blur-sm ring-1 ring-white/15">
             <div className="text-[10px] font-black uppercase tracking-wider text-amber-200">Digital launch</div>
-            <div className="mt-1 text-xl font-black">{ready ? 'Ready' : 'Not yet'}</div>
+            <div className="mt-1 text-xl font-black">Not yet</div>
             <Link href="/calendar" className="mt-1 inline-block text-[11px] font-bold text-amber-200 hover:text-white">Launch control →</Link>
-          </div>
+          </div>}
+          {ready && <div className="rounded-2xl bg-emerald-500/20 px-5 py-3 text-sm backdrop-blur-sm ring-1 ring-emerald-300/40">
+            <div className="text-[10px] font-black uppercase tracking-wider text-emerald-200">Status</div>
+            <div className="mt-1 text-xl font-black">● Live</div>
+            <div className="mt-1 text-[11px] text-emerald-200/80">All systems operational</div>
+          </div>}
         </div>
       </section>
 
@@ -111,8 +116,10 @@ export default function AdminDashboard() {
         </PriorityTileGrid>
       </section>
 
-      {/* Launch readiness -- the admin liked this exact card. */}
-      <section className="card p-6">
+      {/* Launch readiness -- only shown until launched. After launch
+          it becomes visual noise, so once ready: true + Second Term
+          live, the whole card is hidden. */}
+      {!ready && <section className="card p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="text-xl font-black">Digital school launch readiness</h2>
@@ -130,7 +137,7 @@ export default function AdminDashboard() {
           <b>{ready ? 'Ready for digital launch' : 'Not ready for digital launch yet.'}</b>
           {parentLinksMissing > 0 && <span className="text-slate-500"> Parent links still missing for {parentLinksMissing} active students; this is a warning, not an academic/finance launch blocker.</span>}
         </div>
-      </section>
+      </section>}
 
       {!loading && null /* placeholder in case we want a last section later */}
     </div>
