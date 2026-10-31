@@ -36,15 +36,9 @@ export default function AdminDashboard() {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Always use the ₦ symbol here (not the raw "NGN" text) and keep
-  // large amounts compact so the tile does not overflow at common
-  // widths. "11,620,000" turns into "11.6M".
-  const fmtMoney = (n: number) => {
-    const abs = Math.abs(n);
-    if (abs >= 1_000_000) return `₦${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
-    if (abs >= 10_000)    return `₦${(n / 1_000).toFixed(0)}K`;
-    return `₦${n.toLocaleString()}`;
-  };
+  // Full exact value with ₦ symbol and comma separators. The tile
+  // auto-shrinks the font when the string is long.
+  const fmtMoney = (n: number) => `₦${Math.round(n).toLocaleString('en-NG')}`;
   const expected    = Number(snapshot?.fees_due ?? 0);
   const collected   = Number(snapshot?.fees_paid ?? 0);
   const outstanding = Math.max(0, expected - collected);
@@ -98,7 +92,7 @@ export default function AdminDashboard() {
           <PriorityTile
             title="Outstanding fees"
             value={fmtMoney(outstanding)}
-            note={expected ? `${collectRate}% collection · ${fmtMoney(expected)} expected` : 'No fees configured'}
+            note={expected ? `${collectRate}% collected of ${fmtMoney(expected)}` : 'No fees configured'}
             status={outstanding > expected * 0.5 ? 'alert' : outstanding > 0 ? 'warn' : 'ok'}
             cta="Open finance"
             href="/fees"

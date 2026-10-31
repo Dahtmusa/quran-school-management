@@ -17,10 +17,17 @@ export function PriorityTile({ title, value, status, cta, href, note, onClick }:
   : status === 'warn'  ? 'bg-amber-600   text-white hover:bg-amber-700'
   : status === 'alert' ? 'bg-rose-600    text-white hover:bg-rose-700'
   :                      'bg-slate-900   text-white hover:bg-slate-800';
+  // Auto-shrink the value font if the string is long so exact numbers
+  // like "₦11,620,000" fit the tile without overflow or truncation.
+  const vLen = value.length;
+  const valueSize =
+      vLen <= 8  ? 'text-3xl'
+    : vLen <= 11 ? 'text-2xl'
+    : vLen <= 14 ? 'text-xl'
+    :              'text-lg';
   const inner = <>
     <div className="text-[10px] font-black uppercase tracking-wider opacity-70 truncate">{title}</div>
-    {/* tabular-nums + truncate keeps long numeric values on one line */}
-    <div className="mt-1 text-3xl font-black tabular-nums tracking-tight truncate">{value}</div>
+    <div className={`mt-1 ${valueSize} font-black tabular-nums tracking-tight break-words`}>{value}</div>
     {note && <div className="mt-1 line-clamp-2 text-[11px] opacity-80">{note}</div>}
     <span className={`mt-4 inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black transition ${btn}`}>
       {cta} →
