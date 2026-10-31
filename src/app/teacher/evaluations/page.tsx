@@ -7,7 +7,7 @@ import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { loadTeacherEvalEntries, loadTeacherEvalWindows, submitTeacherEvaluation, type TeacherEvalEntry, type TeacherEvalWindow } from '@/lib/live-store';
-import { SURAHS, calculateEvaluation } from '@/lib/quran';
+import { SURAHS, absoluteProgress, calculateEvaluation } from '@/lib/quran';
 
 type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string };
 
@@ -90,7 +90,11 @@ export default function TeacherEvaluationsPage() {
     try {
       for (const r of pickedEntries) {
         const f = forms[r.evaluation_id];
-        const score = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
+        // Score = the student's TRUE Qur'an completion % at their new
+        // stopping position (direction-aware). Rubrics are quality
+        // notes stored separately; they do NOT affect the headline %.
+        const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
+        const score = Math.round(absoluteProgress({ surah: f.toSurah, ayah: f.toAyah }, dir).percent * 10) / 10;
         await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
       }
       await refresh();
@@ -168,8 +172,13 @@ export default function TeacherEvaluationsPage() {
             const stop  = { surah: f.toSurah, ayah: f.toAyah };
             const dir   = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
             const moved = hasMoved(r);
-            const calc  = moved ? calculateEvaluation(start, stop, dir as any) : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
-            const score = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
+            // "calc" = ayahs/pages covered THIS evaluation (sub-slice).
+            // "progress" = total Qur'an % at the stopping position --
+            // this is the real headline score.
+            const calc     = moved ? calculateEvaluation(start, stop, dir as any) : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
+            const progress = moved ? absoluteProgress(stop, dir as any)           : { ayahs: 0, pages: 0, hizbs: 0, percent: 0, remainingAyahs: 0 };
+            const score    = Math.round(progress.percent * 10) / 10;
+            const rubricAvg = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
             const startName = SURAHS.find(s => s.id === r.from_surah)?.name ?? '?';
             return <div key={r.evaluation_id} className="p-4">
               {/* Row header: who is being evaluated, their direction, and their locked starting position. */}
@@ -213,10 +222,15 @@ export default function TeacherEvaluationsPage() {
                   </div>
                   <input type="text" placeholder="Comment (optional)" className="input w-full text-sm" value={f.comment} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, comment: e.target.value } }))} />
                 </div>
-                <div className="lg:w-28 lg:shrink-0 text-right lg:text-center">
-                  <div className="text-[10px] font-bold uppercase text-slate-500">Score</div>
-                  <div className={`mt-1 text-2xl font-black ${moved ? 'text-emerald-700' : 'text-slate-300'}`}>{moved ? `${score}%` : '—'}</div>
-                  <div className="mt-1 text-[10px] text-slate-500">{calc.memorizedAyahs} ayahs · {calc.memorizedPages} pages</div>
+                <div className="lg:w-36 lg:shrink-0 text-right lg:text-center">
+                  <div className="text-[10px] font-bold uppercase text-slate-500">Qur'an complete</div>
+                  <div className={`mt-1 text-3xl font-black ${moved ? 'text-emerald-700' : 'text-slate-300'}`}>{moved ? `${score}%` : '—'}</div>
+                  {moved && <>
+                    <div className="mt-1 text-[10px] text-slate-500">{progress.ayahs.toLocaleString()} / 6,236 ayahs</div>
+                    <div className="text-[10px] text-slate-500">{progress.pages} / 604 pages</div>
+                    <div className="mt-2 text-[10px] text-slate-400">This eval: <b>+{calc.memorizedAyahs} ayahs · +{calc.memorizedPages} pages</b></div>
+                    <div className="mt-1 text-[10px] text-slate-400">Quality: {rubricAvg}%</div>
+                  </>}
                   {!moved && <div className="mt-1 text-[10px] font-bold text-rose-600">Position not moved</div>}
                 </div>
               </div>
