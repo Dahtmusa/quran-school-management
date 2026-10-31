@@ -86,7 +86,24 @@ export default function TeacherDashboard() {
     setEvalWindows(windows);
     return studentRows;
   };
-  useEffect(() => { refresh(); getCurrentProfile().then(setMe); fetch('/api/attendance/my-fines').then(r=>r.json()).then(d=>{if(d.fines){setMyFines(d.fines);setMyFineTotal(Number(d.pendingAmount||0));setFinePaymentAccount(d.paymentAccount||finePaymentAccount);}}).catch(()=>{}); }, []);
+  useEffect(() => {
+    refresh();
+    getCurrentProfile().then(setMe);
+    // Fines payload shape (from the my_attendance_fines RPC):
+    //   fines[]   { attendance_date, scanned_at, status_code, amount_ngn, ... }
+    //   totals    { balance_ngn, ... }
+    //   account   (free text)
+    fetch('/api/attendance/my-fines').then(r => r.json()).then(d => {
+      if (!d || !Array.isArray(d.fines)) return;
+      // Only show rows that actually represent a fine (non-zero amount).
+      const withAmount = d.fines.filter((f: any) => Number(f.amount_ngn || 0) > 0);
+      setMyFines(withAmount);
+      setMyFineTotal(Number(d?.totals?.balance_ngn || 0));
+      if (typeof d.account === 'string' && d.account.trim().length > 0) {
+        setFinePaymentAccount({ bank: '', name: '', number: d.account });
+      }
+    }).catch(() => {});
+  }, []);
   useEffect(() => {
     getMySignature().then(sig => { setMySig(sig.signature_data ? sig : null); setSigOpen(!sig.signature_data); });
   }, []);
@@ -265,16 +282,24 @@ export default function TeacherDashboard() {
           </div>
         </div>
         <div className="divide-y">
-          {myFines.map((fine:any)=><div key={fine.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div><div className="font-black text-slate-900">{fine.reason}</div><div className="text-xs text-slate-400">{new Date(fine.created_at).toLocaleDateString('en-GB')} · {fine.status}</div>{fine.notes&&<div className="mt-1 text-xs text-slate-500">{fine.notes}</div>}</div>
-            <div className="text-lg font-black text-slate-900">₦{Number(fine.amount||0).toLocaleString('en-NG',{minimumFractionDigits:2})}</div>
-          </div>)}
+          {myFines.map((fine:any) => {
+            const dateStr = fine.attendance_date
+              ? new Date(fine.attendance_date + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+              : null;
+            const kind = (fine.status_code || '').toString().toUpperCase();
+            return <div key={fine.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="font-black text-slate-900">{kind === 'LATE' ? 'Late arrival' : kind === 'ABSENT' ? 'Unexcused absence' : (kind || 'Fine')}</div>
+                <div className="text-xs text-slate-500">{dateStr || 'Date unavailable'}</div>
+              </div>
+              <div className="text-lg font-black text-slate-900">₦{Number(fine.amount_ngn || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
+            </div>;
+          })}
         </div>
         <div className="border-t bg-slate-50 p-5">
           <div className="text-[10px] font-black uppercase tracking-wide text-slate-500">Pay attendance fine to school</div>
-          <div className="mt-1 font-black text-slate-900">{finePaymentAccount.bank||'School bank'} · {finePaymentAccount.name}</div>
-          <div className="mt-1 text-lg font-black tracking-wide text-[#062d2a]">{finePaymentAccount.number||'School payment account not configured yet'}</div>
-          <div className="mt-2 text-xs text-slate-500">After payment, submit your payment evidence to the school office for verification. The school will mark the fine Paid.</div>
+          <pre className="mt-1 whitespace-pre-wrap font-sans text-sm font-bold text-slate-900">{finePaymentAccount.number || 'School payment account not configured yet. Please ask the administrator.'}</pre>
+          <div className="mt-2 text-xs text-slate-500">After payment, submit your payment evidence to the school office. The finance team will mark the fine as paid.</div>
         </div>
       </section>
     )}
