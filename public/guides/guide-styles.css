@@ -1,0 +1,214 @@
+/* Shared styles for AMQM printed guides. Optimized for A4 print to
+   PDF from any modern browser (Chrome / Edge: File > Print > Save as
+   PDF). Content is set in a neutral serif for body and a bold sans
+   for headings so the finished document reads like a school policy
+   handbook. */
+
+@page {
+  size: A4;
+  margin: 20mm 18mm 22mm 18mm;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+  color: #111;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11pt;
+  line-height: 1.6;
+}
+
+.sheet {
+  max-width: 180mm;
+  margin: 0 auto;
+  padding: 10mm 0;
+}
+
+.masthead {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border-bottom: 3px double #0e3b36;
+  padding-bottom: 10px;
+  margin-bottom: 22px;
+}
+.masthead img {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
+}
+.masthead .school {
+  flex: 1;
+}
+.masthead .school .name {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+  font-size: 14pt;
+  color: #0e3b36;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+.masthead .school .sub {
+  font-size: 9.5pt;
+  color: #4b6763;
+  margin-top: 1px;
+}
+.masthead .doc-tag {
+  text-align: right;
+  font-size: 9pt;
+  color: #4b6763;
+}
+.masthead .doc-tag .ref {
+  font-family: "Courier New", monospace;
+  font-size: 8.5pt;
+  color: #7a8e8a;
+}
+
+h1 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 22pt;
+  font-weight: 900;
+  color: #0e3b36;
+  margin: 10px 0 2px 0;
+  line-height: 1.15;
+}
+.subtitle {
+  color: #567671;
+  font-size: 11pt;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13.5pt;
+  font-weight: 900;
+  color: #0e3b36;
+  margin: 24px 0 6px 0;
+  padding-bottom: 3px;
+  border-bottom: 1.5px solid #b7cfcb;
+  letter-spacing: 0.2px;
+}
+h3 {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 11.5pt;
+  font-weight: 900;
+  color: #0e3b36;
+  margin: 16px 0 4px 0;
+}
+
+p { margin: 0 0 10px 0; }
+ul, ol { margin: 0 0 10px 20px; padding: 0; }
+li { margin: 3px 0; }
+
+.callout {
+  background: #f3f8f6;
+  border-left: 4px solid #0e3b36;
+  padding: 10px 14px;
+  margin: 10px 0 14px 0;
+  font-size: 10.5pt;
+}
+.callout.warn {
+  background: #fff9ec;
+  border-left-color: #c08b00;
+}
+.callout.stop {
+  background: #fdf0ef;
+  border-left-color: #a63838;
+}
+
+.formula {
+  background: #0e3b36;
+  color: #e7f5f2;
+  padding: 12px 14px;
+  border-radius: 6px;
+  font-family: "Courier New", monospace;
+  font-size: 10.5pt;
+  margin: 10px 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 10px 0;
+}
+.step-card {
+  border: 1px solid #cfdedb;
+  padding: 10px 12px;
+  border-radius: 5px;
+  background: #f8fbfa;
+}
+.step-card .num {
+  display: inline-block;
+  background: #0e3b36;
+  color: #fff;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  text-align: center;
+  font-weight: 800;
+  font-size: 9pt;
+  line-height: 20px;
+  font-family: Arial, Helvetica, sans-serif;
+  margin-right: 6px;
+}
+
+table.ref {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 14px 0;
+  font-size: 10pt;
+}
+table.ref th, table.ref td {
+  padding: 6px 8px;
+  border: 1px solid #cfdedb;
+  text-align: left;
+  vertical-align: top;
+}
+table.ref th {
+  background: #0e3b36;
+  color: #fff;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 800;
+}
+table.ref tr:nth-child(even) td { background: #f8fbfa; }
+
+.pageбreak, .page-break { break-before: page; page-break-before: always; }
+
+footer.footer {
+  margin-top: 40px;
+  padding-top: 10px;
+  border-top: 1.5px solid #cfdedb;
+  font-size: 8.5pt;
+  color: #6a7c79;
+  display: flex;
+  justify-content: space-between;
+}
+
+.toolbar {
+  background: #0e3b36;
+  color: #fff;
+  padding: 10px 14px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.toolbar a { color: #e3c36b; text-decoration: none; font-weight: 700; }
+.toolbar button {
+  background: #e3c36b;
+  color: #0e3b36;
+  border: 0;
+  padding: 6px 14px;
+  font-weight: 800;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+}
+@media print { .toolbar { display: none; } }

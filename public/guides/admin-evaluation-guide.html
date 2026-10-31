@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AMQM Admin Guide. Managing Qur'an Evaluations.</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/guides/guide-styles.css">
+</head>
+<body>
+
+<div class="toolbar">
+  <span>Admin Guide. Print to PDF when you are ready.</span>
+  <button onclick="window.print()">Print or Save as PDF</button>
+</div>
+
+<div class="sheet">
+
+<header class="masthead">
+  <img src="/images/branding/amqm-logo-watermark.webp" alt="AMQM">
+  <div class="school">
+    <div class="name">Aliyu and Maimuna Center for Qur'anic Memorization</div>
+    <div class="sub">Yola, Adamawa State, Nigeria.</div>
+  </div>
+  <div class="doc-tag">
+    <div>For Administrators</div>
+    <div class="ref">AMQM / EVAL / ADMIN / 2026</div>
+    <div>Issued by the Office of the Principal</div>
+  </div>
+</header>
+
+<h1>Admin Guide to Qur'an Evaluations</h1>
+<div class="subtitle">Opening a round, reviewing submissions, approving work and keeping the record clean.</div>
+
+<h2>Your job, summarised</h2>
+<p>
+  You have four duties within the evaluation engine.
+</p>
+<ol>
+  <li>Set the Calendar dates for the three evaluations in the current
+    term, in advance.</li>
+  <li>Press Open on the round when the window is due. Teachers then
+    see it on their dashboards.</li>
+  <li>Review the submissions as they arrive. Approve a row to lock
+    the student's new position in. Return a row if something needs
+    correcting.</li>
+  <li>Press Close when the round is finished, or let it run until the
+    Calendar close date.</li>
+</ol>
+
+<h2>Where dates live</h2>
+<p>
+  All evaluation dates come from the School Calendar page. Not from
+  the Evaluations page itself. When you want to change when Eval 1,
+  Eval 2 or Eval 3 opens or closes, you edit it on the Calendar and
+  save. The Evaluations page simply reflects what the Calendar says,
+  and any date change you make will propagate automatically to any
+  open evaluation campaign.
+</p>
+<div class="callout">
+  Keep this in mind. The Evaluations page does not ask you for a
+  closing date because the Calendar already knows it. One place, one
+  truth.
+</div>
+
+<h2>Step one. Setting Calendar dates (once per term)</h2>
+<ol>
+  <li>Open the <b>School Calendar</b> page.</li>
+  <li>Choose the term you are configuring (First Term, Second Term or
+    Third Term for the current academic year).</li>
+  <li>Scroll to the term's Evaluation Dates section.</li>
+  <li>For each of the three evaluations, set an Opens date and time
+    and a Closes date and time.</li>
+  <li>Press Save.</li>
+</ol>
+<p>
+  You do not have to configure all three in one sitting. You can set
+  Eval 1 now, run it, and come back later to set Eval 2 before it is
+  due. The system will refuse to open an evaluation if its Calendar
+  date is in the past.
+</p>
+
+<h2>Step two. Opening a round on the day</h2>
+<ol>
+  <li>Open the <b>Evaluations</b> page from the sidebar.</li>
+  <li>At the top of the page you see three cards, one per round. Each
+    card shows its Calendar close date and the current status (Not
+    Opened, Open or Closed).</li>
+  <li>Press <b>Open</b> on the round you want to run. The system does
+    everything else in the background.</li>
+</ol>
+
+<h3>What the system does when you press Open</h3>
+<ul>
+  <li>It creates a fresh evaluation campaign row linked to the
+    Calendar event.</li>
+  <li>It makes sure every active class in the term is attached to the
+    campaign.</li>
+  <li>It creates one draft evaluation row per active student in every
+    attached class.</li>
+  <li>Each draft row stamps the student's current position as the
+    locked starting position. That means a student at At Tahrim ayah
+    12 will have exactly that as their starting point. Each row is
+    then assigned to the current primary teacher of the student's
+    class.</li>
+  <li>Teachers see the open window and the countdown on their next
+    refresh of their own Evaluations page.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>Step three. Reviewing teacher submissions</h2>
+<p>
+  As teachers press Submit all on their class, their rows arrive in
+  the Pending Teacher Submissions section at the bottom of your
+  Evaluations page. Classes are grouped. Each group shows how many
+  rows are pending and how many were returned to the teacher.
+</p>
+<p>
+  Open a class group and you see one row per student with the
+  following details.
+</p>
+<table class="ref">
+  <thead><tr><th>Field</th><th>What you are seeing</th></tr></thead>
+  <tbody>
+    <tr><td>Student</td><td>Full name, admission number, section, direction.</td></tr>
+    <tr><td>Score</td><td>The student's live Qur'an completion percentage at the stopping position the teacher recorded. This is the main number.</td></tr>
+    <tr><td>Memorized ayahs</td><td>The ayah count behind that percentage, out of 6,236.</td></tr>
+    <tr><td>Pages covered</td><td>The equivalent in standard mushaf pages, out of 604.</td></tr>
+    <tr><td>Hizb covered</td><td>Progress expressed in hizbs.</td></tr>
+    <tr><td>Memorization, Accuracy, Fluency, Tajweed, Retention</td>
+      <td>The teacher's five quality scores, each out of five. Think of these as coaching notes, not the main score.</td></tr>
+    <tr><td>Teacher comment</td><td>Any written observation the teacher included.</td></tr>
+  </tbody>
+</table>
+
+<h3>Clicking <b>Approve</b></h3>
+<p>
+  When you approve a row, the system does four things in a single
+  transaction.
+</p>
+<ol>
+  <li>The evaluation record is marked approved with your identity and
+    the exact approval time.</li>
+  <li>The student's official current surah, current ayah, current page
+    and current hizb all advance to the stopping position recorded by
+    the teacher.</li>
+  <li>Their report card is updated immediately. Parents will see the
+    new position on the next load.</li>
+  <li>A full before and after snapshot of the student record is
+    written into the audit log so the change can be traced any time.</li>
+</ol>
+<p>
+  If the student was on their final evaluation of the programme and
+  the stopping position reaches the end of the mushaf in their
+  memorization direction, the system automatically marks the student
+  graduated and issues the completion certificate.
+</p>
+
+<h3>Clicking <b>Return</b></h3>
+<p>
+  Returning a row sends it back to the teacher with a short written
+  reason. Use this when something looks wrong and you want the
+  teacher to correct it. Typical reasons include a stopping position
+  that looks too optimistic, an obvious typo in the ayah number, or a
+  comment that needs clarifying. The row's status changes to Returned
+  and reappears on the teacher's grid with a red Returned badge and
+  your written note. The teacher corrects it and resubmits, and the
+  row then returns to your queue.
+</p>
+
+<div class="callout">
+  A returned row is still part of the evaluation. It is not deleted or
+  reset. Only once a row is approved is anything written to the
+  student's permanent position record.
+</div>
+
+<h2>Step four. Closing the round</h2>
+<p>
+  You can let the round close automatically on the Calendar date, or
+  press <b>Close now</b> on the round card at any time.
+</p>
+<ul>
+  <li>The window locks. Teachers can no longer submit new rows.</li>
+  <li>Nothing is automatically submitted. Any teacher draft that was
+    not finished stays as a draft on the system.</li>
+  <li>If you need to run the round longer, press <b>Re-open</b> and
+    pick a new close date through the Calendar.</li>
+</ul>
+
+<div class="page-break"></div>
+
+<h2>Common situations and how to handle them</h2>
+
+<h3>I want to open Eval 1 but the Not Opened card refuses to open</h3>
+<p>
+  The system refuses to open an evaluation whose Calendar close date
+  is in the past or missing. Open the School Calendar, set a close
+  date in the future for that evaluation, save, come back to the
+  Evaluations page and press Open.
+</p>
+
+<h3>A teacher left the school in the middle of a round</h3>
+<p>
+  Reassign their class to another teacher on the Classes page. On the
+  new teacher's next refresh of their Evaluations page, every pending
+  row for every student in that class will appear in their list. You
+  do not need to re-create the campaign or re-stamp the starting
+  positions. The system matches teachers through the live class
+  teacher link.
+</p>
+
+<h3>A student is sick and misses this round</h3>
+<p>
+  Leave their row as draft. When the round closes, their row stays
+  unapproved. On the next round, their starting position will be
+  what it was when this round opened, because the system only
+  advances a position when a round is approved. Their journey does
+  not get rewritten.
+</p>
+
+<h3>I accidentally approved the wrong row</h3>
+<p>
+  Open the student's profile, choose Edit, and correct the position
+  by hand. The admin profile edit is audit logged. If the mistake is
+  big, contact the super admin to use the one off position restore
+  helper. Nothing is ever lost; everything is in the audit log.
+</p>
+
+<h3>Teachers tell me they cannot find the Evaluations page</h3>
+<p>
+  Check they are using the Teacher sign in, not an admin sign in.
+  Their sidebar should show Evaluations as a menu item. If it does
+  not appear, confirm the staff profile has the teacher role on the
+  Users page.
+</p>
+
+<h3>The scorecard tile on the admin dashboard says Pending Reviews is above zero</h3>
+<p>
+  That is a reminder that teacher submissions are waiting for your
+  action. Click the tile and work through the Pending Teacher
+  Submissions section until the count returns to zero.
+</p>
+
+<h2>A quick admin checklist, per round</h2>
+<div class="callout">
+  <ol style="margin-left:14px">
+    <li>Confirm the School Calendar has sensible open and close dates
+      for Eval 1, Eval 2 and Eval 3 of the current term.</li>
+    <li>Open the Evaluations page. Press Open on the round whose day
+      has arrived.</li>
+    <li>Monitor the Pending Reviews tile on the admin dashboard.</li>
+    <li>Open each submitted class, approve the rows that look correct,
+      return the ones that need a correction with a short reason.</li>
+    <li>When the round is done, press Close now (or let the Calendar
+      close it automatically).</li>
+    <li>Repeat for the next round.</li>
+  </ol>
+</div>
+
+<footer class="footer">
+  <span>AMQM, Yola. Admin Guide.</span>
+  <span>Qur'an Evaluation Engine.</span>
+</footer>
+
+</div>
+</body>
+</html>
