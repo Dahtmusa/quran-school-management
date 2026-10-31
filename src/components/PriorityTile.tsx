@@ -18,9 +18,10 @@ export function PriorityTile({ title, value, status, cta, href, note, onClick }:
   : status === 'alert' ? 'bg-rose-600    text-white hover:bg-rose-700'
   :                      'bg-slate-900   text-white hover:bg-slate-800';
   const inner = <>
-    <div className="text-[10px] font-black uppercase tracking-wider opacity-70">{title}</div>
-    <div className="mt-1 text-3xl font-black">{value}</div>
-    {note && <div className="mt-1 text-[11px] opacity-80">{note}</div>}
+    <div className="text-[10px] font-black uppercase tracking-wider opacity-70 truncate">{title}</div>
+    {/* tabular-nums + truncate keeps long numeric values on one line */}
+    <div className="mt-1 text-3xl font-black tabular-nums tracking-tight truncate">{value}</div>
+    {note && <div className="mt-1 line-clamp-2 text-[11px] opacity-80">{note}</div>}
     <span className={`mt-4 inline-flex items-center justify-center rounded-xl px-3 py-2 text-xs font-black transition ${btn}`}>
       {cta} →
     </span>

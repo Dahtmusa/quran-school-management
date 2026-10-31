@@ -18,7 +18,6 @@ type Readiness = Record<string, number | boolean | null | undefined>;
 export default function AdminDashboard() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
-  const [settings, setSettings]   = useState<any>({});
   const [studentCount, setStudentCount] = useState<number>(0);
   const [staffCount, setStaffCount]     = useState<number>(0);
   const [pendingEvals, setPendingEvals] = useState<number>(0);
@@ -28,17 +27,24 @@ export default function AdminDashboard() {
     Promise.all([
       loadStudents(), loadEvaluations(), loadStaffProfiles(),
       loadCMSSettings(), loadAdminDashboardSnapshot(), loadDigitalLaunchReadiness(),
-    ]).then(([s, e, st, ss, d, r]) => {
+    ]).then(([s, e, st, _ss, d, r]) => {
       setStudentCount(s.length);
       setStaffCount(st.filter((p: any) => p.employment_status === 'active' && p.role !== 'parent').length);
       setPendingEvals(e.filter((ev: any) => ev.status === 'Pending Approval').length);
-      setSettings(ss);
       setSnapshot(d);
       setReadiness(r as Readiness);
     }).finally(() => setLoading(false));
   }, []);
 
-  const currency = settings.currency?.symbol || '₦';
+  // Always use the ₦ symbol here (not the raw "NGN" text) and keep
+  // large amounts compact so the tile does not overflow at common
+  // widths. "11,620,000" turns into "11.6M".
+  const fmtMoney = (n: number) => {
+    const abs = Math.abs(n);
+    if (abs >= 1_000_000) return `₦${(n / 1_000_000).toFixed(abs >= 10_000_000 ? 0 : 1)}M`;
+    if (abs >= 10_000)    return `₦${(n / 1_000).toFixed(0)}K`;
+    return `₦${n.toLocaleString()}`;
+  };
   const expected    = Number(snapshot?.fees_due ?? 0);
   const collected   = Number(snapshot?.fees_paid ?? 0);
   const outstanding = Math.max(0, expected - collected);
@@ -91,8 +97,8 @@ export default function AdminDashboard() {
           />
           <PriorityTile
             title="Outstanding fees"
-            value={`${currency}${outstanding.toLocaleString()}`}
-            note={expected ? `${collectRate}% collection rate` : 'No fees configured'}
+            value={fmtMoney(outstanding)}
+            note={expected ? `${collectRate}% collection · ${fmtMoney(expected)} expected` : 'No fees configured'}
             status={outstanding > expected * 0.5 ? 'alert' : outstanding > 0 ? 'warn' : 'ok'}
             cta="Open finance"
             href="/fees"
