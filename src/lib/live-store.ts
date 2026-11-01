@@ -160,7 +160,17 @@ export async function createStudent(input:{admissionNo?:string;fullName:string;d
 export async function updateStudentBasic(studentId:string,input:Partial<{full_name:string;admission_no:string;date_of_birth:string|null;gender:string|null;status:string;photo_url?:string|null}>){const {data,error}=await supabase().from('students').update(input).eq('id',studentId).select('id');if(error)throw error;if(!data||!data.length)throw new Error('Permission denied updating student (0 rows). Sign out and back in, then retry.');}
 export async function updateStudentMemorization(studentId:string,input:{memorization_direction:'nas_to_baqarah'|'baqarah_to_nas';start_surah:number;start_ayah:number;current_surah:number;current_ayah:number;program_year:'year_1'|'year_2'}){const {error}=await supabase().rpc('staff_update_student_quran_profile',{p_student_id:studentId,p_direction:input.memorization_direction,p_start_surah:input.start_surah,p_start_ayah:input.start_ayah,p_current_surah:input.current_surah,p_current_ayah:input.current_ayah,p_program_year:input.program_year});if(error)throw error;}
 export async function loadStaffProfiles(){const {data,error}=await supabase().from('profiles').select('id,full_name,role,email,phone,avatar_url,staff_id,employment_status,job_title,department,joined_on,created_at,id_expires_on,bio,show_on_website,username,qualifications,experience,subjects,preferred_email').order('full_name');if(error){console.error('[AMQM] loadStaffProfiles error:',error);return [];}if(!data)return [];return data;}
-export async function createStaffAccount(input:{fullName:string;email:string;password:string;role:string;phone?:string;jobTitle?:string;department?:string;joinedOn?:string}){const {data,error}=await supabase().functions.invoke('admin-create-user',{body:{full_name:input.fullName,email:input.email,password:input.password,role:input.role,phone:input.phone||null,job_title:input.jobTitle||null,department:input.department||null,joined_on:input.joinedOn||null}});if(error)throw error;if(data?.error)throw new Error(data.error);return data;}
+export async function createStaffAccount(input:{fullName:string;email:string;password:string;role:string;phone?:string;jobTitle?:string;department?:string;joinedOn?:string}){
+  const {data,error}=await supabase().functions.invoke('admin-create-user',{body:{full_name:input.fullName,email:input.email,password:input.password,role:input.role,phone:input.phone||null,job_title:input.jobTitle||null,department:input.department||null,joined_on:input.joinedOn||null}});
+  if(error){
+    // Surface the real reason the edge function rejected the request.
+    let detail='';
+    try{ const r=(error as any).context; if(r&&typeof r.json==='function'){ const body=await r.json(); detail=body?.error||JSON.stringify(body);} }catch{}
+    throw new Error(detail||error.message||'Could not create the account');
+  }
+  if(data?.error)throw new Error(data.error);
+  return data;
+}
 export async function updateStaffProfile(id:string,input:any){const {error}=await supabase().from('profiles').update(input).eq('id',id);if(error)throw error;}
 export async function adminLayOffStaff(staffId:string,reason:string,lastDay?:string|null){const {data,error}=await supabase().rpc('admin_lay_off_staff',{p_staff_id:staffId,p_reason:reason,p_last_day:lastDay||null});if(error)throw error;return data;}
 export async function adminReinstateStaff(staffId:string){const {data,error}=await supabase().rpc('admin_reinstate_staff',{p_staff_id:staffId});if(error)throw error;return data;}
