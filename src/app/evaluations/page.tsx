@@ -68,9 +68,14 @@ export default function EvaluationsAdmin() {
     return closed ? new Set([closed.evaluation_number]) : new Set<number>();
   }, [roundState]);
 
-  const termName = terms.find(t => t.id === termId)?.name;
+  // loadEvaluations already scopes rows to the current term at the DB
+  // level, so no need to also match ev.term as a string here (that
+  // match was silently dropping rows whose term label did not match
+  // the dropdown exactly). We also drop the activeRoundNumbers filter
+  // so returned rows from a previously-closed round still show up for
+  // admin follow up.
   const evalsByClass = useMemo(() => {
-    const actionable = evals.filter((ev: any) => (ev.status === 'Pending Approval' || ev.status === 'Returned') && (!termName || ev.term === termName) && activeRoundNumbers.has(Number(ev.number)));
+    const actionable = evals.filter((ev: any) => ev.status === 'Pending Approval' || ev.status === 'Returned');
     const map = new Map<string, { className: string; evals: any[] }>();
     for (const ev of actionable) {
       const key = ev.classId || 'unassigned';
@@ -79,7 +84,7 @@ export default function EvaluationsAdmin() {
       map.get(key)!.evals.push(ev);
     }
     return [...map.entries()].map(([classId, v]) => ({ classId, ...v, evals: v.evals.sort((a, b) => (b.score || 0) - (a.score || 0)) }));
-  }, [evals, termName, activeRoundNumbers]);
+  }, [evals]);
 
   return <AdminShell title="Evaluations">
     <div className="space-y-6">
