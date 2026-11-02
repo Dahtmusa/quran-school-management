@@ -6,8 +6,34 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   loadPotentialAlumni, loadAlumniList, loadAlumniFull,
   promoteToAlumni, toggleAlumniPublication,
+  adminSendEvaluationBack, adminCorrectQuranRecord,
 } from '@/lib/live-store';
 import CertificateModal from './CertificateModal';
+import { SURAHS } from '@/lib/quran';
+
+type FixForm = {
+  direction: 'nas_to_baqarah' | 'baqarah_to_nas';
+  startSurah: number; startAyah: number;
+  currentSurah: number; currentAyah: number;
+  fixEval: boolean;
+  evalFromSurah: number; evalFromAyah: number; evalToSurah: number; evalToAyah: number;
+  reason: string;
+};
+
+function PositionInput({ label, surah, ayah, onChange }: { label: string; surah: number; ayah: number; onChange: (s: number, a: number) => void }) {
+  const max = SURAHS.find(s => s.id === surah)?.ayahs ?? 286;
+  return (
+    <label className="block text-xs font-bold text-slate-700">{label}
+      <div className="mt-1 grid grid-cols-[1fr_90px] gap-2">
+        <select className="input w-full" value={surah} onChange={e => onChange(Number(e.target.value), 1)}>
+          {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+        </select>
+        <input type="number" min={1} max={max} className="input w-full" value={ayah}
+          onChange={e => onChange(surah, Math.min(max, Math.max(1, Number(e.target.value) || 1)))} />
+      </div>
+    </label>
+  );
+}
 
 type Potential = {
   student_id: string; full_name: string; admission_no: string; photo_url: string | null;
@@ -15,6 +41,9 @@ type Potential = {
   current_surah: number; current_ayah: number; progress_percent: number; status: string;
   outstanding_fees: number; evaluations_count: number; already_promoted: boolean;
   last_evaluation: string | null; issues: string[] | null; ready: boolean;
+  start_surah: number; start_ayah: number;
+  last_evaluation_id: string | null; last_from_surah: number | null; last_from_ayah: number | null;
+  last_to_surah: number | null; last_to_ayah: number | null;
 };
 type Confirmed = {
   alumni_id: string; student_id: string; full_name: string; graduation_year: number;
@@ -39,6 +68,55 @@ export default function AdminAlumniPage() {
   const [promoteTerm, setPromoteTerm] = useState('Term 3');
   const [promoteIssueCert, setPromoteIssueCert] = useState(true);
   const [dossier, setDossier] = useState<any>(null);
+  const [sendBack, setSendBack] = useState<Potential | null>(null);
+  const [sendBackNote, setSendBackNote] = useState('');
+  const [fixing, setFixing] = useState<Potential | null>(null);
+  const [fix, setFix] = useState<FixForm | null>(null);
+
+  function openFix(p: Potential) {
+    setFixing(p);
+    setFix({
+      direction: p.memorization_direction === 'baqarah_to_nas' ? 'baqarah_to_nas' : 'nas_to_baqarah',
+      startSurah: p.start_surah, startAyah: p.start_ayah,
+      currentSurah: p.last_to_surah ?? p.current_surah, currentAyah: p.last_to_ayah ?? p.current_ayah,
+      fixEval: !!p.last_evaluation_id,
+      evalFromSurah: p.last_from_surah ?? p.current_surah, evalFromAyah: p.last_from_ayah ?? p.current_ayah,
+      evalToSurah: p.last_to_surah ?? p.current_surah, evalToAyah: p.last_to_ayah ?? p.current_ayah,
+      reason: '',
+    });
+  }
+
+  async function doSendBack() {
+    if (!sendBack?.last_evaluation_id) return;
+    setBusy(true); setMessage('');
+    try {
+      const r = await adminSendEvaluationBack(sendBack.last_evaluation_id, sendBackNote);
+      setMessage(`${sendBack.full_name}'s evaluation was sent back to ${r.teacher_name}. Their position is back at ${r.student_position} until the teacher resubmits and you approve it.`);
+      setSendBack(null);
+      await refresh();
+    } catch (e: any) { setMessage(e?.message || 'Could not send it back.'); }
+    finally { setBusy(false); }
+  }
+
+  async function doFix() {
+    if (!fixing || !fix) return;
+    setBusy(true); setMessage('');
+    try {
+      const r = await adminCorrectQuranRecord({
+        studentId: fixing.student_id, direction: fix.direction,
+        startSurah: fix.startSurah, startAyah: fix.startAyah,
+        currentSurah: fix.currentSurah, currentAyah: fix.currentAyah,
+        reason: fix.reason,
+        evaluationId: fix.fixEval ? fixing.last_evaluation_id : null,
+        evalFromSurah: fix.evalFromSurah, evalFromAyah: fix.evalFromAyah,
+        evalToSurah: fix.evalToSurah, evalToAyah: fix.evalToAyah,
+      });
+      setMessage(`${fixing.full_name}'s record was corrected. Current position is now ${r.current}.`);
+      setFixing(null); setFix(null);
+      await refresh();
+    } catch (e: any) { setMessage(e?.message || 'Correction failed.'); }
+    finally { setBusy(false); }
+  }
   const [certPrint, setCertPrint] = useState<any>(null); // full dossier object
 
   const refresh = useCallback(async () => {
@@ -172,8 +250,18 @@ export default function AdminAlumniPage() {
                   Promote to alumni
                 </button>
               ) : (
-                <div className="flex flex-col items-end gap-1">
-                  <button className="btn bg-slate-200 text-slate-500 cursor-not-allowed" disabled>Promote to alumni</button>
+                <div className="flex flex-col items-end gap-1.5">
+                  <div className="flex flex-wrap justify-end gap-2">
+                    {p.last_evaluation_id && (
+                      <button className="btn bg-amber-100 text-amber-900 text-sm py-1.5" disabled={busy}
+                        onClick={() => { setSendBack(p); setSendBackNote(`Please check this evaluation and enter the correct stopping position.\n\nWhat looks wrong:\n${(p.issues || []).map(i => '• ' + i).join('\n')}`); }}>
+                        Send back to teacher
+                      </button>
+                    )}
+                    <button className="btn bg-emerald-900 text-white text-sm py-1.5" disabled={busy} onClick={() => openFix(p)}>
+                      Fix directly
+                    </button>
+                  </div>
                   <button className="text-[11px] font-bold text-rose-700 underline" disabled={busy}
                     onClick={() => { if (!window.confirm(`${p.full_name}'s records don't confirm they finished:\n\n${(p.issues || []).join('\n')}\n\nPromote anyway? This creates a certificate.`)) return; setPromote(p); setPromoteCohort(''); setPromoteYear(new Date().getFullYear()); }}>
                     I&apos;ve verified it, promote anyway
@@ -222,6 +310,72 @@ export default function AdminAlumniPage() {
         </div>
       )}
     </section>}
+
+    {/* Send back to teacher */}
+    {sendBack && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-12 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+      <h2 className="text-xl font-black text-amber-900">Send back to teacher</h2>
+      <p className="mt-1 text-sm text-slate-600">{sendBack.full_name} · {sendBack.admission_no} · Teacher: {sendBack.teacher_name || '—'}</p>
+      <div className="mt-3 rounded-2xl bg-amber-50 p-4 text-xs leading-5 text-amber-900">
+        The evaluation <b>{sendBack.last_evaluation}</b> goes back to the teacher&apos;s Evaluations page as <b>Returned</b>, with your note.
+        Until they resubmit and you approve it, {sendBack.full_name}&apos;s position goes back to <b>{sendBack.last_from_surah}:{sendBack.last_from_ayah}</b>, where it was before this evaluation.
+        The teacher can change the stopping position. If the <b>starting</b> position or the <b>direction</b> is wrong, use Fix directly instead.
+      </div>
+      <label className="mt-4 block text-xs font-bold text-slate-700">Note to the teacher
+        <textarea className="input mt-1 w-full text-sm" rows={6} value={sendBackNote} onChange={e => setSendBackNote(e.target.value)} />
+      </label>
+      <div className="mt-5 flex justify-end gap-2">
+        <button className="btn bg-slate-100" onClick={() => setSendBack(null)}>Cancel</button>
+        <button className="btn bg-amber-600 text-white font-black" disabled={busy || !sendBackNote.trim()} onClick={doSendBack}>{busy ? 'Sending…' : 'Send back'}</button>
+      </div>
+    </div></div>}
+
+    {/* Fix directly */}
+    {fixing && fix && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-8 w-full max-w-2xl rounded-3xl bg-white p-6 shadow-2xl">
+      <h2 className="text-xl font-black text-emerald-900">Fix Qur&apos;an record</h2>
+      <p className="mt-1 text-sm text-slate-600">{fixing.full_name} · {fixing.admission_no} · Teacher: {fixing.teacher_name || '—'}</p>
+      {(fixing.issues?.length ?? 0) > 0 && (
+        <ul className="mt-3 space-y-0.5 rounded-2xl bg-rose-50 p-3 text-[12px] font-semibold text-rose-800">
+          {fixing.issues!.map(i => <li key={i}>• {i}</li>)}
+        </ul>
+      )}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <label className="block text-xs font-bold text-slate-700">Memorization direction
+          <select className="input mt-1 w-full" value={fix.direction} onChange={e => setFix({ ...fix, direction: e.target.value as FixForm['direction'] })}>
+            <option value="nas_to_baqarah">Nas → Baqarah (starts at An-Nās, ends at 1:1)</option>
+            <option value="baqarah_to_nas">Baqarah → Nas (starts at Al-Baqarah, ends at 114:6)</option>
+          </select>
+        </label>
+        <PositionInput label="Started memorizing at" surah={fix.startSurah} ayah={fix.startAyah} onChange={(s, a) => setFix({ ...fix, startSurah: s, startAyah: a })} />
+      </div>
+
+      {fixing.last_evaluation_id && (
+        <div className="mt-4 rounded-2xl border border-slate-200 p-4">
+          <label className="flex items-center gap-2 text-sm font-black text-slate-800">
+            <input type="checkbox" checked={fix.fixEval} onChange={e => setFix({ ...fix, fixEval: e.target.checked })} />
+            Also correct the last approved evaluation ({fixing.last_evaluation})
+          </label>
+          {fix.fixEval && <div className="mt-3 grid gap-4 md:grid-cols-2">
+            <PositionInput label="Evaluation started at" surah={fix.evalFromSurah} ayah={fix.evalFromAyah} onChange={(s, a) => setFix({ ...fix, evalFromSurah: s, evalFromAyah: a })} />
+            <PositionInput label="Evaluation stopped at" surah={fix.evalToSurah} ayah={fix.evalToAyah}
+              onChange={(s, a) => setFix({ ...fix, evalToSurah: s, evalToAyah: a, currentSurah: s, currentAyah: a })} />
+          </div>}
+        </div>
+      )}
+
+      <div className="mt-4 grid gap-4 md:grid-cols-2">
+        <PositionInput label="Current position (where the student is now)" surah={fix.currentSurah} ayah={fix.currentAyah} onChange={(s, a) => setFix({ ...fix, currentSurah: s, currentAyah: a })} />
+        <label className="block text-xs font-bold text-slate-700">Reason (kept in the audit log)
+          <input className="input mt-1 w-full" value={fix.reason} placeholder="e.g. Confirmed with teacher; stop was mistyped" onChange={e => setFix({ ...fix, reason: e.target.value })} />
+        </label>
+      </div>
+      <p className="mt-3 text-[11px] text-slate-500">The current position usually equals where the last evaluation stopped. The score and grade of a corrected evaluation are recalculated, and any open draft evaluation moves to start from the new current position.</p>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <button className="btn bg-slate-100" onClick={() => { setFixing(null); setFix(null); }}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy || !fix.reason.trim()} onClick={doFix}>{busy ? 'Saving…' : 'Save correction'}</button>
+      </div>
+    </div></div>}
 
     {/* Promote modal */}
     {promote && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-12 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">

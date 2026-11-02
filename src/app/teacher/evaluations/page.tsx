@@ -3,6 +3,8 @@
 // Eval 1 / 2 / 3 with live countdown, and a clean entry grid where
 // every row CLEARLY shows the student's name, admission number,
 // their starting position (locked), and their memorization direction.
+// Evaluations the admin sent back appear in their own section, with the
+// admin's note, whether or not an evaluation window is open.
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
@@ -65,10 +67,11 @@ export default function TeacherEvaluationsPage() {
     if (first === 1 || first === 2 || first === 3) setPicked(first);
   }, [windows, picked]);
 
+  const returnedEntries = useMemo(() => entries.filter(e => e.status === 'returned'), [entries]);
   const pickedWindow = picked ? openByNumber[picked] : null;
   const pickedEntries = useMemo(() => {
     if (!picked) return [];
-    return entries.filter(e => Number(e.evaluation_number) === picked);
+    return entries.filter(e => e.status !== 'returned' && Number(e.evaluation_number) === picked);
   }, [entries, picked]);
 
   // "Moved" means teacher really advanced the student from the stored
@@ -81,6 +84,16 @@ export default function TeacherEvaluationsPage() {
     return f.toSurah < r.from_surah || (f.toSurah === r.from_surah && f.toAyah < r.from_ayah);
   }
 
+  async function submitOne(r: TeacherEvalEntry) {
+    const f = forms[r.evaluation_id];
+    // Score = the student's TRUE Qur'an completion % at their new
+    // stopping position (direction-aware). Rubrics are quality
+    // notes stored separately; they do NOT affect the headline %.
+    const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
+    const score = Math.round(absoluteProgress({ surah: f.toSurah, ayah: f.toAyah }, dir).percent * 10) / 10;
+    await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
+  }
+
   async function submitAll() {
     if (!pickedEntries.every(hasMoved)) {
       setMessage('Every student needs a valid stopping position — it must move from their starting position in the correct memorization direction.');
@@ -88,18 +101,24 @@ export default function TeacherEvaluationsPage() {
     }
     setBusy(true); setMessage('');
     try {
-      for (const r of pickedEntries) {
-        const f = forms[r.evaluation_id];
-        // Score = the student's TRUE Qur'an completion % at their new
-        // stopping position (direction-aware). Rubrics are quality
-        // notes stored separately; they do NOT affect the headline %.
-        const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
-        const score = Math.round(absoluteProgress({ surah: f.toSurah, ayah: f.toAyah }, dir).percent * 10) / 10;
-        await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
-      }
+      for (const r of pickedEntries) await submitOne(r);
       await refresh();
       setMessage(`Evaluation ${picked} submitted to Admin for review.`);
     } catch (e: any) { setMessage(e?.message || 'Submission failed.'); }
+    finally { setBusy(false); }
+  }
+
+  async function resubmit(r: TeacherEvalEntry) {
+    if (!hasMoved(r)) {
+      setMessage(`${r.full_name}: the stopping position must move from the starting position in the correct memorization direction.`);
+      return;
+    }
+    setBusy(true); setMessage('');
+    try {
+      await submitOne(r);
+      await refresh();
+      setMessage(`${r.full_name}'s corrected evaluation was resubmitted to Admin for review.`);
+    } catch (e: any) { setMessage(e?.message || 'Resubmission failed.'); }
     finally { setBusy(false); }
   }
 
@@ -112,9 +131,102 @@ export default function TeacherEvaluationsPage() {
     return `${d}d ${pad(h)}:${pad(m)}:${pad(s)}`;
   }
 
+  function renderRow(r: TeacherEvalEntry, idx: number) {
+    const f = forms[r.evaluation_id];
+    if (!f) return null;
+    const start = { surah: Number(r.from_surah), ayah: Number(r.from_ayah) };
+    const stop  = { surah: f.toSurah, ayah: f.toAyah };
+    const dir   = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
+    const moved = hasMoved(r);
+    // "calc" = ayahs/pages covered THIS evaluation (sub-slice).
+    // "progress" = total Qur'an % at the stopping position --
+    // this is the real headline score.
+    const calc     = moved ? calculateEvaluation(start, stop, dir as any) : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
+    const progress = moved ? absoluteProgress(stop, dir as any)           : { ayahs: 0, pages: 0, hizbs: 0, percent: 0, remainingAyahs: 0 };
+    const score    = Math.round(progress.percent * 10) / 10;
+    const rubricAvg = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
+    const startName = SURAHS.find(s => s.id === r.from_surah)?.name ?? '?';
+    const returned = r.status === 'returned';
+    return <div key={r.evaluation_id} className="p-4">
+      {/* Row header: who is being evaluated, their direction, and their locked starting position. */}
+      <div className="flex flex-wrap items-center gap-3 mb-3">
+        <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-slate-200 text-xs font-black text-slate-500">#{idx + 1}</div>
+        {r.photo_url
+          ? <img src={r.photo_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
+          : <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">{r.full_name?.charAt(0) ?? '?'}</div>}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-black text-slate-900">{r.full_name}</div>
+          <div className="truncate text-[11px] text-slate-500">{r.admission_no}{r.class_name ? ` · ${r.class_name}` : ''}{returned ? ` · ${r.term_name ?? ''} · Evaluation ${r.evaluation_number}` : ''}</div>
+        </div>
+        <div className="rounded-xl bg-slate-50 px-3 py-1.5 text-right">
+          <div className="text-[10px] font-bold uppercase text-slate-400">Starting position</div>
+          <div className="text-xs font-black text-slate-800">{startName} : {r.from_ayah}</div>
+          <div className="text-[10px] text-slate-500">{dir}</div>
+        </div>
+      </div>
+
+      {returned && r.admin_comment && (
+        <div className="mb-3 whitespace-pre-line rounded-xl border border-amber-300 bg-amber-50 p-3 text-xs leading-5 text-amber-950">
+          <div className="mb-1 text-[10px] font-black uppercase tracking-wide text-amber-800">Admin&apos;s note</div>
+          {r.admin_comment}
+        </div>
+      )}
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+        <div className="space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="text-[11px] font-bold uppercase text-slate-500">Stopping surah
+              <select className="input mt-1 w-full" value={f.toSurah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toSurah: Number(e.target.value), toAyah: 1 } }))}>
+                {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+              </select>
+            </label>
+            <label className="text-[11px] font-bold uppercase text-slate-500">Stopping ayah
+              <input type="number" min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toAyah: Math.max(1, Number(e.target.value)) } }))} />
+            </label>
+          </div>
+          <div className="grid grid-cols-5 gap-2">
+            {([['mem', 'Mem'], ['acc', 'Acc'], ['flu', 'Flu'], ['taj', 'Taj'], ['ret', 'Ret']] as const).map(([k, lbl]) => (
+              <label key={k} className="text-center">
+                <div className="text-[10px] font-bold uppercase text-slate-500">{lbl}</div>
+                <select className="input mt-1 w-full text-sm" value={f[k]} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, [k]: Number(e.target.value) } }))}>
+                  {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+          <input type="text" placeholder="Comment (optional)" className="input w-full text-sm" value={f.comment} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, comment: e.target.value } }))} />
+        </div>
+        <div className="lg:w-36 lg:shrink-0 text-right lg:text-center">
+          <div className="text-[10px] font-bold uppercase text-slate-500">Qur&apos;an complete</div>
+          <div className={`mt-1 text-3xl font-black ${moved ? 'text-emerald-700' : 'text-slate-300'}`}>{moved ? `${score}%` : '—'}</div>
+          {moved && <>
+            <div className="mt-1 text-[10px] text-slate-500">{progress.ayahs.toLocaleString()} / 6,236 ayahs</div>
+            <div className="text-[10px] text-slate-500">{progress.pages} / 604 pages</div>
+            <div className="mt-2 text-[10px] text-slate-400">This eval: <b>+{calc.memorizedAyahs} ayahs · +{calc.memorizedPages} pages</b></div>
+            <div className="mt-1 text-[10px] text-slate-400">Quality: {rubricAvg}%</div>
+          </>}
+          {!moved && <div className="mt-1 text-[10px] font-bold text-rose-600">Position not moved</div>}
+          {returned && (
+            <button className="btn btn-primary mt-3 w-full" disabled={busy} onClick={() => resubmit(r)}>
+              {busy ? 'Sending…' : 'Resubmit'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>;
+  }
+
   return <AdminShell title="Evaluations">
     <div className="space-y-6">
       {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">{message}</div>}
+
+      {returnedEntries.length > 0 && <section className="card overflow-hidden border-2 border-amber-300">
+        <div className="border-b border-amber-200 bg-amber-50 p-5">
+          <h2 className="text-xl font-black text-amber-950">Sent back for correction ({returnedEntries.length})</h2>
+          <p className="mt-1 text-sm text-amber-900/80">Admin found a problem with these evaluations. Read the note, enter the correct stopping position, and press Resubmit. Admin will review it again.</p>
+        </div>
+        <div className="divide-y">{returnedEntries.map(renderRow)}</div>
+      </section>}
 
       <div className="grid gap-4 md:grid-cols-3">
         {[1, 2, 3].map(n => {
@@ -151,7 +263,7 @@ export default function TeacherEvaluationsPage() {
       {picked && pickedWindow && pickedEntries.length === 0 && (pickedWindow.my_eval_count > 0 ? (
         <section className="card border-2 border-emerald-200 bg-emerald-50 p-6">
           <h3 className="text-lg font-black text-emerald-900">All {pickedWindow.my_eval_count} student{pickedWindow.my_eval_count===1?'':'s'} already submitted</h3>
-          <p className="mt-2 text-sm text-emerald-900/80">Great work. Your Evaluation {picked} entries are now with Admin for review. If any are sent back for correction, they will reappear here.</p>
+          <p className="mt-2 text-sm text-emerald-900/80">Great work. Your Evaluation {picked} entries are now with Admin for review. If any are sent back for correction, they will appear at the top of this page.</p>
         </section>
       ) : (
         <section className="card border-2 border-amber-200 bg-amber-50 p-6">
@@ -171,79 +283,7 @@ export default function TeacherEvaluationsPage() {
           </button>
         </div>
 
-        <div className="divide-y">
-          {pickedEntries.map((r, idx) => {
-            const f = forms[r.evaluation_id];
-            if (!f) return null;
-            const start = { surah: Number(r.from_surah), ayah: Number(r.from_ayah) };
-            const stop  = { surah: f.toSurah, ayah: f.toAyah };
-            const dir   = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
-            const moved = hasMoved(r);
-            // "calc" = ayahs/pages covered THIS evaluation (sub-slice).
-            // "progress" = total Qur'an % at the stopping position --
-            // this is the real headline score.
-            const calc     = moved ? calculateEvaluation(start, stop, dir as any) : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
-            const progress = moved ? absoluteProgress(stop, dir as any)           : { ayahs: 0, pages: 0, hizbs: 0, percent: 0, remainingAyahs: 0 };
-            const score    = Math.round(progress.percent * 10) / 10;
-            const rubricAvg = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
-            const startName = SURAHS.find(s => s.id === r.from_surah)?.name ?? '?';
-            return <div key={r.evaluation_id} className="p-4">
-              {/* Row header: who is being evaluated, their direction, and their locked starting position. */}
-              <div className="flex flex-wrap items-center gap-3 mb-3">
-                <div className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-slate-200 text-xs font-black text-slate-500">#{idx + 1}</div>
-                {r.photo_url
-                  ? <img src={r.photo_url} alt="" className="h-10 w-10 rounded-xl object-cover" />
-                  : <div className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-sm font-black text-emerald-800">{r.full_name?.charAt(0) ?? '?'}</div>}
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-black text-slate-900">{r.full_name}</div>
-                  <div className="truncate text-[11px] text-slate-500">{r.admission_no}{r.class_name ? ` · ${r.class_name}` : ''}</div>
-                </div>
-                <div className="rounded-xl bg-slate-50 px-3 py-1.5 text-right">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Starting position</div>
-                  <div className="text-xs font-black text-slate-800">{startName} : {r.from_ayah}</div>
-                  <div className="text-[10px] text-slate-500">{dir}</div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
-                <div className="space-y-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="text-[11px] font-bold uppercase text-slate-500">Stopping surah
-                      <select className="input mt-1 w-full" value={f.toSurah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toSurah: Number(e.target.value), toAyah: 1 } }))}>
-                        {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
-                      </select>
-                    </label>
-                    <label className="text-[11px] font-bold uppercase text-slate-500">Stopping ayah
-                      <input type="number" min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toAyah: Math.max(1, Number(e.target.value)) } }))} />
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-5 gap-2">
-                    {([['mem', 'Mem'], ['acc', 'Acc'], ['flu', 'Flu'], ['taj', 'Taj'], ['ret', 'Ret']] as const).map(([k, lbl]) => (
-                      <label key={k} className="text-center">
-                        <div className="text-[10px] font-bold uppercase text-slate-500">{lbl}</div>
-                        <select className="input mt-1 w-full text-sm" value={f[k]} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, [k]: Number(e.target.value) } }))}>
-                          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                      </label>
-                    ))}
-                  </div>
-                  <input type="text" placeholder="Comment (optional)" className="input w-full text-sm" value={f.comment} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, comment: e.target.value } }))} />
-                </div>
-                <div className="lg:w-36 lg:shrink-0 text-right lg:text-center">
-                  <div className="text-[10px] font-bold uppercase text-slate-500">Qur'an complete</div>
-                  <div className={`mt-1 text-3xl font-black ${moved ? 'text-emerald-700' : 'text-slate-300'}`}>{moved ? `${score}%` : '—'}</div>
-                  {moved && <>
-                    <div className="mt-1 text-[10px] text-slate-500">{progress.ayahs.toLocaleString()} / 6,236 ayahs</div>
-                    <div className="text-[10px] text-slate-500">{progress.pages} / 604 pages</div>
-                    <div className="mt-2 text-[10px] text-slate-400">This eval: <b>+{calc.memorizedAyahs} ayahs · +{calc.memorizedPages} pages</b></div>
-                    <div className="mt-1 text-[10px] text-slate-400">Quality: {rubricAvg}%</div>
-                  </>}
-                  {!moved && <div className="mt-1 text-[10px] font-bold text-rose-600">Position not moved</div>}
-                </div>
-              </div>
-            </div>;
-          })}
-        </div>
+        <div className="divide-y">{pickedEntries.map(renderRow)}</div>
 
         <div className="flex justify-end border-t bg-slate-50 p-4">
           <button className="btn btn-primary" disabled={busy || pickedEntries.length === 0} onClick={submitAll}>

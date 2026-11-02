@@ -5,7 +5,7 @@ import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
 import QuranProgress from '@/components/QuranProgress';
 import { PriorityTile, PriorityTileGrid } from '@/components/PriorityTile';
-import { loadTeacherDirectory, loadTeacherEvaluations, loadTeacherEvalWindows, type TeacherEvalWindow, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
+import { loadTeacherEvalEntries, loadTeacherDirectory, loadTeacherEvaluations, loadTeacherEvalWindows, type TeacherEvalWindow, updateOwnProfile, uploadProfileImage, getCurrentProfile, submitTeacherEvaluation, saveMySignature, getMySignature, teacherUpdateStudentSection, teacherAssignStudentToClass, getUnassignedStudents, teacherUpdateStudentQuranProfile, teacherSetStudentStatus } from '@/lib/live-store';
 import SignaturePad, { type SignaturePadRef } from '@/components/SignaturePad';
 import { SURAHS, label, progressBetween, calculateEvaluation } from '@/lib/quran';
 import { automatedComment } from '@/lib/data';
@@ -32,6 +32,7 @@ export default function TeacherDashboard() {
   const [students, setStudents] = useState<any[]>([]);
   const [evaluations, setEvaluations] = useState<any[]>([]);
   const [evalWindows, setEvalWindows] = useState<TeacherEvalWindow[]>([]);
+  const [sentBackCount, setSentBackCount] = useState(0);
   const [now, setNow] = useState<number>(Date.now());
   useEffect(() => { const id = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(id); }, []);
   const [me, setMe] = useState<any>(null);
@@ -84,6 +85,7 @@ export default function TeacherDashboard() {
     setEvaluations(evaluationRows);
     setBoardingAttendance(attendanceRows);
     setEvalWindows(windows);
+    loadTeacherEvalEntries().then(rows => setSentBackCount(rows.filter(r => r.status === 'returned').length)).catch(() => {});
     return studentRows;
   };
   useEffect(() => {
@@ -192,6 +194,11 @@ export default function TeacherDashboard() {
   }), [students, studentSearch, studentView]);
 
   return <AdminShell title="Teacher Workspace"><div className="space-y-5">
+
+    {sentBackCount > 0 && <a href="/teacher/evaluations" className="block rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 hover:bg-amber-100">
+      <div className="text-sm font-black text-amber-950">{sentBackCount} evaluation{sentBackCount === 1 ? '' : 's'} sent back by Admin for correction</div>
+      <div className="mt-0.5 text-xs text-amber-900/80">Open Evaluations to read the note and resubmit →</div>
+    </a>}
 
     {/* Hero */}
     <section className="overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#062d2a] via-emerald-900 to-slate-900 p-5 text-white shadow-xl md:p-7">
