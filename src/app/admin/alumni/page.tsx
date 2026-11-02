@@ -363,17 +363,17 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
 
   const Signature = ({ person, designation }: { person: any; designation: string }) => (
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-      <div style={{ height: '11mm', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 2mm' }}>
+      <div style={{ height: '7mm', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 2mm' }}>
         {typeof person?.signature_data === 'string' && person.signature_data.length > 0
           ? <img src={person.signature_data} alt={`${person?.full_name || designation} signature`}
-              style={{ display: 'block', maxHeight: '10mm', maxWidth: '100%', objectFit: 'contain' }} />
-          : <div style={{ width: '70%', borderBottom: '0.3mm solid #173f35', marginBottom: '1.5mm' }} />}
+              style={{ display: 'block', maxHeight: '6.5mm', maxWidth: '100%', objectFit: 'contain' }} />
+          : <div style={{ width: '65%', borderBottom: '0.25mm solid #173f35', marginBottom: '1mm' }} />}
       </div>
-      <div style={{ width: '70%', borderTop: '0.3mm solid #b78325' }} />
-      <div style={{ marginTop: '1.2mm', color: '#123d32', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '9px', fontWeight: 700, lineHeight: 1.2, overflowWrap: 'anywhere' }}>
+      <div style={{ width: '65%', borderTop: '0.25mm solid #b78325' }} />
+      <div style={{ marginTop: '0.8mm', color: '#123d32', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7.5px', fontWeight: 700, lineHeight: 1.15, overflowWrap: 'anywhere' }}>
         {person?.full_name || '—'}
       </div>
-      <div style={{ marginTop: '0.5mm', color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '7.5px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+      <div style={{ marginTop: '0.3mm', color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '6.5px', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', lineHeight: 1.15 }}>
         {designation}
       </div>
     </div>
@@ -417,24 +417,25 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
             WebkitPrintColorAdjust: 'exact',
           } as any}
         >
-          {/* Header: real school logo + institution name, in the open top dome area */}
-          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '10mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ height: '15mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {/* Header: real school logo + institution name, pushed up into the
+              very top of the open dome area, with larger bolder type */}
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '4mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ height: '17mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {!logoFailed ? (
                 <img
                   src="/images/branding/amqm-logo-watermark.webp"
                   alt="Aliyu and Maimuna Center for Qur'anic Memorization official logo"
                   onError={() => setLogoFailed(true)}
-                  style={{ display: 'block', height: '15mm', maxWidth: '44mm', objectFit: 'contain' }}
+                  style={{ display: 'block', height: '17mm', maxWidth: '48mm', objectFit: 'contain' }}
                 />
               ) : (
                 <div style={{
                   color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900,
-                  fontSize: '28px', letterSpacing: '.16em', border: '.4mm solid #b78325', padding: '1.6mm 6mm',
+                  fontSize: '36px', letterSpacing: '.16em', border: '.45mm solid #b78325', padding: '2mm 7mm',
                 }}>AMQM</div>
               )}
             </div>
-            <div style={{ marginTop: '2mm', color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '13px', letterSpacing: '.16em', lineHeight: 1.35 }}>
+            <div style={{ marginTop: '2mm', color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '15px', letterSpacing: '.14em', lineHeight: 1.3 }}>
               ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
             </div>
           </div>
@@ -489,31 +490,30 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
             </div>
           </div>
 
-          {/* Signature plaque — sits in the open band ABOVE the gold medallion
-              so the medallion stays fully visible below it (previously the
-              plaque covered the medallion). Fully opaque so it still reads
-              cleanly over whatever artwork is directly behind it. */}
+          {/* Signature plaque — moved down into the bottom gold-ribbon footer
+              band so the medallion above it stays fully visible. Compact
+              sizing + the certificate number/date folded into the same card
+              so everything "official" lives together at the foot of the
+              page, matching the reference layout. */}
           <div style={{
-            position: 'absolute', zIndex: 4, left: '32mm', right: '32mm', top: '128mm',
-            display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '6mm',
+            position: 'absolute', zIndex: 4, left: '26mm', right: '26mm', bottom: '6mm',
             background: '#fdf8ec',
-            boxShadow: '0 1mm 4mm rgba(13, 69, 55, .22)',
-            borderTop: '.35mm solid #c6983f', borderBottom: '.35mm solid #c6983f',
-            padding: '2.6mm 5mm',
-            borderRadius: '2mm',
+            boxShadow: '0 1mm 4mm rgba(13, 69, 55, .25)',
+            borderTop: '.3mm solid #c6983f', borderBottom: '.3mm solid #c6983f',
+            padding: '2mm 5mm 1.6mm',
+            borderRadius: '1.6mm',
           }}>
-            <Signature person={teacher} designation={teacher?.job_title || 'Class Teacher'} />
-            <Signature person={principal} designation={principal?.job_title || 'Principal'} />
-            <Signature person={director} designation={director?.job_title || 'Director'} />
-          </div>
-
-          {/* Footer caption sitting on the bottom gold ribbon */}
-          <div style={{
-            position: 'absolute', zIndex: 4, left: '35mm', right: '35mm', bottom: '4mm', textAlign: 'center',
-            color: '#fffaf0', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '7.5px', fontWeight: 700, letterSpacing: '.12em',
-            textShadow: '0 1px 2px rgba(0,0,0,.35)',
-          }}>
-            {cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}{issuedDate !== '—' ? `  •  ${issuedDate}` : ''}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '5mm' }}>
+              <Signature person={teacher} designation={teacher?.job_title || 'Class Teacher'} />
+              <Signature person={principal} designation={principal?.job_title || 'Principal'} />
+              <Signature person={director} designation={director?.job_title || 'Director'} />
+            </div>
+            <div style={{
+              marginTop: '1.4mm', paddingTop: '1.2mm', borderTop: '.2mm solid #e3cf9c', textAlign: 'center',
+              color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '6.5px', fontWeight: 700, letterSpacing: '.1em',
+            }}>
+              {cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}{issuedDate !== '—' ? `  •  ${issuedDate}` : ''}
+            </div>
           </div>
         </div>
       </div>
