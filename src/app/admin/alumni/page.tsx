@@ -319,63 +319,33 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
   const principal = data.principal || {};
   const director = data.director || {};
   const classAtGrad = data.class?.name || '—';
-  const [logoFailed, setLogoFailed] = useState(false);
 
   const issuedDate = cert.issued_at
-    ? new Date(cert.issued_at).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      })
+    ? new Date(cert.issued_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
     : '—';
 
   function doPrint() {
     const sheet = document.getElementById('cert-design-a');
     if (!sheet) return;
-
-    // Resolve site-root image paths against the live app origin. A new print
-    // window starts at about:blank, where root-relative paths would otherwise fail.
     const printNode = sheet.cloneNode(true) as HTMLElement;
     printNode.querySelectorAll('img').forEach((image) => {
       const src = image.getAttribute('src');
       if (src?.startsWith('/')) image.setAttribute('src', `${window.location.origin}${src}`);
     });
-
     const html = printNode.outerHTML;
-    const fonts = 'https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Libre+Baskerville:wght@400;700&family=Great+Vibes&display=swap';
+    const fonts = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;600;700&family=Great+Vibes&display=swap';
     const style = `
       @page { size: A4 landscape; margin: 0; }
-      * {
-        box-sizing: border-box;
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      html, body {
-        width: 297mm;
-        height: 210mm;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-      }
-      body { background: #fffbee; }
-      .cert-sheet {
-        width: 297mm !important;
-        height: 210mm !important;
-        min-width: 297mm !important;
-        margin: 0 !important;
-        overflow: hidden !important;
-        page-break-after: avoid !important;
-        break-after: avoid-page !important;
-      }
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      html, body { width: 297mm; height: 210mm; margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #fdf8ec; }
+      .cert-sheet { width: 297mm !important; height: 210mm !important; min-width: 297mm !important; margin: 0 !important; overflow: hidden !important; page-break-after: avoid !important; }
       img, svg { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     `;
-
     const w = window.open('', '_blank');
     if (!w) return;
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>AMQM Graduation Certificate - ${a.full_name || 'Graduate'}</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="${fonts}" rel="stylesheet"><style>${style}</style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
-
     const waitForAssets = async () => {
       if (w.document.fonts?.ready) await w.document.fonts.ready.catch(() => undefined);
       await Promise.all(Array.from(w.document.images).map((image) => {
@@ -385,90 +355,27 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
           image.onerror = () => resolve();
         });
       }));
-      window.setTimeout(() => {
-        w.focus();
-        w.print();
-      }, 1500);
+      window.setTimeout(() => { w.focus(); w.print(); }, 1200);
     };
     void waitForAssets();
   }
 
   const Signature = ({ person, designation }: { person: any; designation: string }) => (
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-      <div style={{
-        height: '15mm',
-        width: '100%',
-        display: 'flex',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        padding: '0 4mm 1mm',
-      }}>
+      <div style={{ height: '11mm', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 2mm' }}>
         {typeof person?.signature_data === 'string' && person.signature_data.length > 0
-          ? <img
-              src={person.signature_data}
-              alt={`${person?.full_name || designation} signature`}
-              style={{ display: 'block', maxHeight: '13mm', maxWidth: '100%', objectFit: 'contain' }}
-            />
-          : <div style={{ width: '78%', borderBottom: '1px solid #173f35', marginBottom: '2mm' }} />}
+          ? <img src={person.signature_data} alt={`${person?.full_name || designation} signature`}
+              style={{ display: 'block', maxHeight: '10mm', maxWidth: '100%', objectFit: 'contain' }} />
+          : <div style={{ width: '70%', borderBottom: '0.3mm solid #173f35', marginBottom: '1.5mm' }} />}
       </div>
-      <div style={{ width: '78%', borderTop: '0.35mm solid #b78325' }} />
-      <div style={{
-        marginTop: '1.4mm',
-        color: '#123d32',
-        fontFamily: "'Libre Baskerville', Georgia, serif",
-        fontSize: '9px',
-        fontWeight: 700,
-        lineHeight: 1.25,
-        overflowWrap: 'anywhere',
-      }}>
+      <div style={{ width: '70%', borderTop: '0.3mm solid #b78325' }} />
+      <div style={{ marginTop: '1.2mm', color: '#123d32', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '9px', fontWeight: 700, lineHeight: 1.2, overflowWrap: 'anywhere' }}>
         {person?.full_name || '—'}
       </div>
-      <div style={{
-        marginTop: '0.8mm',
-        color: '#98702d',
-        fontFamily: "'Libre Baskerville', Georgia, serif",
-        fontSize: '8px',
-        letterSpacing: '.09em',
-        textTransform: 'uppercase',
-        lineHeight: 1.2,
-      }}>
+      <div style={{ marginTop: '0.5mm', color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '7.5px', fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', lineHeight: 1.2 }}>
         {designation}
       </div>
     </div>
-  );
-
-  const Seal = () => (
-    <svg viewBox="0 0 120 120" width="58" height="58" aria-hidden="true" style={{ display: 'block' }}>
-      <defs>
-        <radialGradient id="amqm-seal-gold" cx="34%" cy="25%">
-          <stop offset="0" stopColor="#fff2c8" />
-          <stop offset=".58" stopColor="#d6ad5d" />
-          <stop offset="1" stopColor="#9b6a20" />
-        </radialGradient>
-      </defs>
-      <path d="M60 3 67 12 78 8 83 19 95 18 97 31 109 37 104 49 115 60 104 71 109 83 97 89 95 102 83 101 78 112 67 108 60 117 53 108 42 112 37 101 25 102 23 89 11 83 16 71 5 60 16 49 11 37 23 31 25 18 37 19 42 8 53 12Z" fill="url(#amqm-seal-gold)" stroke="#98691f" strokeWidth="1.5" />
-      <circle cx="60" cy="60" r="43" fill="#073d32" stroke="#f0d48d" strokeWidth="2" />
-      <circle cx="60" cy="60" r="37" fill="none" stroke="#d7b36c" strokeWidth="1" />
-      <g fill="none" stroke="#f0d48d" strokeWidth="1.8" strokeLinecap="round">
-        <path d="M27 73 Q28 48 46 37 M93 73 Q92 48 74 37" />
-        <path d="M31 62 Q22 57 24 48 Q34 48 37 59 M38 48 Q32 39 38 32 Q47 38 45 47 M89 62 Q98 57 96 48 Q86 48 83 59 M82 48 Q88 39 82 32 Q73 38 75 47" />
-      </g>
-      <path d="M60 49 Q47 39 35 47 V72 Q48 65 60 75Z" fill="#fff4d5" stroke="#d6ad5d" strokeWidth="1.5" />
-      <path d="M60 49 Q73 39 85 47 V72 Q72 65 60 75Z" fill="#fff4d5" stroke="#d6ad5d" strokeWidth="1.5" />
-      <path d="M60 49 V75" stroke="#9b6a20" strokeWidth="1.2" />
-      <path d="M42 52 54 56 M42 59 54 63 M66 56 78 52 M66 63 78 59" stroke="#c2933e" strokeWidth="1" />
-    </svg>
-  );
-
-  const CornerOrnament = ({ flip = false }: { flip?: boolean }) => (
-    <svg viewBox="0 0 70 70" width="22mm" height="22mm" aria-hidden="true"
-      style={{ display: 'block', transform: flip ? 'scaleX(-1)' : undefined }}>
-      <path d="M3 67V19Q3 3 19 3H67" fill="none" stroke="#b78325" strokeWidth="1.1" />
-      <path d="M9 67V21Q9 9 21 9H67" fill="none" stroke="#d7b56e" strokeWidth=".55" />
-      <path d="M19 19 35 35 51 19 35 3Z" fill="none" stroke="#b78325" strokeWidth=".65" />
-      <path d="M35 11 43 19 35 27 27 19Z" fill="none" stroke="#d7b56e" strokeWidth=".55" />
-      <circle cx="35" cy="19" r="2" fill="#b78325" />
-    </svg>
   );
 
   const infoItems = [
@@ -476,7 +383,6 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
     { label: 'FINAL TERM', value: a.graduation_term || '—' },
     { label: 'CLASS', value: classAtGrad },
     { label: 'CERTIFICATE NO.', value: cert.certificate_number || '—' },
-    { label: 'DATE OF AWARD', value: issuedDate },
   ];
 
   return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 p-3 sm:p-5">
@@ -484,7 +390,7 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-black text-emerald-950">Certificate preview · {a.full_name}</h2>
-          <p className="text-xs text-slate-500">AMQM · Official Qur'anic Graduation Certificate</p>
+          <p className="text-xs text-slate-500">AMQM · Official Qur&apos;anic Graduation Certificate</p>
         </div>
         <div className="flex gap-2">
           <button className="btn btn-primary" onClick={doPrint}>Print / Save as PDF</button>
@@ -497,232 +403,102 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
           id="cert-design-a"
           className="cert-sheet relative mx-auto overflow-hidden"
           style={{
-            width: '297mm',
-            height: '210mm',
-            minWidth: '297mm',
-            background: '#fffbee',
+            width: '297mm', height: '210mm', minWidth: '297mm',
+            backgroundImage: "url('/images/certificates/certificate-background.webp')",
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundColor: '#fdf8ec',
             color: '#123d32',
-            fontFamily: "'Libre Baskerville', Georgia, serif",
+            fontFamily: "'Cormorant Garamond', Georgia, serif",
             isolation: 'isolate',
             printColorAdjust: 'exact',
             WebkitPrintColorAdjust: 'exact',
-          }}
+          } as any}
         >
-          {/* Deep emerald mount and fine metallic rules */}
-          <div style={{ position: 'absolute', inset: 0, background: '#063b32', zIndex: 0 }} />
-          <div style={{ position: 'absolute', inset: '3.5mm', border: '.65mm solid #c89a43', zIndex: 1 }} />
-          <div style={{ position: 'absolute', inset: '5.2mm', border: '.2mm solid #f0d48d', zIndex: 1 }} />
-          <div style={{
-            position: 'absolute',
-            inset: '8mm',
-            background: 'linear-gradient(135deg, #fffdf5 0%, #fffbee 48%, #fff8e8 100%)',
-            border: '.45mm solid #bd8c35',
-            boxShadow: 'inset 0 0 12mm rgba(154, 112, 43, .08)',
-            zIndex: 1,
-          }} />
-
-          {/* Restrained geometric detail in the four corners */}
-          <div style={{ position: 'absolute', left: '8mm', top: '8mm', zIndex: 2 }}><CornerOrnament /></div>
-          <div style={{ position: 'absolute', right: '8mm', top: '8mm', zIndex: 2 }}><CornerOrnament flip /></div>
-          <div style={{ position: 'absolute', left: '8mm', bottom: '8mm', zIndex: 2, transform: 'rotate(-90deg)' }}><CornerOrnament /></div>
-          <div style={{ position: 'absolute', right: '8mm', bottom: '8mm', zIndex: 2, transform: 'rotate(90deg)' }}><CornerOrnament flip /></div>
-
-          {/* Fine geometric watermark, deliberately low contrast */}
-          <svg viewBox="0 0 297 210" preserveAspectRatio="none" aria-hidden="true"
-            style={{ position: 'absolute', inset: '8mm', width: 'calc(100% - 16mm)', height: 'calc(100% - 16mm)', zIndex: 1, opacity: .055 }}>
-            <defs>
-              <pattern id="amqm-certificate-geometry" width="24" height="24" patternUnits="userSpaceOnUse">
-                <path d="M12 0 16 8 24 12 16 16 12 24 8 16 0 12 8 8Z M12 5 19 12 12 19 5 12Z"
-                  fill="none" stroke="#0b5747" strokeWidth=".55" />
-              </pattern>
-            </defs>
-            <rect width="297" height="210" fill="url(#amqm-certificate-geometry)" />
-          </svg>
-
-          <div style={{
-            position: 'absolute',
-            inset: '13mm 20mm 11mm',
-            zIndex: 3,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-          }}>
-            {/* Official school identity */}
-            <div style={{ height: '22mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {!logoFailed ? (
-                <img
-                  src="/images/branding/amqm-logo-watermark.webp"
-                  alt="Aliyu and Maimuna Center for Qur'anic Memorization official logo"
-                  onError={() => setLogoFailed(true)}
-                  style={{ display: 'block', height: '20mm', maxWidth: '48mm', objectFit: 'contain' }}
-                />
-              ) : (
-                <div style={{
-                  color: '#063b32',
-                  fontFamily: "'DM Serif Display', Georgia, serif",
-                  fontSize: '25px',
-                  letterSpacing: '.12em',
-                  border: '1px solid #bd8c35',
-                  padding: '1.5mm 5mm',
-                }}>AMQM</div>
-              )}
+          {/* Header: real school logo + institution name, in the open top dome area */}
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '9mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <img
+              src="/images/branding/amqm-logo-watermark.webp"
+              alt="Aliyu and Maimuna Center for Qur'anic Memorization official logo"
+              style={{ display: 'block', height: '13mm', maxWidth: '40mm', objectFit: 'contain' }}
+            />
+            <div style={{ marginTop: '1.2mm', color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '9px', letterSpacing: '.18em', lineHeight: 1.3 }}>
+              ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
             </div>
+          </div>
 
-            <div style={{
-              marginTop: '1mm',
-              color: '#174b3d',
-              fontFamily: "'Libre Baskerville', Georgia, serif",
-              fontSize: '9px',
-              fontWeight: 700,
-              letterSpacing: '.2em',
-              lineHeight: 1.4,
-            }}>
-              ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION
+          {/* Main heading */}
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '30mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '21px', lineHeight: 1.1, letterSpacing: '.03em' }}>
+              QUR&apos;ANIC GRADUATION
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3mm', marginTop: '2.5mm', width: '100%', justifyContent: 'center' }}>
-              <span style={{ width: '38mm', height: '.25mm', background: 'linear-gradient(90deg, transparent, #b78325)' }} />
-              <span style={{ width: '2.2mm', height: '2.2mm', border: '.35mm solid #b78325', transform: 'rotate(45deg)' }} />
-              <span style={{ width: '38mm', height: '.25mm', background: 'linear-gradient(90deg, #b78325, transparent)' }} />
-            </div>
-
-            {/* Main award heading */}
-            <div style={{
-              marginTop: '2.5mm',
-              color: '#073d32',
-              fontFamily: "'DM Serif Display', Georgia, serif",
-              fontSize: '27px',
-              lineHeight: 1.05,
-              letterSpacing: '.045em',
-            }}>
-              QUR'ANIC GRADUATION
-            </div>
-            <div style={{
-              marginTop: '-1mm',
-              color: '#a87525',
-              fontFamily: "'Great Vibes', 'Brush Script MT', cursive",
-              fontSize: '48px',
-              lineHeight: 1.08,
-            }}>
+            <div style={{ marginTop: '-1mm', color: '#a3701f', fontFamily: "'Great Vibes', cursive", fontSize: '38px', lineHeight: 1 }}>
               Certificate
             </div>
 
             <div style={{
-              marginTop: '1.8mm',
-              color: '#9a6b24',
-              fontFamily: "'Libre Baskerville', Georgia, serif",
-              fontSize: '8px',
-              fontWeight: 700,
-              letterSpacing: '.22em',
-              textTransform: 'uppercase',
+              marginTop: '2mm', padding: '1.3mm 9mm',
+              background: 'linear-gradient(90deg, #8f601a 0%, #e4bd65 50%, #8f601a 100%)',
+              color: '#fffdf3', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '8.5px', fontWeight: 800, letterSpacing: '.18em',
+              clipPath: 'polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%)',
             }}>
-              This certifies that
+              THIS CERTIFIES THAT
             </div>
 
-            {/* Graduate name is the visual focal point */}
             <div style={{
-              width: '100%',
-              marginTop: '2mm',
-              color: '#063b32',
-              fontFamily: "'DM Serif Display', Georgia, serif",
-              fontSize: (a.full_name || '').length > 30 ? '28px' : '34px',
-              lineHeight: 1.12,
-              overflowWrap: 'anywhere',
+              width: '100%', marginTop: '2.4mm', color: '#0d4537',
+              fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontStyle: 'italic',
+              fontSize: (a.full_name || '').length > 28 ? '24px' : '29px',
+              lineHeight: 1.15, overflowWrap: 'anywhere',
             }}>
               {a.full_name || 'Graduate Name'}
             </div>
-
-            <div style={{
-              width: '72%',
-              height: '.3mm',
-              marginTop: '2mm',
-              background: 'linear-gradient(90deg, transparent, #b78325 18%, #b78325 82%, transparent)',
-            }} />
+            <div style={{ width: '62%', height: '.35mm', marginTop: '1.3mm', background: 'linear-gradient(90deg, transparent, #b78325 20%, #b78325 80%, transparent)' }} />
 
             <p style={{
-              maxWidth: '218mm',
-              margin: '3mm 0 0',
-              color: '#303b35',
-              fontFamily: "'Libre Baskerville', Georgia, serif",
-              fontSize: '10px',
-              lineHeight: 1.7,
-              fontWeight: 400,
+              maxWidth: '195mm', margin: '2.3mm 0 0', color: '#2a352f',
+              fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '11.5px', lineHeight: 1.45, fontWeight: 600,
             }}>
-              is hereby recognised as a graduate of the <b style={{ color: '#063b32' }}>{a.cohort_name || '—'}</b> cohort,
-              having successfully completed the Qur'an Memorization Programme at Aliyu and Maimuna Center for Qur'anic
-              Memorization and is honoured as a <b style={{ color: '#063b32' }}>Hafiz / Huffaz of the Holy Qur'an</b>
-              by the school management.
+              is hereby recognised as a graduate of the <b style={{ color: '#0d4537' }}>{a.cohort_name || '—'}</b> cohort, having successfully
+              completed the Qur&apos;an Memorization Programme at Aliyu and Maimuna Center for Qur&apos;anic Memorization and is
+              honoured as a <b style={{ color: '#0d4537' }}>Hafiz / Huffaz of the Holy Qur&apos;an</b> by the school management.
             </p>
 
-            {/* Five pieces of official certificate information */}
             <div style={{
-              width: '100%',
-              marginTop: '4mm',
-              display: 'grid',
-              gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-              borderTop: '.3mm solid #c69a4a',
-              borderBottom: '.3mm solid #c69a4a',
-              padding: '2.8mm 0',
+              marginTop: '3mm', width: '82%', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              borderTop: '.3mm solid #c69a4a', borderBottom: '.3mm solid #c69a4a', padding: '2mm 0',
             }}>
               {infoItems.map((item, index) => (
-                <div key={item.label} style={{
-                  minWidth: 0,
-                  padding: '0 2.2mm',
-                  borderRight: index < infoItems.length - 1 ? '.2mm solid #d9c18e' : 'none',
-                }}>
-                  <div style={{
-                    color: '#9a6b24',
-                    fontFamily: "'Libre Baskerville', Georgia, serif",
-                    fontSize: '7px',
-                    fontWeight: 700,
-                    letterSpacing: '.12em',
-                    lineHeight: 1.4,
-                  }}>{item.label}</div>
-                  <div style={{
-                    marginTop: '1.2mm',
-                    color: '#123d32',
-                    fontFamily: "'Libre Baskerville', Georgia, serif",
-                    fontSize: '9px',
-                    fontWeight: 700,
-                    lineHeight: 1.35,
-                    overflowWrap: 'anywhere',
-                  }}>{item.value}</div>
+                <div key={item.label} style={{ minWidth: 0, padding: '0 2mm', borderRight: index < infoItems.length - 1 ? '.2mm solid #d9c18e' : 'none' }}>
+                  <div style={{ color: '#8a611f', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7px', fontWeight: 800, letterSpacing: '.1em', lineHeight: 1.3 }}>{item.label}</div>
+                  <div style={{ marginTop: '1mm', color: '#123d32', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '9.5px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.value}</div>
                 </div>
               ))}
             </div>
-
-            <div style={{ marginTop: '2.5mm' }}><Seal /></div>
           </div>
 
-          {/* Three independent signature authorities */}
+          {/* Signature plaque — semi-opaque card so it reads clearly over the
+              Qur'an stand / mosque artwork beneath it, while staying visually
+              light enough to feel like part of the design rather than a patch */}
           <div style={{
-            position: 'absolute',
-            zIndex: 4,
-            left: '28mm',
-            right: '28mm',
-            bottom: '15mm',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            alignItems: 'end',
-            columnGap: '15mm',
+            position: 'absolute', zIndex: 4, left: '34mm', right: '34mm', top: '152mm',
+            display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '6mm',
+            background: 'rgba(253, 248, 236, 0.82)',
+            borderTop: '.3mm solid #d9c18e', borderBottom: '.3mm solid #d9c18e',
+            padding: '3mm 4mm',
+            borderRadius: '2mm',
           }}>
             <Signature person={teacher} designation={teacher?.job_title || 'Class Teacher'} />
             <Signature person={principal} designation={principal?.job_title || 'Principal'} />
             <Signature person={director} designation={director?.job_title || 'Director'} />
           </div>
 
+          {/* Footer caption sitting on the bottom gold ribbon */}
           <div style={{
-            position: 'absolute',
-            zIndex: 4,
-            left: '35mm',
-            right: '35mm',
-            bottom: '8.5mm',
-            textAlign: 'center',
-            color: '#e8cf94',
-            fontFamily: "'Libre Baskerville', Georgia, serif",
-            fontSize: '7px',
-            letterSpacing: '.13em',
+            position: 'absolute', zIndex: 4, left: '35mm', right: '35mm', bottom: '4mm', textAlign: 'center',
+            color: '#fffaf0', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '7.5px', fontWeight: 700, letterSpacing: '.12em',
+            textShadow: '0 1px 2px rgba(0,0,0,.35)',
           }}>
             {cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}{issuedDate !== '—' ? `  •  ${issuedDate}` : ''}
           </div>
