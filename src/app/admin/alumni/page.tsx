@@ -37,7 +37,7 @@ export default function AdminAlumniPage() {
   const [promoteTerm, setPromoteTerm] = useState('Term 3');
   const [promoteIssueCert, setPromoteIssueCert] = useState(true);
   const [dossier, setDossier] = useState<any>(null);
-  const [certPrint, setCertPrint] = useState<Confirmed | null>(null);
+  const [certPrint, setCertPrint] = useState<any>(null); // full dossier object
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -197,7 +197,7 @@ export default function AdminAlumniPage() {
                 <label className="flex items-center gap-1 text-[11px] font-bold text-slate-700"><input type="checkbox" checked={a.published} onChange={e => togglePub(a, 'published', e.target.checked)} /> Public</label>
                 <label className="flex items-center gap-1 text-[11px] font-bold text-slate-700"><input type="checkbox" checked={a.published_on_homepage} disabled={!a.published} onChange={e => togglePub(a, 'homepage', e.target.checked)} /> Homepage</label>
                 <button className="btn bg-slate-100 text-sm py-1.5" onClick={() => openDossier(a)}>Full dossier</button>
-                <button className="btn bg-amber-100 text-amber-900 text-sm py-1.5" onClick={() => setCertPrint(a)}>Certificate</button>
+                <button className="btn bg-amber-100 text-amber-900 text-sm py-1.5" onClick={async () => { setBusy(true); try { const d = await loadAlumniFull(a.alumni_id); setCertPrint(d); } catch(e:any){setMessage(e?.message||'Could not open');} finally { setBusy(false); } }}>Certificate</button>
               </div>
             </div>
           ))}
@@ -306,35 +306,166 @@ export default function AdminAlumniPage() {
       </div>}
     </div></div>}
 
-    {/* Certificate print modal */}
-    {certPrint && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-6 w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-xl font-black">Certificate · {certPrint.full_name}</h2>
-        <button className="btn bg-slate-100" onClick={() => setCertPrint(null)}>Close</button>
-      </div>
-      <div id="cert-print" className="mx-auto border-[10px] border-double border-amber-500 bg-[#fffdf5] p-8 text-center sm:p-12">
-        <div className="text-xs font-black tracking-[.3em] text-emerald-900">ALIYU AND MAIMUNA CENTER FOR QUR'ANIC MEMORIZATION</div>
-        <div className="mt-6 font-serif text-3xl font-black text-emerald-950 sm:text-4xl">Certificate of Completion</div>
-        <div className="mt-4 text-sm text-slate-600">This certifies that</div>
-        <div className="mt-2 text-2xl font-black text-slate-900 sm:text-3xl">{certPrint.full_name}</div>
-        <p className="mx-auto mt-4 max-w-xl text-sm leading-7 text-slate-700">
-          has successfully completed the Qur'an Memorization Journey at AMQM and is honoured as a graduate of the {certPrint.cohort_name} cohort,
-          verified and approved as a Hafiz/Huffaz of the Qur'an by the school management.
-        </p>
-        <div className="mt-7 grid gap-3 text-xs text-slate-600 sm:grid-cols-3">
-          <div><b className="block text-slate-900">Cohort</b>{certPrint.cohort_name}</div>
-          <div><b className="block text-slate-900">Final term</b>{certPrint.graduation_term}</div>
-          <div><b className="block text-slate-900">Certificate No.</b>{certPrint.certificate_number || '—'}</div>
-        </div>
-        <div className="mt-10 flex justify-between border-t pt-5 text-xs">
-          <span>__________________<br/>Principal</span>
-          <span>__________________<br/>Director</span>
-        </div>
-      </div>
-      <button className="btn btn-primary mt-4 w-full" onClick={() => { const w = window.open('', '_blank'); if (!w) return; w.document.write('<html><head><title>Certificate</title><style>body{font-family:Georgia,serif;margin:0;padding:20px}@page{size:A4 landscape;margin:12mm}</style></head><body>' + (document.getElementById('cert-print')?.outerHTML || '') + '</body></html>'); w.document.close(); w.focus(); w.print(); }}>
-        Print / Save as PDF
-      </button>
-    </div></div>}
+    {/* Certificate print modal - Design A emerald + gold */}
+    {certPrint && <CertificateModal data={certPrint} close={() => setCertPrint(null)} />}
 
   </div></AdminShell>;
+}
+
+function CertificateModal({ data, close }: { data: any; close: () => void }) {
+  const a = data.alumni || {};
+  const cert = (data.certificates || [])[0] || {};
+  const teacher = data.teacher || {};
+  const principal = data.principal || {};
+  const director = data.director || {};
+  const classAtGrad = data.class?.name || '—';
+
+  function doPrint() {
+    const html = document.getElementById('cert-design-a')?.outerHTML || '';
+    const style = `
+      @page { size: A4 landscape; margin: 0; }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 0; font-family: 'Georgia', 'Times New Roman', serif; }
+      .cert-sheet { page-break-after: avoid; }
+    `;
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!doctype html><html><head><title>Certificate · ${a.full_name || ''}</title><style>${style}</style></head><body>${html}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 400);
+  }
+
+  const Sig = ({ person, role }: { person: any; role: string }) => (
+    <div className="flex flex-col items-center text-center">
+      <div className="relative flex h-16 w-56 items-end justify-center">
+        {person?.signature_data ? (
+          <img src={person.signature_data} alt="signature" className="max-h-full max-w-full object-contain" style={{filter:'drop-shadow(0 1px 0 rgba(0,0,0,.08))'}} />
+        ) : (
+          <div className="h-[1px] w-full bg-emerald-950/50" />
+        )}
+      </div>
+      <div className="mt-1 h-[1px] w-56 bg-emerald-950/60" />
+      <div className="mt-1 text-[11px] font-black tracking-wide text-emerald-950">{person?.full_name || '—'}</div>
+      <div className="text-[10px] font-bold text-emerald-900/80">{role}</div>
+    </div>
+  );
+
+  return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-4">
+    <div className="mx-auto mt-4 w-full max-w-6xl rounded-3xl bg-white p-5 shadow-2xl">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-lg font-black text-emerald-900">Certificate preview · {a.full_name}</h2>
+        <div className="flex gap-2">
+          <button className="btn btn-primary" onClick={doPrint}>Print / Save as PDF</button>
+          <button className="btn bg-slate-100" onClick={close}>Close</button>
+        </div>
+      </div>
+
+      {/* The sheet — fills A4 landscape when printed */}
+      <div id="cert-design-a" className="cert-sheet relative mx-auto overflow-hidden"
+           style={{ width: '297mm', height: '210mm', background: '#fdf9ef' }}>
+        {/* Outer emerald frame with gold inner trim */}
+        <div className="absolute inset-0" style={{
+          padding: '10mm',
+          background: 'linear-gradient(135deg,#063b32 0%,#0b5a4a 40%,#0a5a4a 60%,#063b32 100%)',
+        }}>
+          <div className="h-full w-full relative" style={{
+            border: '2px solid #d4a24a',
+            background: 'repeating-linear-gradient(45deg, rgba(212,162,74,.07) 0 2px, transparent 2px 10px), linear-gradient(180deg,#fdf9ef 0,#fff8e4 100%)',
+            padding: '12mm 18mm',
+          }}>
+            {/* Decorative gold corners */}
+            <div className="pointer-events-none absolute left-2 top-2 h-10 w-10 border-l-2 border-t-2" style={{borderColor:'#d4a24a'}} />
+            <div className="pointer-events-none absolute right-2 top-2 h-10 w-10 border-r-2 border-t-2" style={{borderColor:'#d4a24a'}} />
+            <div className="pointer-events-none absolute left-2 bottom-2 h-10 w-10 border-l-2 border-b-2" style={{borderColor:'#d4a24a'}} />
+            <div className="pointer-events-none absolute right-2 bottom-2 h-10 w-10 border-r-2 border-b-2" style={{borderColor:'#d4a24a'}} />
+
+            {/* Header */}
+            <div className="text-center">
+              <div className="mx-auto mb-2 h-[6mm] w-[6mm] rounded-full" style={{background:'radial-gradient(circle at 30% 30%,#f5d989 0%,#b78325 70%,#8c5a0a 100%)'}} />
+              <div style={{letterSpacing:'.3em'}} className="text-[11px] font-black text-emerald-900">
+                ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
+              </div>
+              <div className="mt-[3mm] font-serif text-[32px] font-black" style={{color:'#063b32'}}>
+                Qur&apos;anic Graduation
+              </div>
+              <div className="font-serif italic text-[46px] font-black" style={{color:'#b78325', lineHeight:1}}>
+                Certificate
+              </div>
+            </div>
+
+            {/* Ribbon */}
+            <div className="mt-[6mm] flex justify-center">
+              <div className="relative px-6 py-2 text-center text-[11px] font-black tracking-wide text-white"
+                   style={{background:'linear-gradient(90deg,#b78325 0%,#d4a24a 50%,#b78325 100%)'}}>
+                This certifies that
+              </div>
+            </div>
+
+            {/* Name */}
+            <div className="mt-[4mm] text-center font-serif text-[42px] font-black" style={{color:'#063b32', letterSpacing:'.5px'}}>
+              {a.full_name}
+            </div>
+            <div className="mx-auto mt-[2mm] h-[1px] w-[70%]" style={{background:'linear-gradient(90deg,transparent 0%,#b78325 50%,transparent 100%)'}} />
+
+            {/* Body */}
+            <p className="mx-auto mt-[4mm] max-w-[200mm] text-center text-[12px] leading-6" style={{color:'#1f2937'}}>
+              has successfully completed the Qur&apos;an Memorization Journey at AMQM and is honoured as a graduate of the <b>{a.cohort_name}</b> cohort,
+              verified and approved as a <b>Hafiz / Huffaz of the Qur&apos;an</b> by the school management.
+            </p>
+
+            {/* Info row */}
+            <div className="mx-auto mt-[6mm] grid max-w-[220mm] grid-cols-4 gap-3 text-center text-[11px]">
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Cohort</div>
+                <div className="mt-0.5 font-black text-emerald-950">{a.cohort_name}</div>
+              </div>
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Final Term</div>
+                <div className="mt-0.5 font-black text-emerald-950">{a.graduation_term}</div>
+              </div>
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Class</div>
+                <div className="mt-0.5 font-black text-emerald-950">{classAtGrad}</div>
+              </div>
+              <div>
+                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Certificate No.</div>
+                <div className="mt-0.5 font-black text-emerald-950">{cert.certificate_number || '—'}</div>
+              </div>
+            </div>
+
+            {/* Medallion */}
+            <div className="mt-[6mm] flex justify-center">
+              <div className="flex h-[18mm] w-[18mm] items-center justify-center rounded-full"
+                   style={{background:'radial-gradient(circle at 30% 30%,#f3cf74 0%,#b78325 70%,#6b4a10 100%)', boxShadow:'0 0 0 3px #063b32'}}>
+                <div className="text-center text-[9px] font-black text-emerald-950" style={{textShadow:'0 1px 0 rgba(255,255,255,.4)'}}>
+                  AMQM<br/>HAFIZ
+                </div>
+              </div>
+            </div>
+
+            {/* Signatures - three */}
+            <div className="absolute left-0 right-0" style={{bottom: '15mm'}}>
+              <div className="mx-auto grid max-w-[240mm] grid-cols-3 gap-6 px-[18mm]">
+                <Sig person={teacher} role={`Class Teacher${teacher?.full_name ? ' · ' + (classAtGrad) : ''}`} />
+                <Sig person={principal} role="Principal" />
+                <Sig person={director} role="Director" />
+              </div>
+            </div>
+
+            <div className="absolute bottom-[6mm] left-0 right-0 text-center text-[9px] font-bold" style={{color:'#063b32', opacity:.7}}>
+              Issued on {cert.issued_at || new Date().toLocaleDateString()} · {cert.certificate_number || 'Draft'}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Warnings for missing signatures */}
+      <div className="mt-3 space-y-1 text-xs">
+        {!teacher?.signature_data && <div className="rounded bg-amber-50 p-2 text-amber-800">⚠ Class teacher {teacher?.full_name || ''} has not uploaded a signature yet. Signature line shown instead.</div>}
+        {!principal?.signature_data && <div className="rounded bg-amber-50 p-2 text-amber-800">⚠ Principal {principal?.full_name || ''} has not uploaded a signature yet. Signature line shown instead.</div>}
+        {!director?.signature_data && <div className="rounded bg-amber-50 p-2 text-amber-800">⚠ Director {director?.full_name || ''} has not uploaded a signature yet. Signature line shown instead.</div>}
+      </div>
+    </div>
+  </div>;
 }
