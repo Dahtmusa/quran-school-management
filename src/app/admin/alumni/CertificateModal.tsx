@@ -1,8 +1,26 @@
 'use client';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 
 const GREEN = '#0d4537';
 const GOLD_TEXT = '#8a611f';
+// QR codes always point at the live site, even if printed from a preview deploy.
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://aliyumaimuna.com.ng').replace(/\/$/, '');
+
+// Vector QR (one SVG path) so it stays razor sharp in print and in the PDF.
+function QrCode({ text, size }: { text: string; size: string }) {
+  const path = useMemo(() => {
+    const { modules } = QRCode.create(text, { errorCorrectionLevel: 'M' });
+    let d = '';
+    for (let r = 0; r < modules.size; r++) for (let c = 0; c < modules.size; c++) if (modules.get(r, c)) d += 'M' + c + ' ' + r + 'h1v1h-1z';
+    return { d, n: modules.size };
+  }, [text]);
+  return (
+    <svg viewBox={`-2 -2 ${path.n + 4} ${path.n + 4}`} style={{ display: 'block', width: size, height: size, background: '#fff' }} shapeRendering='crispEdges' aria-label='Certificate verification QR code'>
+      <path d={path.d} fill={GREEN} />
+    </svg>
+  );
+}
 
 function Signature({ person, designation }: { person: any; designation: string }) {
   const hasSignature = typeof person?.signature_data === 'string' && person.signature_data.length > 0;
@@ -64,6 +82,7 @@ export function CertificateSheet({ data }: { data: any }) {
         backgroundColor: '#fdf8ec',
         color: '#123d32',
         fontFamily: "'Cormorant Garamond', Georgia, serif",
+        fontVariantNumeric: 'lining-nums',
         isolation: 'isolate',
         printColorAdjust: 'exact',
         WebkitPrintColorAdjust: 'exact',
@@ -80,7 +99,7 @@ export function CertificateSheet({ data }: { data: any }) {
           style={{
             position: 'absolute', zIndex: 1, left: '50%', top: '54mm', width: '74mm', height: '74mm',
             transform: 'translateX(-50%)', borderRadius: '50%', objectFit: 'cover',
-            filter: 'grayscale(1) contrast(1.1)', opacity: 0.075, mixBlendMode: 'multiply',
+            filter: 'grayscale(1) contrast(1.15)', opacity: 0.16, mixBlendMode: 'multiply',
           }}
         />
       )}
@@ -168,12 +187,31 @@ export function CertificateSheet({ data }: { data: any }) {
         <Signature person={director} designation={director?.job_title || 'Director'} />
       </div>
 
-      {/* Certificate number + award date, on the cream band under the gold swoosh */}
+      {/* Verification QR, in the clear paper right of the signatures and
+          below the mosque, level with the signature row. */}
+      {cert.id && (
+        <div style={{
+          position: 'absolute', zIndex: 4, left: '223mm', top: '156mm', width: '20mm',
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+        }}>
+          <div style={{ padding: '.7mm', background: '#fff', border: '.3mm solid #c69a4a', borderRadius: '1mm', boxShadow: '0 .3mm .8mm rgba(13,69,55,.18)' }}>
+            <QrCode text={`${SITE_URL}/verify?ref=${cert.id}`} size="14mm" />
+          </div>
+          <div style={{ marginTop: '1mm', color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '6.5px', fontWeight: 800, letterSpacing: '.14em', whiteSpace: 'nowrap' }}>
+            SCAN TO VERIFY
+          </div>
+        </div>
+      )}
+
+      {/* Certificate number, award date and where to verify, on the cream
+          band under the gold swoosh. */}
       <div style={{
-        position: 'absolute', zIndex: 4, left: '60mm', right: '60mm', bottom: '6mm', textAlign: 'center',
-        color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '8px', fontWeight: 700, letterSpacing: '.14em',
+        position: 'absolute', zIndex: 4, left: '40mm', right: '40mm', bottom: '6mm', textAlign: 'center', whiteSpace: 'nowrap',
+        color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '8.5px', fontWeight: 700, letterSpacing: '.12em',
       }}>
-        {cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}{issuedDate !== '—' ? `  •  AWARDED ${issuedDate.toUpperCase()}` : ''}
+        <span style={{ color: GREEN }}>{cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}</span>
+        {issuedDate !== '—' && <>  •  AWARDED {issuedDate.toUpperCase()}</>}
+        {cert.id && <>  •  VERIFY AT {SITE_URL.replace(/^https?:\/\//, '').toUpperCase()}/VERIFY</>}
       </div>
     </div>
   );
