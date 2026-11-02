@@ -148,10 +148,17 @@ export default function TeacherEvaluationsPage() {
         <p className="mt-1 text-sm text-slate-500">When Admin opens Evaluation 1, 2, or 3, it will appear above with a countdown.</p>
       </section>}
 
-      {picked && pickedWindow && pickedEntries.length === 0 && <section className="card border-2 border-amber-200 bg-amber-50 p-6">
-        <h3 className="text-lg font-black text-amber-900">Evaluation {picked} is open — but no students are assigned to you yet</h3>
-        <p className="mt-2 text-sm text-amber-900/80">Please contact Admin.</p>
-      </section>}
+      {picked && pickedWindow && pickedEntries.length === 0 && (pickedWindow.my_eval_count > 0 ? (
+        <section className="card border-2 border-emerald-200 bg-emerald-50 p-6">
+          <h3 className="text-lg font-black text-emerald-900">All {pickedWindow.my_eval_count} student{pickedWindow.my_eval_count===1?'':'s'} already submitted</h3>
+          <p className="mt-2 text-sm text-emerald-900/80">Great work. Your Evaluation {picked} entries are now with Admin for review. If any are sent back for correction, they will reappear here.</p>
+        </section>
+      ) : (
+        <section className="card border-2 border-amber-200 bg-amber-50 p-6">
+          <h3 className="text-lg font-black text-amber-900">Evaluation {picked} is open — but no students are assigned to you yet</h3>
+          <p className="mt-2 text-sm text-amber-900/80">Please contact Admin.</p>
+        </section>
+      ))}
 
       {picked && pickedWindow && pickedEntries.length > 0 && <section className="card overflow-hidden">
         <div className="flex flex-col gap-2 border-b bg-slate-50 p-5 md:flex-row md:items-end md:justify-between">
