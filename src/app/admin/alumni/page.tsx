@@ -323,32 +323,157 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
   function doPrint() {
     const html = document.getElementById('cert-design-a')?.outerHTML || '';
     const style = `
+      @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;700&family=Great+Vibes&display=swap');
       @page { size: A4 landscape; margin: 0; }
-      * { box-sizing: border-box; }
-      body { margin: 0; padding: 0; font-family: 'Georgia', 'Times New Roman', serif; }
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { margin: 0; padding: 0; font-family: 'Cormorant Garamond', 'Georgia', serif; }
       .cert-sheet { page-break-after: avoid; }
     `;
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!doctype html><html><head><title>Certificate · ${a.full_name || ''}</title><style>${style}</style></head><body>${html}</body></html>`);
+    w.document.write(`<!doctype html><html><head><title>Certificate · ${a.full_name || ''}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;700&family=Great+Vibes&display=swap" rel="stylesheet"><style>${style}</style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
-    setTimeout(() => w.print(), 400);
+    setTimeout(() => w.print(), 1500);
   }
 
   const Sig = ({ person, role }: { person: any; role: string }) => (
     <div className="flex flex-col items-center text-center">
-      <div className="relative flex h-16 w-56 items-end justify-center">
-        {person?.signature_data ? (
-          <img src={person.signature_data} alt="signature" className="max-h-full max-w-full object-contain" style={{filter:'drop-shadow(0 1px 0 rgba(0,0,0,.08))'}} />
-        ) : (
-          <div className="h-[1px] w-full bg-emerald-950/50" />
-        )}
+      <div className="relative flex h-[14mm] w-[62mm] items-end justify-center">
+        {person?.signature_data
+          ? <img src={person.signature_data} alt="signature" className="max-h-full max-w-full object-contain" />
+          : <div className="h-[1px] w-full" style={{background:'#063b32'}} />}
       </div>
-      <div className="mt-1 h-[1px] w-56 bg-emerald-950/60" />
-      <div className="mt-1 text-[11px] font-black tracking-wide text-emerald-950">{person?.full_name || '—'}</div>
-      <div className="text-[10px] font-bold text-emerald-900/80">{role}</div>
+      <div className="mt-1 h-[1px] w-[62mm]" style={{background:'linear-gradient(90deg,transparent 0%,#063b32 20%,#063b32 80%,transparent 100%)'}} />
+      <div className="mt-1 text-[11px] font-black" style={{color:'#063b32', letterSpacing:'.5px', fontFamily:"'Playfair Display', serif"}}>{person?.full_name || '—'}</div>
+      <div className="text-[10px]" style={{color:'#8f6a1a', fontStyle:'italic'}}>{role}</div>
     </div>
+  );
+
+  // Inline SVG decorations
+  const Lantern = ({ side }: { side: 'left' | 'right' }) => (
+    <svg viewBox="0 0 60 120" width="60" height="120" style={{position:'absolute', top: 0, [side]: '10mm'} as any}>
+      <defs>
+        <linearGradient id={'lg-' + side} x1="0" x2="1">
+          <stop offset="0%" stopColor="#f3cf74" />
+          <stop offset="50%" stopColor="#d4a24a" />
+          <stop offset="100%" stopColor="#8c5a0a" />
+        </linearGradient>
+      </defs>
+      <line x1="30" y1="0" x2="30" y2="38" stroke="#8c5a0a" strokeWidth="0.8" />
+      <circle cx="30" cy="38" r="2.4" fill="url(#lg-' + side + ')" />
+      <path d="M20 42 Q30 36 40 42 L40 46 L20 46 Z" fill={`url(#lg-${side})`} />
+      <path d="M18 46 L42 46 L39 86 L21 86 Z" fill="#1a4237" stroke="#d4a24a" strokeWidth="1" />
+      <ellipse cx="30" cy="66" rx="7" ry="12" fill="#fde8a3" opacity="0.85" />
+      <ellipse cx="30" cy="66" rx="3.5" ry="7" fill="#fff5c9" />
+      <path d="M24 56 L36 56 M24 76 L36 76" stroke="#d4a24a" strokeWidth="0.8" />
+      <path d="M21 86 L39 86 Q41 90 36 94 L24 94 Q19 90 21 86 Z" fill={`url(#lg-${side})`} />
+      <circle cx="30" cy="96" r="2.5" fill="#d4a24a" />
+      <path d="M30 98 L30 108" stroke="#d4a24a" strokeWidth="1" />
+      <circle cx="30" cy="110" r="2.5" fill="#d4a24a" />
+    </svg>
+  );
+
+  const Mosque = () => (
+    <svg viewBox="0 0 240 180" width="240" height="180" style={{position:'absolute', right:'8mm', bottom:'35mm', opacity:0.18}}>
+      <defs>
+        <linearGradient id="mosqG" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#f3cf74" />
+          <stop offset="100%" stopColor="#8c5a0a" />
+        </linearGradient>
+      </defs>
+      <path d="M40 60 Q40 20 70 20 Q100 20 100 60 L100 170 L40 170 Z" fill="url(#mosqG)" />
+      <path d="M60 170 L60 110 Q70 100 80 110 L80 170 Z" fill="#063b32" opacity="0.6" />
+      <path d="M105 90 Q105 40 130 40 Q155 40 155 90 L155 170 L105 170 Z" fill="url(#mosqG)" />
+      <path d="M120 50 Q130 30 140 50" fill="none" stroke="url(#mosqG)" strokeWidth="2" />
+      <circle cx="130" cy="30" r="4" fill="url(#mosqG)" />
+      <path d="M165 70 Q165 30 190 30 Q215 30 215 70 L215 170 L165 170 Z" fill="url(#mosqG)" opacity="0.9" />
+      <path d="M180 170 L180 115 Q195 105 205 115 L205 170 Z" fill="#063b32" opacity="0.6" />
+    </svg>
+  );
+
+  const QuranStand = () => (
+    <svg viewBox="0 0 200 180" width="200" height="180" style={{position:'absolute', left:'6mm', bottom:'34mm', opacity:0.95}}>
+      <defs>
+        <linearGradient id="qbook" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="#0b5a4a" />
+          <stop offset="100%" stopColor="#063b32" />
+        </linearGradient>
+        <linearGradient id="qgold" x1="0" x2="1">
+          <stop offset="0%" stopColor="#f3cf74" />
+          <stop offset="100%" stopColor="#b78325" />
+        </linearGradient>
+      </defs>
+      <path d="M100 160 L50 140 L50 125 L95 112 L100 108 L105 112 L150 125 L150 140 Z" fill="#8c5a0a" />
+      <rect x="60" y="118" width="80" height="4" fill="#6b4a10" />
+      <path d="M100 112 L50 95 Q100 80 150 95 Z" fill="url(#qbook)" />
+      <path d="M100 112 L55 100 Q80 90 100 95 Z" fill="#f3e5be" />
+      <path d="M100 112 L145 100 Q120 90 100 95 Z" fill="#f3e5be" />
+      <path d="M100 95 L100 112" stroke="#8c5a0a" strokeWidth="0.6" />
+      <path d="M65 100 L95 97 M65 103 L95 100 M105 97 L135 100 M105 100 L135 103" stroke="#8c5a0a" strokeWidth="0.4" />
+      <path d="M50 95 Q100 80 150 95 L150 92 Q100 76 50 92 Z" fill="url(#qgold)" />
+      <circle cx="100" cy="88" r="4" fill="url(#qgold)" />
+    </svg>
+  );
+
+  const Laurel = ({ flip }: { flip?: boolean }) => (
+    <svg viewBox="0 0 80 40" width="80" height="40" style={{transform: flip ? 'scaleX(-1)' : undefined}}>
+      <path d="M5 20 Q25 10 55 15 Q65 17 72 20" fill="none" stroke="#b78325" strokeWidth="1.4" strokeLinecap="round" />
+      <g fill="#b78325">
+        <ellipse cx="18" cy="13" rx="4" ry="2" transform="rotate(-25 18 13)" />
+        <ellipse cx="28" cy="10" rx="4" ry="2" transform="rotate(-18 28 10)" />
+        <ellipse cx="40" cy="10" rx="4" ry="2" transform="rotate(-10 40 10)" />
+        <ellipse cx="52" cy="11" rx="4" ry="2" transform="rotate(0 52 11)" />
+        <ellipse cx="20" cy="26" rx="4" ry="2" transform="rotate(25 20 26)" />
+        <ellipse cx="32" cy="24" rx="4" ry="2" transform="rotate(18 32 24)" />
+        <ellipse cx="46" cy="22" rx="4" ry="2" transform="rotate(10 46 22)" />
+        <ellipse cx="60" cy="20" rx="4" ry="2" transform="rotate(0 60 20)" />
+      </g>
+    </svg>
+  );
+
+  const Medallion = () => (
+    <svg viewBox="0 0 120 120" width="120" height="120">
+      <defs>
+        <radialGradient id="medGold" cx="35%" cy="30%">
+          <stop offset="0%" stopColor="#f8e2a0" />
+          <stop offset="50%" stopColor="#d4a24a" />
+          <stop offset="100%" stopColor="#6b4a10" />
+        </radialGradient>
+      </defs>
+      {/* starburst ridges */}
+      <g>
+        {Array.from({ length: 24 }).map((_, i) => (
+          <path key={i} d="M60 60 L60 14 L62 18 L58 18 Z" fill="#d4a24a" opacity="0.9" transform={`rotate(${i * 15} 60 60)`} />
+        ))}
+      </g>
+      <circle cx="60" cy="60" r="38" fill="url(#medGold)" stroke="#063b32" strokeWidth="2.5" />
+      <circle cx="60" cy="60" r="34" fill="none" stroke="#8c5a0a" strokeWidth="0.6" />
+      {/* open qur'an inside */}
+      <g transform="translate(60 60)">
+        <path d="M-16 -4 Q-10 -10 -2 -8 L-2 10 Q-10 8 -16 12 Z" fill="#fff8e4" stroke="#063b32" strokeWidth="0.8" />
+        <path d="M16 -4 Q10 -10 2 -8 L2 10 Q10 8 16 12 Z" fill="#fff8e4" stroke="#063b32" strokeWidth="0.8" />
+        <path d="M-2 -8 L-2 10 M2 -8 L2 10" stroke="#063b32" strokeWidth="0.6" />
+        <path d="M-13 -2 L-5 -2 M-13 1 L-5 1 M-13 4 L-5 4 M-13 7 L-5 7" stroke="#063b32" strokeWidth="0.3" />
+        <path d="M13 -2 L5 -2 M13 1 L5 1 M13 4 L5 4 M13 7 L5 7" stroke="#063b32" strokeWidth="0.3" />
+      </g>
+      <text x="60" y="105" textAnchor="middle" fontSize="7" fontWeight="900" fill="#063b32" fontFamily="Playfair Display, serif">AMQM · HAFIZ</text>
+    </svg>
+  );
+
+  // SVG pattern tile (eight-point Islamic star)
+  const IslamicPattern = () => (
+    <svg width="100%" height="100%" style={{position:'absolute', inset:0, opacity:0.14}}>
+      <defs>
+        <pattern id="islPat" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+          <g stroke="#d4a24a" strokeWidth="0.6" fill="none">
+            <path d="M20 2 L26 14 L38 20 L26 26 L20 38 L14 26 L2 20 L14 14 Z" />
+            <circle cx="20" cy="20" r="4" />
+          </g>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#islPat)" />
+    </svg>
   );
 
   return <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-4">
@@ -361,106 +486,124 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
         </div>
       </div>
 
-      {/* The sheet — fills A4 landscape when printed */}
       <div id="cert-design-a" className="cert-sheet relative mx-auto overflow-hidden"
-           style={{ width: '297mm', height: '210mm', background: '#fdf9ef' }}>
-        {/* Outer emerald frame with gold inner trim */}
-        <div className="absolute inset-0" style={{
-          padding: '10mm',
-          background: 'linear-gradient(135deg,#063b32 0%,#0b5a4a 40%,#0a5a4a 60%,#063b32 100%)',
+           style={{ width: '297mm', height: '210mm', fontFamily: "'Cormorant Garamond', Georgia, serif", background: '#063b32' }}>
+        {/* Deep green with Islamic pattern */}
+        <IslamicPattern />
+
+        {/* Outer gold frame */}
+        <div className="absolute" style={{inset:'7mm', border:'1.5px solid #d4a24a'}} />
+        <div className="absolute" style={{inset:'9mm', border:'0.6px solid #d4a24a'}} />
+
+        {/* Ivory inner panel with scalloped top */}
+        <div className="absolute" style={{
+          inset: '14mm',
+          background: 'linear-gradient(180deg, #fffbee 0%, #fff6dc 100%)',
+          borderRadius: '0 0 2mm 2mm',
+          clipPath: 'polygon(0 15mm, 10% 15mm, 15% 5mm, 25% 15mm, 35% 5mm, 45% 15mm, 50% 2mm, 55% 15mm, 65% 5mm, 75% 15mm, 85% 5mm, 90% 15mm, 100% 15mm, 100% 100%, 0 100%)',
+          boxShadow: 'inset 0 0 0 1px rgba(212,162,74,.5)'
+        }} />
+
+        {/* Lanterns */}
+        <Lantern side="left" />
+        <Lantern side="right" />
+
+        {/* Mosque silhouette & Quran on stand */}
+        <Mosque />
+        <QuranStand />
+
+        {/* Content area */}
+        <div className="absolute flex flex-col items-center text-center" style={{
+          left: '14mm', right: '14mm', top: '22mm', bottom: '20mm',
+          padding: '0 20mm',
         }}>
-          <div className="h-full w-full relative" style={{
-            border: '2px solid #d4a24a',
-            background: 'repeating-linear-gradient(45deg, rgba(212,162,74,.07) 0 2px, transparent 2px 10px), linear-gradient(180deg,#fdf9ef 0,#fff8e4 100%)',
-            padding: '12mm 18mm',
-          }}>
-            {/* Decorative gold corners */}
-            <div className="pointer-events-none absolute left-2 top-2 h-10 w-10 border-l-2 border-t-2" style={{borderColor:'#d4a24a'}} />
-            <div className="pointer-events-none absolute right-2 top-2 h-10 w-10 border-r-2 border-t-2" style={{borderColor:'#d4a24a'}} />
-            <div className="pointer-events-none absolute left-2 bottom-2 h-10 w-10 border-l-2 border-b-2" style={{borderColor:'#d4a24a'}} />
-            <div className="pointer-events-none absolute right-2 bottom-2 h-10 w-10 border-r-2 border-b-2" style={{borderColor:'#d4a24a'}} />
+          {/* Logo */}
+          <img src="/images/branding/amqm-logo-watermark.webp" alt="AMQM" style={{height:'18mm', objectFit:'contain'}} />
 
-            {/* Header */}
-            <div className="text-center">
-              <div className="mx-auto mb-2 h-[6mm] w-[6mm] rounded-full" style={{background:'radial-gradient(circle at 30% 30%,#f5d989 0%,#b78325 70%,#8c5a0a 100%)'}} />
-              <div style={{letterSpacing:'.3em'}} className="text-[11px] font-black text-emerald-900">
-                ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
-              </div>
-              <div className="mt-[3mm] font-serif text-[32px] font-black" style={{color:'#063b32'}}>
-                Qur&apos;anic Graduation
-              </div>
-              <div className="font-serif italic text-[46px] font-black" style={{color:'#b78325', lineHeight:1}}>
-                Certificate
-              </div>
-            </div>
+          <div style={{marginTop:'2mm', fontSize:'11px', fontWeight:900, letterSpacing:'.28em', color:'#063b32', fontFamily:"'Playfair Display', serif"}}>
+            ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
+          </div>
 
-            {/* Ribbon */}
-            <div className="mt-[6mm] flex justify-center">
-              <div className="relative px-6 py-2 text-center text-[11px] font-black tracking-wide text-white"
-                   style={{background:'linear-gradient(90deg,#b78325 0%,#d4a24a 50%,#b78325 100%)'}}>
-                This certifies that
-              </div>
-            </div>
+          {/* Decorative divider */}
+          <div className="flex items-center gap-2" style={{marginTop:'2mm'}}>
+            <div style={{width:'20mm', height:'1px', background:'linear-gradient(90deg,transparent,#d4a24a)'}} />
+            <div style={{width:'4px', height:'4px', background:'#d4a24a', transform:'rotate(45deg)'}} />
+            <div style={{width:'20mm', height:'1px', background:'linear-gradient(90deg,#d4a24a,transparent)'}} />
+          </div>
 
-            {/* Name */}
-            <div className="mt-[4mm] text-center font-serif text-[42px] font-black" style={{color:'#063b32', letterSpacing:'.5px'}}>
-              {a.full_name}
-            </div>
-            <div className="mx-auto mt-[2mm] h-[1px] w-[70%]" style={{background:'linear-gradient(90deg,transparent 0%,#b78325 50%,transparent 100%)'}} />
+          {/* Main heading */}
+          <div style={{marginTop:'3mm', fontFamily:"'Playfair Display', serif", fontSize:'34px', fontWeight:900, color:'#063b32', letterSpacing:'1px'}}>
+            QUR&apos;ANIC GRADUATION
+          </div>
+          <div style={{fontFamily:"'Great Vibes', cursive", fontSize:'58px', color:'#b78325', lineHeight:1, textShadow:'0 1px 0 rgba(140,90,10,.25)'}}>
+            Certificate
+          </div>
 
-            {/* Body */}
-            <p className="mx-auto mt-[4mm] max-w-[200mm] text-center text-[12px] leading-6" style={{color:'#1f2937'}}>
-              has successfully completed the Qur&apos;an Memorization Journey at AMQM and is honoured as a graduate of the <b>{a.cohort_name}</b> cohort,
-              verified and approved as a <b>Hafiz / Huffaz of the Qur&apos;an</b> by the school management.
-            </p>
-
-            {/* Info row */}
-            <div className="mx-auto mt-[6mm] grid max-w-[220mm] grid-cols-4 gap-3 text-center text-[11px]">
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Cohort</div>
-                <div className="mt-0.5 font-black text-emerald-950">{a.cohort_name}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Final Term</div>
-                <div className="mt-0.5 font-black text-emerald-950">{a.graduation_term}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Class</div>
-                <div className="mt-0.5 font-black text-emerald-950">{classAtGrad}</div>
-              </div>
-              <div>
-                <div className="text-[9px] font-black uppercase tracking-widest" style={{color:'#b78325'}}>Certificate No.</div>
-                <div className="mt-0.5 font-black text-emerald-950">{cert.certificate_number || '—'}</div>
-              </div>
-            </div>
-
-            {/* Medallion */}
-            <div className="mt-[6mm] flex justify-center">
-              <div className="flex h-[18mm] w-[18mm] items-center justify-center rounded-full"
-                   style={{background:'radial-gradient(circle at 30% 30%,#f3cf74 0%,#b78325 70%,#6b4a10 100%)', boxShadow:'0 0 0 3px #063b32'}}>
-                <div className="text-center text-[9px] font-black text-emerald-950" style={{textShadow:'0 1px 0 rgba(255,255,255,.4)'}}>
-                  AMQM<br/>HAFIZ
-                </div>
-              </div>
-            </div>
-
-            {/* Signatures - three */}
-            <div className="absolute left-0 right-0" style={{bottom: '15mm'}}>
-              <div className="mx-auto grid max-w-[240mm] grid-cols-3 gap-6 px-[18mm]">
-                <Sig person={teacher} role={`Class Teacher${teacher?.full_name ? ' · ' + (classAtGrad) : ''}`} />
-                <Sig person={principal} role="Principal" />
-                <Sig person={director} role="Director" />
-              </div>
-            </div>
-
-            <div className="absolute bottom-[6mm] left-0 right-0 text-center text-[9px] font-bold" style={{color:'#063b32', opacity:.7}}>
-              Issued on {cert.issued_at || new Date().toLocaleDateString()} · {cert.certificate_number || 'Draft'}
+          {/* Ribbon */}
+          <div style={{marginTop:'3mm', position:'relative'}}>
+            <div style={{padding:'6px 26px', color:'#fff', fontSize:'11px', fontWeight:900, letterSpacing:'.25em',
+              background:'linear-gradient(90deg,#8c5a0a 0%,#d4a24a 50%,#8c5a0a 100%)',
+              boxShadow:'0 1px 0 rgba(0,0,0,.15)'}}>
+              THIS CERTIFIES THAT
             </div>
           </div>
+
+          {/* Name */}
+          <div style={{marginTop:'3mm', fontFamily:"'Playfair Display', serif", fontSize:'44px', fontStyle:'italic', fontWeight:700, color:'#063b32', letterSpacing:'1px'}}>
+            {a.full_name}
+          </div>
+
+          {/* Laurel + line */}
+          <div style={{marginTop:'1mm', display:'flex', alignItems:'center', gap:'8mm'}}>
+            <Laurel />
+            <div style={{width:'80mm', height:'1px', background:'linear-gradient(90deg,transparent,#b78325 50%,transparent)'}} />
+            <Laurel flip />
+          </div>
+
+          {/* Body statement */}
+          <p style={{marginTop:'2mm', maxWidth:'200mm', textAlign:'center', fontSize:'12.5px', lineHeight:1.6, color:'#1f2937'}}>
+            is hereby recognised as a graduate of the <b style={{color:'#063b32'}}>{a.cohort_name}</b> cohort, having successfully
+            completed the Qur&apos;an Memorization Programme and fulfilled all graduation requirements of the institution,
+            and is honoured as a <b style={{color:'#063b32'}}>Hafiz / Huffaz of the Holy Qur&apos;an</b> by the school management.
+          </p>
+
+          {/* Info row with icons */}
+          <div style={{marginTop:'4mm', display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:'6mm', width:'220mm'}}>
+            {[
+              ['COHORT', a.cohort_name],
+              ['FINAL TERM', a.graduation_term],
+              ['CLASS', classAtGrad],
+              ['CERTIFICATE NO.', cert.certificate_number || '—'],
+            ].map(([label, value]) => (
+              <div key={label} style={{textAlign:'center'}}>
+                <div style={{fontSize:'9px', fontWeight:900, letterSpacing:'.22em', color:'#b78325'}}>{label}</div>
+                <div style={{marginTop:'1mm', fontSize:'12px', fontWeight:700, color:'#063b32', fontFamily:"'Playfair Display', serif"}}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Medallion */}
+          <div style={{marginTop:'3mm'}}>
+            <Medallion />
+          </div>
+        </div>
+
+        {/* Signatures */}
+        <div className="absolute" style={{left:'14mm', right:'14mm', bottom:'15mm'}}>
+          <div style={{display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:'8mm', padding:'0 15mm'}}>
+            <Sig person={teacher} role={`Class Teacher${classAtGrad && classAtGrad !== '—' ? ' · ' + classAtGrad : ''}`} />
+            <Sig person={principal} role={principal?.job_title || 'Principal'} />
+            <Sig person={director} role={director?.job_title || 'Director'} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="absolute text-center" style={{left:0, right:0, bottom:'7mm', fontSize:'9px', color:'#063b32', opacity:.7, letterSpacing:'.1em'}}>
+          Issued on {cert.issued_at || new Date().toLocaleDateString('en-GB', {day:'2-digit', month:'long', year:'numeric'})} · {cert.certificate_number || 'Draft'} · aliyumaimuna.com.ng
         </div>
       </div>
 
-      {/* Warnings for missing signatures */}
+      {/* Preview warnings */}
       <div className="mt-3 space-y-1 text-xs">
         {!teacher?.signature_data && <div className="rounded bg-amber-50 p-2 text-amber-800">⚠ Class teacher {teacher?.full_name || ''} has not uploaded a signature yet. Signature line shown instead.</div>}
         {!principal?.signature_data && <div className="rounded bg-amber-50 p-2 text-amber-800">⚠ Principal {principal?.full_name || ''} has not uploaded a signature yet. Signature line shown instead.</div>}
