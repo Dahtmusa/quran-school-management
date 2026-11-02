@@ -14,6 +14,7 @@ type Potential = {
   class_name: string | null; teacher_name: string | null; memorization_direction: string;
   current_surah: number; current_ayah: number; progress_percent: number; status: string;
   outstanding_fees: number; evaluations_count: number; already_promoted: boolean;
+  last_evaluation: string | null; issues: string[] | null; ready: boolean;
 };
 type Confirmed = {
   alumni_id: string; student_id: string; full_name: string; graduation_year: number;
@@ -137,14 +138,14 @@ export default function AdminAlumniPage() {
     {!loading && tab === 'potential' && <section className="card overflow-hidden">
       <div className="border-b bg-slate-50 p-5">
         <h3 className="text-lg font-black">Students ready to graduate</h3>
-        <p className="text-xs text-slate-500 mt-1">Each row either reached 100% memorization or was already marked alumni but has no formal profile yet. Review, enter cohort details, and promote.</p>
+        <p className="text-xs text-slate-500 mt-1">A student is <b>ready</b> only when their latest approved evaluation ends on the final verse for their direction and their records agree. Rows marked <b>Needs review</b> show what doesn&apos;t add up: correct the evaluation or position first.</p>
       </div>
       {filteredPotential.length === 0 ? (
         <div className="p-10 text-center text-sm text-slate-400">No potential alumni right now. When a teacher's evaluation closes a student's memorization journey, they will appear here.</div>
       ) : (
         <div className="divide-y">
           {filteredPotential.map(p => (
-            <div key={p.student_id} className="flex flex-wrap items-center gap-4 p-5">
+            <div key={p.student_id} className={`flex flex-wrap items-center gap-4 p-5 ${p.ready ? '' : 'bg-rose-50/40'}`}>
               <div className="h-14 w-14 overflow-hidden rounded-2xl bg-slate-100">
                 {p.photo_url ? <img src={p.photo_url} alt={p.full_name} className="h-full w-full object-cover" />
                 : <div className="grid h-full place-items-center text-xl font-black text-slate-300">{p.full_name.charAt(0)}</div>}
@@ -153,16 +154,32 @@ export default function AdminAlumniPage() {
                 <div className="font-black">{p.full_name}</div>
                 <div className="text-xs text-slate-500">{p.admission_no} · {p.class_name || 'No class'} · Teacher: {p.teacher_name || '—'}</div>
                 <div className="mt-1 flex flex-wrap gap-2 text-[11px]">
-                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-bold text-emerald-700">{Math.round(p.progress_percent)}% memorized</span>
-                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">S.{p.current_surah}:{p.current_ayah}</span>
+                  <span className={`rounded-full px-2 py-0.5 font-black ${p.ready ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'}`}>{p.ready ? '✓ Ready' : 'Needs review'}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">Position {p.current_surah}:{p.current_ayah}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">Last approved eval: {p.last_evaluation || 'none'}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">{p.evaluations_count} evals</span>
                   {p.outstanding_fees > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 font-bold text-rose-700">{naira(p.outstanding_fees)} fees due</span>}
                   <span className={`rounded-full px-2 py-0.5 font-bold ${p.status === 'alumni' ? 'bg-amber-100 text-amber-900' : 'bg-emerald-50 text-emerald-700'}`}>{p.status}</span>
                 </div>
+                {!p.ready && (p.issues?.length ?? 0) > 0 && (
+                  <ul className="mt-2 space-y-0.5 text-[11.5px] font-semibold text-rose-800">
+                    {p.issues!.map(issue => <li key={issue}>• {issue}</li>)}
+                  </ul>
+                )}
               </div>
-              <button className="btn btn-primary" disabled={busy} onClick={() => { setPromote(p); setPromoteCohort(''); setPromoteYear(new Date().getFullYear()); }}>
-                Promote to alumni
-              </button>
+              {p.ready ? (
+                <button className="btn btn-primary" disabled={busy} onClick={() => { setPromote(p); setPromoteCohort(''); setPromoteYear(new Date().getFullYear()); }}>
+                  Promote to alumni
+                </button>
+              ) : (
+                <div className="flex flex-col items-end gap-1">
+                  <button className="btn bg-slate-200 text-slate-500 cursor-not-allowed" disabled>Promote to alumni</button>
+                  <button className="text-[11px] font-bold text-rose-700 underline" disabled={busy}
+                    onClick={() => { if (!window.confirm(`${p.full_name}'s records don't confirm they finished:\n\n${(p.issues || []).join('\n')}\n\nPromote anyway? This creates a certificate.`)) return; setPromote(p); setPromoteCohort(''); setPromoteYear(new Date().getFullYear()); }}>
+                    I&apos;ve verified it, promote anyway
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
