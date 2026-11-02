@@ -33,10 +33,10 @@ function Signature({ person, designation }: { person: any; designation: string }
           : null}
       </div>
       <div style={{ width: '42mm', height: '.3mm', background: 'linear-gradient(90deg, transparent, #b78325 15%, #b78325 85%, transparent)' }} />
-      <div style={{ marginTop: '1.2mm', color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '9.5px', fontWeight: 800, lineHeight: 1.2, letterSpacing: '.02em', overflowWrap: 'anywhere' }}>
+      <div style={{ marginTop: '1.2mm', color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontSize: (person?.full_name || '').length > 26 ? '8.5px' : (person?.full_name || '').length > 23 ? '9.2px' : '10px', fontWeight: 800, lineHeight: 1.2, letterSpacing: '0', whiteSpace: 'nowrap' }}>
         {person?.full_name || '—'}
       </div>
-      <div style={{ marginTop: '.5mm', color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '8px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', lineHeight: 1.2 }}>
+      <div style={{ marginTop: '.5mm', color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '9px', fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', lineHeight: 1.2 }}>
         {designation}
       </div>
     </div>
@@ -99,7 +99,7 @@ export function CertificateSheet({ data }: { data: any }) {
           style={{
             position: 'absolute', zIndex: 1, left: '50%', top: '54mm', width: '74mm', height: '74mm',
             transform: 'translateX(-50%)', borderRadius: '50%', objectFit: 'cover',
-            filter: 'grayscale(1) contrast(1.15)', opacity: 0.16, mixBlendMode: 'multiply',
+            filter: 'grayscale(1) contrast(1.2)', opacity: 0.26, mixBlendMode: 'multiply',
           }}
         />
       )}
@@ -118,68 +118,69 @@ export function CertificateSheet({ data }: { data: any }) {
             <div style={{ color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '36px', letterSpacing: '.16em', border: '.45mm solid #b78325', padding: '2mm 7mm' }}>AMQM</div>
           )}
         </div>
-        <div style={{ marginTop: '2mm', color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '15px', letterSpacing: '.14em', lineHeight: 1.3 }}>
+        <div style={{ marginTop: '2mm', color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '16.5px', letterSpacing: '.13em', lineHeight: 1.3 }}>
           ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
         </div>
       </div>
 
       {/* Main body */}
       <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '39mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-        <div style={{ color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '26px', lineHeight: 1.1, letterSpacing: '.03em' }}>
+        <div style={{ color: GREEN, fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '28px', lineHeight: 1.1, letterSpacing: '.03em' }}>
           QUR&apos;ANIC GRADUATION
         </div>
-        <div style={{ color: '#a3701f', fontFamily: "'Great Vibes', cursive", fontSize: '50px', lineHeight: 1 }}>
+        <div style={{ color: '#a3701f', fontFamily: "'Great Vibes', cursive", fontSize: '54px', lineHeight: 1 }}>
           Certificate
         </div>
         <div style={{
-          marginTop: '4mm', padding: '2mm 11mm',
+          marginTop: '3mm', padding: '2mm 12mm',
           background: 'linear-gradient(90deg, #8f601a 0%, #e4bd65 50%, #8f601a 100%)',
-          color: '#fffdf3', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '10px', fontWeight: 800, letterSpacing: '.18em',
+          color: '#fffdf3', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '11px', fontWeight: 800, letterSpacing: '.18em',
           clipPath: 'polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%)',
         }}>
           THIS CERTIFIES THAT
         </div>
         <div style={{
-          width: '100%', marginTop: '4.5mm', color: GREEN,
+          width: '100%', marginTop: '3.5mm', color: GREEN,
           fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontStyle: 'italic',
-          fontSize: (a.full_name || '').length > 28 ? '32px' : '40px',
+          fontSize: (a.full_name || '').length > 28 ? '35px' : '44px',
           lineHeight: 1.15, overflowWrap: 'anywhere',
         }}>
           {a.full_name || 'Graduate Name'}
         </div>
         <div style={{ width: '62%', height: '.4mm', marginTop: '2mm', background: 'linear-gradient(90deg, transparent, #b78325 20%, #b78325 80%, transparent)' }} />
-        <p style={{ maxWidth: '200mm', margin: '4.5mm 0 0', color: '#2a352f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '13px', lineHeight: 1.6, fontWeight: 600 }}>
+        <p style={{ maxWidth: '215mm', margin: '3.5mm 0 0', color: '#2a352f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '14.5px', lineHeight: 1.5, fontWeight: 600 }}>
           is hereby recognised as a graduate of the <b style={{ color: GREEN }}>{a.cohort_name || '—'}</b> cohort, having successfully
           completed the Qur&apos;an Memorization Programme at Aliyu and Maimuna Center for Qur&apos;anic Memorization and is
           honoured as a <b style={{ color: GREEN }}>Hafiz / Huffaz of the Holy Qur&apos;an</b> by the school management.
         </p>
         <div style={{
-          marginTop: '6mm', width: '82%', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-          borderTop: '.35mm solid #c69a4a', borderBottom: '.35mm solid #c69a4a', padding: '2.8mm 0',
+          marginTop: '4.5mm', width: '84%', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+          borderTop: '.35mm solid #c69a4a', borderBottom: '.35mm solid #c69a4a', padding: '2.5mm 0',
         }}>
           {infoItems.map((item, index) => (
             <div key={item.label} style={{ minWidth: 0, padding: '0 2mm', borderRight: index < infoItems.length - 1 ? '.2mm solid #d9c18e' : 'none' }}>
-              <div style={{ color: GOLD_TEXT, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7.5px', fontWeight: 800, letterSpacing: '.1em', lineHeight: 1.3 }}>{item.label}</div>
-              <div style={{ marginTop: '1.3mm', color: '#123d32', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '10.5px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.value}</div>
+              <div style={{ color: GOLD_TEXT, fontFamily: "'Playfair Display', Georgia, serif", fontSize: '8.5px', fontWeight: 800, letterSpacing: '.1em', lineHeight: 1.3 }}>{item.label}</div>
+              <div style={{ marginTop: '1.1mm', color: '#123d32', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '12px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.value}</div>
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Medallion, lifted out of the artwork so it can sit in the middle */}
-      <img
-        src="/images/certificates/certificate-medallion.png"
-        alt=""
-        aria-hidden="true"
-        style={{
-          position: 'absolute', zIndex: 3, left: '50%', top: '128mm', width: '24mm', height: 'auto',
-          transform: 'translateX(-50%)', filter: 'drop-shadow(0 0.6mm 1.2mm rgba(13,69,55,.28))',
-        }}
-      />
+        {/* Medallion, lifted out of the artwork. It flows directly under the
+            details row so it can never overlap that line, whatever the text. */}
+        <img
+          src="/images/certificates/certificate-medallion.png"
+          alt=""
+          aria-hidden="true"
+          style={{
+            display: 'block', marginTop: '3mm', width: '20mm', height: 'auto',
+            filter: 'drop-shadow(0 0.6mm 1.2mm rgba(13,69,55,.28))',
+          }}
+        />
+      </div>
 
       {/* Signatures, sitting directly on the paper */}
       <div style={{
-        position: 'absolute', zIndex: 4, left: '80mm', right: '80mm', top: '157mm',
+        position: 'absolute', zIndex: 4, left: '78mm', right: '78mm', top: '159mm',
         display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '5mm', alignItems: 'end',
       }}>
         <Signature person={teacher} designation={teacher?.job_title || 'Class Teacher'} />
@@ -191,7 +192,7 @@ export function CertificateSheet({ data }: { data: any }) {
           below the mosque, level with the signature row. */}
       {cert.id && (
         <div style={{
-          position: 'absolute', zIndex: 4, left: '223mm', top: '156mm', width: '20mm',
+          position: 'absolute', zIndex: 4, left: '224mm', top: '158mm', width: '20mm',
           display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
           <div style={{ padding: '.7mm', background: '#fff', border: '.3mm solid #c69a4a', borderRadius: '1mm', boxShadow: '0 .3mm .8mm rgba(13,69,55,.18)' }}>
@@ -207,7 +208,7 @@ export function CertificateSheet({ data }: { data: any }) {
           band under the gold swoosh. */}
       <div style={{
         position: 'absolute', zIndex: 4, left: '40mm', right: '40mm', bottom: '6mm', textAlign: 'center', whiteSpace: 'nowrap',
-        color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '8.5px', fontWeight: 700, letterSpacing: '.12em',
+        color: GOLD_TEXT, fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '9.5px', fontWeight: 700, letterSpacing: '.12em',
       }}>
         <span style={{ color: GREEN }}>{cert.certificate_number || "AMQM · QUR'ANIC GRADUATION"}</span>
         {issuedDate !== '—' && <>  •  AWARDED {issuedDate.toUpperCase()}</>}
