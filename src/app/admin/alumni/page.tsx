@@ -321,20 +321,59 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
   const classAtGrad = data.class?.name || '—';
 
   function doPrint() {
-    const html = document.getElementById('cert-design-a')?.outerHTML || '';
+    const origin = window.location.origin;
+    // Clone the certificate sheet and rewrite relative image URLs to absolute
+    // so they resolve inside the about:blank print window.
+    const sheet = document.getElementById('cert-design-a');
+    if (!sheet) return;
+    const clone = sheet.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll('img').forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      if (src.startsWith('/')) img.setAttribute('src', origin + src);
+    });
+    const html = clone.outerHTML;
+
     const style = `
       @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;700&family=Great+Vibes&display=swap');
       @page { size: A4 landscape; margin: 0; }
-      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      body { margin: 0; padding: 0; font-family: 'Cormorant Garamond', 'Georgia', serif; }
-      .cert-sheet { page-break-after: avoid; }
+      html, body {
+        margin: 0; padding: 0;
+        font-family: 'Cormorant Garamond', 'Georgia', serif;
+        background: #063b32;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+      .cert-sheet {
+        page-break-after: avoid;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
     `;
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!doctype html><html><head><title>Certificate · ${a.full_name || ''}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;700&family=Great+Vibes&display=swap" rel="stylesheet"><style>${style}</style></head><body>${html}</body></html>`);
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Certificate · ${a.full_name || ''}</title><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,700&family=Cormorant+Garamond:wght@500;700&family=Great+Vibes&display=swap" rel="stylesheet"><style>${style}</style></head><body>${html}</body></html>`);
     w.document.close();
     w.focus();
-    setTimeout(() => w.print(), 1500);
+    // Wait for fonts + logo image to actually load before printing
+    const trigger = () => setTimeout(() => w.print(), 400);
+    const imgs = Array.from(w.document.images || []);
+    if (imgs.length === 0) { setTimeout(trigger, 1200); return; }
+    let remaining = imgs.length;
+    const done = () => { remaining -= 1; if (remaining <= 0) trigger(); };
+    imgs.forEach(img => {
+      if (img.complete) done();
+      else { img.addEventListener('load', done); img.addEventListener('error', done); }
+    });
+    // Safety net: print anyway after 4s
+    setTimeout(() => w.print(), 4000);
   }
 
   const issuedDate = cert.issued_at
