@@ -418,58 +418,58 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
           } as any}
         >
           {/* Header: real school logo + institution name, in the open top dome area */}
-          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '9mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ height: '13mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '10mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ height: '15mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {!logoFailed ? (
                 <img
                   src="/images/branding/amqm-logo-watermark.webp"
                   alt="Aliyu and Maimuna Center for Qur'anic Memorization official logo"
                   onError={() => setLogoFailed(true)}
-                  style={{ display: 'block', height: '13mm', maxWidth: '40mm', objectFit: 'contain' }}
+                  style={{ display: 'block', height: '15mm', maxWidth: '44mm', objectFit: 'contain' }}
                 />
               ) : (
                 <div style={{
-                  color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800,
-                  fontSize: '17px', letterSpacing: '.14em', border: '.3mm solid #b78325', padding: '1.2mm 4mm',
+                  color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900,
+                  fontSize: '28px', letterSpacing: '.16em', border: '.4mm solid #b78325', padding: '1.6mm 6mm',
                 }}>AMQM</div>
               )}
             </div>
-            <div style={{ marginTop: '1.4mm', color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '9px', letterSpacing: '.18em', lineHeight: 1.3 }}>
+            <div style={{ marginTop: '2mm', color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 900, fontSize: '13px', letterSpacing: '.16em', lineHeight: 1.35 }}>
               ALIYU AND MAIMUNA CENTER FOR QUR&apos;ANIC MEMORIZATION
             </div>
           </div>
 
           {/* Main heading */}
-          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '30mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '24px', lineHeight: 1.1, letterSpacing: '.03em' }}>
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '35mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '26px', lineHeight: 1.1, letterSpacing: '.03em' }}>
               QUR&apos;ANIC GRADUATION
             </div>
-            <div style={{ marginTop: '-1mm', color: '#a3701f', fontFamily: "'Great Vibes', cursive", fontSize: '44px', lineHeight: 1 }}>
+            <div style={{ marginTop: '0', color: '#a3701f', fontFamily: "'Great Vibes', cursive", fontSize: '50px', lineHeight: 1 }}>
               Certificate
             </div>
 
             <div style={{
-              marginTop: '2.2mm', padding: '1.5mm 10mm',
+              marginTop: '4mm', padding: '2mm 11mm',
               background: 'linear-gradient(90deg, #8f601a 0%, #e4bd65 50%, #8f601a 100%)',
-              color: '#fffdf3', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '9.5px', fontWeight: 800, letterSpacing: '.18em',
+              color: '#fffdf3', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '10px', fontWeight: 800, letterSpacing: '.18em',
               clipPath: 'polygon(0 0, 100% 0, 96% 50%, 100% 100%, 0 100%, 4% 50%)',
             }}>
               THIS CERTIFIES THAT
             </div>
 
             <div style={{
-              width: '100%', marginTop: '2.6mm', color: '#0d4537',
-              fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontStyle: 'italic',
-              fontSize: (a.full_name || '').length > 28 ? '27px' : '33px',
+              width: '100%', marginTop: '4.5mm', color: '#0d4537',
+              fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontStyle: 'italic',
+              fontSize: (a.full_name || '').length > 28 ? '32px' : '40px',
               lineHeight: 1.15, overflowWrap: 'anywhere',
             }}>
               {a.full_name || 'Graduate Name'}
             </div>
-            <div style={{ width: '62%', height: '.35mm', marginTop: '1.3mm', background: 'linear-gradient(90deg, transparent, #b78325 20%, #b78325 80%, transparent)' }} />
+            <div style={{ width: '62%', height: '.4mm', marginTop: '2mm', background: 'linear-gradient(90deg, transparent, #b78325 20%, #b78325 80%, transparent)' }} />
 
             <p style={{
-              maxWidth: '195mm', margin: '2.3mm 0 0', color: '#2a352f',
-              fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '12px', lineHeight: 1.45, fontWeight: 600,
+              maxWidth: '200mm', margin: '4.5mm 0 0', color: '#2a352f',
+              fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '13px', lineHeight: 1.6, fontWeight: 600,
             }}>
               is hereby recognised as a graduate of the <b style={{ color: '#0d4537' }}>{a.cohort_name || '—'}</b> cohort, having successfully
               completed the Qur&apos;an Memorization Programme at Aliyu and Maimuna Center for Qur&apos;anic Memorization and is
@@ -477,30 +477,29 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
             </p>
 
             <div style={{
-              marginTop: '3mm', width: '82%', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-              borderTop: '.3mm solid #c69a4a', borderBottom: '.3mm solid #c69a4a', padding: '2mm 0',
+              marginTop: '6mm', width: '82%', display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+              borderTop: '.35mm solid #c69a4a', borderBottom: '.35mm solid #c69a4a', padding: '2.8mm 0',
             }}>
               {infoItems.map((item, index) => (
                 <div key={item.label} style={{ minWidth: 0, padding: '0 2mm', borderRight: index < infoItems.length - 1 ? '.2mm solid #d9c18e' : 'none' }}>
-                  <div style={{ color: '#8a611f', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7px', fontWeight: 800, letterSpacing: '.1em', lineHeight: 1.3 }}>{item.label}</div>
-                  <div style={{ marginTop: '1mm', color: '#123d32', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '9.5px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.value}</div>
+                  <div style={{ color: '#8a611f', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7.5px', fontWeight: 800, letterSpacing: '.1em', lineHeight: 1.3 }}>{item.label}</div>
+                  <div style={{ marginTop: '1.3mm', color: '#123d32', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '10.5px', fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{item.value}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Signature plaque — fully opaque card so it fully covers the
-              medallion/Qur'an-stand artwork beneath it (a semi-transparent
-              card there produced a muddy, half-visible smear), while the
-              soft shadow and matching cream tone keep it feeling like an
-              intentional part of the design rather than a patch */}
+          {/* Signature plaque — sits in the open band ABOVE the gold medallion
+              so the medallion stays fully visible below it (previously the
+              plaque covered the medallion). Fully opaque so it still reads
+              cleanly over whatever artwork is directly behind it. */}
           <div style={{
-            position: 'absolute', zIndex: 4, left: '32mm', right: '32mm', top: '150mm',
+            position: 'absolute', zIndex: 4, left: '32mm', right: '32mm', top: '128mm',
             display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', columnGap: '6mm',
             background: '#fdf8ec',
             boxShadow: '0 1mm 4mm rgba(13, 69, 55, .22)',
             borderTop: '.35mm solid #c6983f', borderBottom: '.35mm solid #c6983f',
-            padding: '3.2mm 5mm',
+            padding: '2.6mm 5mm',
             borderRadius: '2mm',
           }}>
             <Signature person={teacher} designation={teacher?.job_title || 'Class Teacher'} />
