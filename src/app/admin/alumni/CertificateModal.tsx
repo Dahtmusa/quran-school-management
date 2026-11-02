@@ -99,7 +99,7 @@ export function CertificateSheet({ data }: { data: any }) {
           style={{
             position: 'absolute', zIndex: 1, left: '50%', top: '54mm', width: '74mm', height: '74mm',
             transform: 'translateX(-50%)', borderRadius: '50%', objectFit: 'cover',
-            filter: 'grayscale(1) contrast(1.2)', opacity: 0.26, mixBlendMode: 'multiply',
+            filter: 'grayscale(1) contrast(1.3)', opacity: 0.42, mixBlendMode: 'multiply',
           }}
         />
       )}
