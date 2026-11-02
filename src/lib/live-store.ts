@@ -24,12 +24,12 @@ export async function getCurrentProfile() {
   return data;
 }
 
-export async function loadStudents(): Promise<Student[]> {
+export async function loadStudents(opts?: { includeStudentId?: string }): Promise<Student[]> {
   const profile = await getCurrentProfile();
   if (profile?.role === 'parent') return loadParentStudents();
   const { data, error } = await supabase().rpc('get_school_student_directory');
   if (error || !data) { console.error('Student directory load failed:', error); return []; }
-  return data.filter((s:any) => s.status === 'active').map((s:any) => ({
+  return data.filter((s:any) => s.status === 'active' || (opts?.includeStudentId && s.id === opts.includeStudentId)).map((s:any) => ({
     id:s.id, admissionNo:s.admission_no, name:s.full_name, studentIdNumber:s.student_id_number ?? null, idExpiresOn:s.id_expires_on ?? null,
     section:s.section === 'boarding' ? 'Boarding' : 'Day', year:mapYear(s.program_year),
     attendance:Number(s.attendance_percent ?? 0), fees:Number(s.fees_due ?? 0), teacher:s.teacher_name ?? 'Unassigned',
@@ -176,6 +176,7 @@ export async function adminLayOffStaff(staffId:string,reason:string,lastDay?:str
 export async function adminReinstateStaff(staffId:string){const {data,error}=await supabase().rpc('admin_reinstate_staff',{p_staff_id:staffId});if(error)throw error;return data;}
 export async function adminSendEvaluationBack(evaluationId:string,note:string){const {data,error}=await supabase().rpc('admin_send_evaluation_back',{p_evaluation_id:evaluationId,p_note:note});if(error)throw error;return data as {teacher_name:string;student_position:string};}
 export async function adminCorrectQuranRecord(input:{studentId:string;direction:'nas_to_baqarah'|'baqarah_to_nas';startSurah:number;startAyah:number;currentSurah:number;currentAyah:number;reason:string;evaluationId?:string|null;evalFromSurah?:number|null;evalFromAyah?:number|null;evalToSurah?:number|null;evalToAyah?:number|null}){const {data,error}=await supabase().rpc('admin_correct_quran_record',{p_student_id:input.studentId,p_direction:input.direction,p_start_surah:input.startSurah,p_start_ayah:input.startAyah,p_current_surah:input.currentSurah,p_current_ayah:input.currentAyah,p_reason:input.reason,p_evaluation_id:input.evaluationId||null,p_eval_from_surah:input.evaluationId?input.evalFromSurah:null,p_eval_from_ayah:input.evaluationId?input.evalFromAyah:null,p_eval_to_surah:input.evaluationId?input.evalToSurah:null,p_eval_to_ayah:input.evaluationId?input.evalToAyah:null});if(error)throw error;return data as {current:string;drafts_moved:number};}
+export async function adminRecordAlumniPayment(input:{studentId:string;amount:number;method?:string;reference?:string;notes?:string}){const client=supabase();const {data:paymentId,error}=await client.rpc('admin_record_alumni_payment',{p_student_id:input.studentId,p_amount:input.amount,p_method:input.method||'Cash',p_reference:input.reference||null,p_notes:input.notes||null});if(error)throw error;const {data:payment,error:fetchError}=await client.from('payments').select('*').eq('id',paymentId).single();if(fetchError)throw fetchError;return payment as any;}
 export async function loadPotentialAlumni(){const {data,error}=await supabase().rpc('amqm_potential_alumni');if(error)throw error;return (data||[]) as any[];}
 export async function loadAlumniList(){const {data,error}=await supabase().rpc('amqm_alumni_list');if(error)throw error;return (data||[]) as any[];}
 export async function loadAlumniFull(alumniId:string){const {data,error}=await supabase().rpc('amqm_alumni_full',{p_alumni_id:alumniId});if(error)throw error;return data as any;}

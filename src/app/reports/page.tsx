@@ -3,7 +3,8 @@ import { loadCMSSettings } from '@/lib/cms-live-store';
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import { getCurrentProfile, loadEvaluations, loadOperationalTerms, loadStudents, loadParentStudents, loadTermCompletions, completeTerm, loadCurrentAcademicTerm, loadSignaturesForReportCards, type ReportCardSignatures } from '@/lib/live-store';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { label, progressBetween, remainingFrom, pageForPosition, juzForPosition, hizbForPosition } from '@/lib/quran';
 import QRCode from 'qrcode';
 
@@ -206,7 +207,14 @@ async function bulkPrintReportCards(students: any[], term: any, terms: any[], se
   openPrintWindow(`Bulk Report Cards · ${termLabel}`, pages.join(''));
 }
 
-export default function Reports(){
+export default function Reports(){return <Suspense fallback={null}><ReportsInner/></Suspense>}
+
+function ReportsInner(){
+ // Deep link from the Alumni records page: ?student=<id>&term=<termId> opens
+ // that student's report for that term, even if they are no longer active.
+ const params=useSearchParams();
+ const linkStudent=params.get('student')||'';
+ const linkTerm=params.get('term')||'';
  const [settings,setSettings]=useState<any>({});
  const [students,setStudents]=useState<any[]>([]);
  const [evals,setEvals]=useState<any[]>([]);
@@ -222,9 +230,9 @@ export default function Reports(){
 
  const refresh=async()=>{
    const p=await getCurrentProfile();
-   const [s,e,t,c,st,cur]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm()]);
+   const [s,e,t,c,st,cur]=await Promise.all([p?.role==='parent'?loadParentStudents():loadStudents(linkStudent?{includeStudentId:linkStudent}:undefined),loadEvaluations(),loadOperationalTerms(),loadTermCompletions(),loadCMSSettings(),loadCurrentAcademicTerm()]);
    setRole(p?.role||'');setStudents(s);setEvals(e);setTerms(t);setCompleted(c);setSettings(st);
-   if(!termId)setTermId(cur?.term_id||t[0]?.id||'');
+   if(!termId)setTermId(linkTerm&&t.some((x:any)=>x.id===linkTerm)?linkTerm:(cur?.term_id||t[0]?.id||''));
  };
  useEffect(()=>{refresh()},[]);
  useEffect(()=>{loadSignaturesForReportCards().then(setSignatures);},[]);
@@ -239,6 +247,12 @@ export default function Reports(){
  const filtered=classFilter?rows.filter(r=>(r.className||'Unassigned')===classFilter):rows;
  const ready=filtered.filter(s=>s.ready);
  const isComplete=completed.some(c=>c.term_id===termId);
+ const linkOpened=useRef(false);
+ useEffect(()=>{
+   if(!linkStudent||linkOpened.current||!term)return;
+   const row=rows.find(r=>r.id===linkStudent);
+   if(row){linkOpened.current=true;setSelected(row);}
+ },[linkStudent,term,rows]);
 
  async function markComplete(){
    if(!termId)return;

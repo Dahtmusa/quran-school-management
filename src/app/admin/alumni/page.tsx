@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   loadPotentialAlumni, loadAlumniList, loadAlumniFull,
   promoteToAlumni, toggleAlumniPublication,
-  adminSendEvaluationBack, adminCorrectQuranRecord,
+  adminSendEvaluationBack, adminCorrectQuranRecord, adminRecordAlumniPayment,
 } from '@/lib/live-store';
 import CertificateModal from './CertificateModal';
 import { SURAHS } from '@/lib/quran';
+import { printReceipt, loadReceiptContext, type ReceiptContext } from '@/lib/finance-print';
 
 type FixForm = {
   direction: 'nas_to_baqarah' | 'baqarah_to_nas';
@@ -68,6 +69,62 @@ export default function AdminAlumniPage() {
   const [promoteTerm, setPromoteTerm] = useState('Term 3');
   const [promoteIssueCert, setPromoteIssueCert] = useState(true);
   const [dossier, setDossier] = useState<any>(null);
+  // Record payment (works from the list chip or from inside the record)
+  const [payFor, setPayFor] = useState<any>(null); // full alumni record
+  const [payAmount, setPayAmount] = useState('');
+  const [payMethod, setPayMethod] = useState('Cash');
+  const [payRef, setPayRef] = useState('');
+  const [payNotes, setPayNotes] = useState('');
+  const [paidReceipt, setPaidReceipt] = useState<{ payment: any; record: any } | null>(null);
+  const [receiptCtx, setReceiptCtx] = useState<ReceiptContext | null>(null);
+
+  function receiptStudent(record: any) {
+    const s = record?.student || {};
+    return {
+      full_name: s.full_name || record?.alumni?.full_name, admission_no: s.admission_no,
+      className: record?.class?.name || '—', section: s.section === 'boarding' ? 'Boarding' : s.section === 'day' ? 'Day' : '—',
+    };
+  }
+
+  async function printPaymentReceipt(record: any, payment: any) {
+    try {
+      const ctx = receiptCtx || await loadReceiptContext();
+      if (!receiptCtx) setReceiptCtx(ctx);
+      printReceipt(receiptStudent(record), payment, ctx.bank, ctx.currency, ctx.schoolName, ctx.logoUrl, ctx.schoolAddress, ctx.terms);
+    } catch (e: any) { setMessage(e?.message || 'Could not prepare the receipt.'); }
+  }
+
+  function startPayment(record: any) {
+    setPayFor(record);
+    setPayAmount(String(Number(record?.fees?.outstanding || 0)));
+    setPayMethod('Cash'); setPayRef(''); setPayNotes(''); setPaidReceipt(null);
+  }
+
+  async function openPaymentFor(a: Confirmed) {
+    setBusy(true);
+    try { startPayment(await loadAlumniFull(a.alumni_id)); }
+    catch (e: any) { setMessage(e?.message || 'Could not open this record.'); }
+    finally { setBusy(false); }
+  }
+
+  async function doRecordPayment() {
+    if (!payFor) return;
+    const amount = Number(payAmount);
+    if (!(amount > 0)) { setMessage('Enter an amount greater than zero.'); return; }
+    setBusy(true); setMessage('');
+    try {
+      const payment = await adminRecordAlumniPayment({
+        studentId: payFor.alumni.student_id, amount, method: payMethod, reference: payRef, notes: payNotes,
+      });
+      const fresh = await loadAlumniFull(payFor.alumni.id);
+      setPaidReceipt({ payment, record: fresh });
+      setPayFor(fresh);
+      if (dossier?.alumni?.id === fresh.alumni.id) setDossier(fresh);
+      await refresh();
+    } catch (e: any) { setMessage(e?.message || 'Payment could not be recorded.'); }
+    finally { setBusy(false); }
+  }
+
   const [sendBack, setSendBack] = useState<Potential | null>(null);
   const [sendBackNote, setSendBackNote] = useState('');
   const [fixing, setFixing] = useState<Potential | null>(null);
@@ -296,7 +353,8 @@ export default function AdminAlumniPage() {
                   {a.certificate_number && <span className="rounded-full bg-amber-50 px-2 py-0.5 font-bold text-amber-800">{a.certificate_number}</span>}
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">{a.class_at_graduation || '—'}</span>
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 font-bold text-slate-700">Teacher: {a.teacher_at_graduation || '—'}</span>
-                  {a.outstanding_fees > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 font-bold text-rose-700">{naira(a.outstanding_fees)} unpaid</span>}
+                  {a.outstanding_fees > 0 && <button type="button" disabled={busy} onClick={() => openPaymentFor(a)} title="Record a payment"
+                    className="rounded-full bg-rose-50 px-2 py-0.5 font-bold text-rose-700 underline decoration-dotted underline-offset-2 hover:bg-rose-100">{naira(a.outstanding_fees)} unpaid · Record payment</button>}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -438,7 +496,80 @@ export default function AdminAlumniPage() {
           <div className="mt-1 text-sm">Due: <b>{naira(dossier.fees?.total_due || 0)}</b></div>
           <div className="text-sm">Paid: <b>{naira(dossier.fees?.total_paid || 0)}</b></div>
           <div className="mt-1 text-base font-black">Outstanding: {naira(dossier.fees?.outstanding || 0)}</div>
+          {Number(dossier.fees?.outstanding || 0) > 0 && (
+            <button className="btn btn-primary mt-2 w-full text-sm py-1.5" disabled={busy} onClick={() => startPayment(dossier)}>Record payment</button>
+          )}
         </div>
+      </div>
+
+      {/* Fees by term */}
+      <div className="mt-5">
+        <h3 className="text-sm font-black uppercase tracking-wide text-slate-700">School fees ({(dossier.fee_lines || []).length})</h3>
+        {(dossier.fee_lines || []).length === 0 ? <p className="mt-2 text-xs text-slate-400">No fee records.</p> : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                <tr><th className="p-2">Term</th><th className="p-2">Fee</th><th className="p-2 text-right">Due</th><th className="p-2 text-right">Paid</th><th className="p-2 text-right">Balance</th></tr>
+              </thead>
+              <tbody>
+                {dossier.fee_lines.map((f: any) => (
+                  <tr key={f.id} className="border-t">
+                    <td className="p-2">{f.term || '—'}{f.academic_year && f.term !== f.academic_year ? <span className="text-slate-400"> · {f.academic_year}</span> : null}</td>
+                    <td className="p-2">{f.name || '—'}</td>
+                    <td className="p-2 text-right">{naira(f.amount_due)}</td>
+                    <td className="p-2 text-right">{naira(f.amount_paid)}</td>
+                    <td className={`p-2 text-right font-black ${Number(f.balance) > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Number(f.balance) > 0 ? naira(f.balance) : 'Paid'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Payments and receipts */}
+      <div className="mt-5">
+        <h3 className="text-sm font-black uppercase tracking-wide text-slate-700">Payments &amp; receipts ({(dossier.payments || []).length})</h3>
+        {(dossier.payments || []).length === 0 ? <p className="mt-2 text-xs text-slate-400">No payments recorded.</p> : (
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-500">
+                <tr><th className="p-2">Date</th><th className="p-2">Term</th><th className="p-2">Method</th><th className="p-2">Reference</th><th className="p-2 text-right">Amount</th><th className="p-2" /></tr>
+              </thead>
+              <tbody>
+                {dossier.payments.map((p: any) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-2">{p.paid_on ? new Date(p.paid_on).toLocaleDateString('en-GB') : '—'}</td>
+                    <td className="p-2">{p.term || '—'}{p.academic_year ? <span className="text-slate-400"> · {p.academic_year}</span> : null}</td>
+                    <td className="p-2">{p.method || 'Cash'}</td>
+                    <td className="p-2">{p.reference || '—'}</td>
+                    <td className="p-2 text-right font-black">{naira(p.amount)}</td>
+                    <td className="p-2 text-right"><button className="btn bg-slate-100 text-[11px] py-1" onClick={() => printPaymentReceipt(dossier, p)}>Receipt</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Report cards */}
+      <div className="mt-5">
+        <h3 className="text-sm font-black uppercase tracking-wide text-slate-700">Report cards ({(dossier.report_terms || []).length})</h3>
+        {(dossier.report_terms || []).length === 0 ? <p className="mt-2 text-xs text-slate-400">No terms with evaluations on record.</p> : (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            {dossier.report_terms.map((t: any) => (
+              <div key={t.term_id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 p-3">
+                <div>
+                  <div className="text-sm font-black">{t.term}</div>
+                  <div className="text-[11px] text-slate-500">{t.academic_year || ''} · {t.approved}/{t.total} evaluations approved</div>
+                </div>
+                <a className="btn bg-emerald-50 text-emerald-800 text-[11px] py-1" target="_blank" rel="noopener noreferrer"
+                  href={`/reports?student=${dossier.alumni?.student_id}&term=${t.term_id}`}>Open report card</a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {Array.isArray(dossier.certificates) && dossier.certificates.length > 0 && <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4">
@@ -476,6 +607,49 @@ export default function AdminAlumniPage() {
           </table>
         </div>
       </div>}
+    </div></div>}
+
+    {/* Record payment */}
+    {payFor && <div className="fixed inset-0 z-[60] overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-12 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+      <h2 className="text-xl font-black text-emerald-900">Record payment</h2>
+      <p className="mt-1 text-sm text-slate-600">{payFor.alumni?.full_name} · {payFor.student?.admission_no}</p>
+      {paidReceipt ? (
+        <div className="mt-4 space-y-3">
+          <div className="rounded-2xl bg-emerald-50 p-4 text-sm text-emerald-900">
+            <b>{naira(paidReceipt.payment.amount)}</b> recorded. It now shows in Finance like any other payment.
+            Remaining balance: <b>{naira(paidReceipt.record.fees?.outstanding || 0)}</b>.
+          </div>
+          <div className="flex justify-end gap-2">
+            <button className="btn bg-slate-100" onClick={() => { setPayFor(null); setPaidReceipt(null); }}>Done</button>
+            <button className="btn btn-primary" onClick={() => printPaymentReceipt(paidReceipt.record, paidReceipt.payment)}>Print receipt</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="mt-3 rounded-2xl bg-rose-50 p-3 text-sm text-rose-900">Outstanding balance: <b>{naira(payFor.fees?.outstanding || 0)}</b></div>
+          <div className="mt-4 space-y-3">
+            <label className="block text-xs font-bold text-slate-700">Amount (₦)
+              <input type="number" min={1} max={Number(payFor.fees?.outstanding || 0)} className="input mt-1 w-full" value={payAmount} onChange={e => setPayAmount(e.target.value)} />
+            </label>
+            <label className="block text-xs font-bold text-slate-700">Method
+              <select className="input mt-1 w-full" value={payMethod} onChange={e => setPayMethod(e.target.value)}>
+                {['Cash', 'Bank transfer', 'POS', 'Cheque'].map(m => <option key={m}>{m}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs font-bold text-slate-700">Reference (optional)
+              <input className="input mt-1 w-full" value={payRef} placeholder="e.g. transfer reference" onChange={e => setPayRef(e.target.value)} />
+            </label>
+            <label className="block text-xs font-bold text-slate-700">Note (optional)
+              <input className="input mt-1 w-full" value={payNotes} onChange={e => setPayNotes(e.target.value)} />
+            </label>
+          </div>
+          <p className="mt-3 text-[11px] text-slate-500">Applied to the oldest unpaid term first, exactly as Finance does.</p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button className="btn bg-slate-100" onClick={() => setPayFor(null)}>Cancel</button>
+            <button className="btn btn-primary" disabled={busy || !(Number(payAmount) > 0)} onClick={doRecordPayment}>{busy ? 'Saving…' : 'Save payment'}</button>
+          </div>
+        </>
+      )}
     </div></div>}
 
     {/* Certificate print modal - Design A emerald + gold */}
