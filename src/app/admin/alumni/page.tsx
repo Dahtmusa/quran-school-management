@@ -363,17 +363,17 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
 
   const Signature = ({ person, designation }: { person: any; designation: string }) => (
     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-      <div style={{ height: '7mm', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 2mm' }}>
+      <div style={{ height: '10mm', width: '100%', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 2mm' }}>
         {typeof person?.signature_data === 'string' && person.signature_data.length > 0
           ? <img src={person.signature_data} alt={`${person?.full_name || designation} signature`}
-              style={{ display: 'block', maxHeight: '6.5mm', maxWidth: '100%', objectFit: 'contain' }} />
-          : <div style={{ width: '65%', borderBottom: '0.25mm solid #173f35', marginBottom: '1mm' }} />}
+              style={{ display: 'block', maxHeight: '9.5mm', maxWidth: '100%', objectFit: 'contain' }} />
+          : <div style={{ width: '70%', borderBottom: '0.3mm solid #173f35', marginBottom: '1.2mm' }} />}
       </div>
-      <div style={{ width: '65%', borderTop: '0.25mm solid #b78325' }} />
-      <div style={{ marginTop: '0.8mm', color: '#123d32', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '7.5px', fontWeight: 700, lineHeight: 1.15, overflowWrap: 'anywhere' }}>
+      <div style={{ width: '70%', borderTop: '0.3mm solid #b78325' }} />
+      <div style={{ marginTop: '1mm', color: '#123d32', fontFamily: "'Playfair Display', Georgia, serif", fontSize: '9px', fontWeight: 700, lineHeight: 1.2, overflowWrap: 'anywhere' }}>
         {person?.full_name || '—'}
       </div>
-      <div style={{ marginTop: '0.3mm', color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '6.5px', fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', lineHeight: 1.15 }}>
+      <div style={{ marginTop: '0.4mm', color: '#8a611f', fontFamily: "'Cormorant Garamond', Georgia, serif", fontSize: '7.5px', fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', lineHeight: 1.2 }}>
         {designation}
       </div>
     </div>
@@ -489,6 +489,19 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
               ))}
             </div>
           </div>
+
+          {/* Medallion — lifted out of the background artwork into its own layer
+              so it can sit in the open middle of the page, leaving the footer
+              free for the signatures. */}
+          <img
+            src="/images/certificates/certificate-medallion.png"
+            alt=""
+            aria-hidden="true"
+            style={{
+              position: 'absolute', zIndex: 3, left: '50%', top: '134mm', width: '30mm', height: 'auto',
+              transform: 'translateX(-50%)', filter: 'drop-shadow(0 0.6mm 1.2mm rgba(13,69,55,.28))',
+            }}
+          />
 
           {/* Signature plaque — moved down into the bottom gold-ribbon footer
               band so the medallion above it stays fully visible. Compact
