@@ -14,6 +14,7 @@ function directionLabel(v: string) {
 export default function TeacherStudents() {
   const [students, setStudents] = useState<any[]>([]);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all'|'active'|'completed'|'other'>('all');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -24,9 +25,20 @@ export default function TeacherStudents() {
   }, []);
 
   const filtered = useMemo(
-    () => students.filter(s => !search || `${s.name} ${s.admissionNo}`.toLowerCase().includes(search.toLowerCase())),
-    [students, search],
+    () => students.filter(s => {
+      const q = search.trim().toLowerCase();
+      const matchesSearch = !q || `${s.name} ${s.admissionNo}`.toLowerCase().includes(q);
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'active'    && s.status === 'active')
+        || (statusFilter === 'completed' && s.status === 'alumni')
+        || (statusFilter === 'other'     && !['active','alumni'].includes(s.status));
+      return matchesSearch && matchesStatus;
+    }),
+    [students, search, statusFilter],
   );
+  const activeCount    = students.filter(s => s.status === 'active').length;
+  const completedCount = students.filter(s => s.status === 'alumni').length;
+  const otherCount     = students.filter(s => !['active','alumni'].includes(s.status)).length;
 
   return <AdminShell title="My Students"><div className="space-y-5">
 
@@ -54,9 +66,17 @@ export default function TeacherStudents() {
           <h2 className="text-lg font-black">Student roster</h2>
           <p className="text-xs text-slate-500">Read only. Changes to a student's position are recorded through the Evaluations page.</p>
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search name or admission no..."
-          className="rounded-xl border px-3 py-2 text-sm sm:w-64" />
+        <div className="flex flex-wrap items-center gap-2">
+          {([['all', `All (${students.length})`], ['active', `Active (${activeCount})`], ['completed', `Completed (${completedCount})`], ['other', `Other (${otherCount})`]] as const).map(([v, label]) =>
+            <button key={v} type="button" onClick={() => setStatusFilter(v as any)}
+              className={`rounded-full border px-3 py-1 text-[11px] font-bold transition-colors ${statusFilter===v?'bg-emerald-700 text-white border-emerald-700':'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'}`}>
+              {label}
+            </button>
+          )}
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search name or admission no..."
+            className="rounded-xl border px-3 py-2 text-sm sm:w-56" />
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-left text-sm">
@@ -81,11 +101,15 @@ export default function TeacherStudents() {
                 </td>
                 <td className="px-3 py-3">
                   <span className={`rounded-full px-2 py-1 text-[10px] font-black ${
-                    s.status === 'active'    ? 'bg-emerald-50 text-emerald-700'
+                    s.status === 'alumni'    ? 'bg-amber-100 text-amber-900'
+                  : s.status === 'active'    ? 'bg-emerald-50 text-emerald-700'
                   : s.status === 'suspended' ? 'bg-amber-50 text-amber-700'
                   :                            'bg-rose-50 text-rose-700'
                   }`}>
-                    {s.status === 'suspended' ? 'Frozen' : s.status === 'withdrawn' ? 'Inactive' : 'Active'}
+                    {s.status === 'alumni' ? 'Completed'
+                   : s.status === 'suspended' ? 'Frozen'
+                   : s.status === 'withdrawn' ? 'Inactive'
+                   : 'Active'}
                   </span>
                 </td>
                 <td className="px-3 py-3 font-semibold">{directionLabel(dirCode)}</td>
