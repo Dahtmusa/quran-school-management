@@ -420,13 +420,13 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
           {/* Header: real school logo + institution name, pushed up into the
               very top of the open dome area, with larger bolder type */}
           <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '4mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-            <div style={{ height: '17mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ height: '21mm', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {!logoFailed ? (
                 <img
                   src="/images/branding/amqm-logo-watermark.webp"
                   alt="Aliyu and Maimuna Center for Qur'anic Memorization official logo"
                   onError={() => setLogoFailed(true)}
-                  style={{ display: 'block', height: '17mm', maxWidth: '48mm', objectFit: 'contain' }}
+                  style={{ display: 'block', height: '21mm', width: '21mm', objectFit: 'contain', filter: 'drop-shadow(0 0.4mm 0.8mm rgba(13,69,55,.25))' }}
                 />
               ) : (
                 <div style={{
@@ -441,7 +441,7 @@ function CertificateModal({ data, close }: { data: any; close: () => void }) {
           </div>
 
           {/* Main heading */}
-          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '35mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          <div style={{ position: 'absolute', left: '20mm', right: '20mm', top: '37mm', zIndex: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
             <div style={{ color: '#0d4537', fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 800, fontSize: '26px', lineHeight: 1.1, letterSpacing: '.03em' }}>
               QUR&apos;ANIC GRADUATION
             </div>
