@@ -243,8 +243,13 @@ function ReportsInner(){
    const es=evals.filter(e=>e.studentId===s.id&&e.term===termName);
    return {...s,es,approved:es.filter(e=>e.status==='Approved').length,ready:es.filter(e=>e.status==='Approved').length===3};
  });
- const classNames=[...new Set(rows.map(r=>r.className||'Unassigned'))].sort();
- const filtered=classFilter?rows.filter(r=>(r.className||'Unassigned')===classFilter):rows;
+ // Active students with no class are not a "class": they can't be evaluated or
+ // get a report until the school places them, so list them separately.
+ // (Parents always see their own children; a deep-linked alumni always shows.)
+ const noClass=role==='parent'?[]:rows.filter(r=>!r.className&&r.id!==linkStudent);
+ const visibleRows=role==='parent'?rows:rows.filter(r=>r.className||r.id===linkStudent);
+ const classNames=[...new Set(visibleRows.map(r=>r.className||'No class'))].sort();
+ const filtered=classFilter?visibleRows.filter(r=>(r.className||'No class')===classFilter):visibleRows;
  const ready=filtered.filter(s=>s.ready);
  const isComplete=completed.some(c=>c.term_id===termId);
  const linkOpened=useRef(false);
@@ -281,6 +286,11 @@ function ReportsInner(){
       {ready.length>0&&<button className="btn bg-slate-100 border border-slate-200" onClick={()=>bulkPrintReportCards(filtered,term,terms,settings,signatures)}>Print all reports ({ready.length})</button>}
     </div>
   </div></section>
+  {noClass.length>0&&<section className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4">
+    <div className="text-sm font-black text-amber-950">{noClass.length} active student{noClass.length===1?' has':'s have'} no class: needs placement</div>
+    <p className="mt-1 text-xs text-amber-900/80">They are not shown in any class and can&apos;t be evaluated or receive a report card until the school places them in a class (or removes them if they have left).</p>
+    <div className="mt-2 flex flex-wrap gap-2">{noClass.map(s=><a key={s.id} href={`/students?id=${s.id}`} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-amber-900 ring-1 ring-amber-300 hover:bg-amber-100">{s.name} · {s.admissionNo}</a>)}</div>
+  </section>}
   <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Kpi label="Students" value={filtered.length}/><Kpi label="Ready for report" value={ready.length}/><Kpi label="Blocked" value={Math.max(0,filtered.length-ready.length)}/><Kpi label="Approved evaluations" value={filtered.reduce((n,s)=>n+s.approved,0)}/></div>
   <section className="card overflow-hidden">
     <div className="border-b p-5"><h2 className="text-xl font-black">Term progress at a glance{classFilter&&<span className="ml-2 text-base font-normal text-slate-400">· {classFilter}</span>}</h2><p className="text-sm text-slate-500">Pending or returned evaluations never become official report-card data.</p></div>
@@ -291,7 +301,7 @@ function ReportsInner(){
           <div className="h-10 w-10 overflow-hidden rounded-xl bg-slate-100">{s.photoUrl?<img src={s.photoUrl} className="h-full w-full object-cover" alt=""/>:<div className="grid h-full place-items-center font-black text-slate-400">{s.name.charAt(0)}</div>}</div>
           <div><b>{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo}</div></div>
         </div></td>
-        <td><div>{s.className||'Unassigned'}</div><SectionBadge section={s.section}/></td>
+        <td><div>{s.className||'No class'}</div><SectionBadge section={s.section}/></td>
         <td><b className="text-emerald-800">{label(s.current)}</b><div className="text-xs text-slate-500">{s.year}</div></td>
         {[1,2,3].map(n=>{const e=s.es.find((x:any)=>x.number===n);return <td key={n}>{e?<Status status={e.status} score={e.score}/>:<Status status="Not created"/>}</td>})}
         <td><span className={`pill ${s.ready?'bg-emerald-50 text-emerald-700':'bg-slate-100 text-slate-500'}`}>{s.ready?'Finalized':'Blocked'}</span></td>

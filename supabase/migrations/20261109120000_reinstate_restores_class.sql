@@ -8,7 +8,8 @@
 -- Now: removal remembers the class, reinstatement restores it (falling back to
 -- the most recent class in the student's term enrolments), and placing an
 -- active student into a class creates any missing evaluation drafts for open
--- evaluations. A one-time repair restores currently classless active students.
+-- evaluations. Students who are already classless are left for the school to
+-- place by hand (whether each removal/reinstatement was intended is theirs to judge).
 
 alter table public.students
   add column if not exists removed_from_class_id uuid references public.classes(id) on delete set null;
@@ -151,22 +152,5 @@ after update of class_id, status on public.students
 for each row
 when (new.class_id is distinct from old.class_id or new.status is distinct from old.status)
 execute function public.amqm_drafts_after_class_change();
-
--- One-time repair: active students with no class get their last known class back.
-do $$
-declare r record; v_class uuid; n int := 0;
-begin
-  for r in select id, full_name from public.students where status = 'active' and class_id is null loop
-    v_class := public.amqm_last_known_class(r.id);
-    if v_class is not null then
-      perform public.amqm_place_student_in_class(r.id, v_class);
-      insert into public.audit_logs(actor_id, action, entity_type, entity_id, new_data)
-      values (null, 'student:class_restored', 'student', r.id,
-              jsonb_build_object('class_id', v_class, 'reason', 'Reinstated without a class; restored from enrolment history'));
-      n := n + 1;
-    end if;
-  end loop;
-  raise notice 'Restored class for % student(s)', n;
-end $$;
 
 notify pgrst, 'reload schema';
