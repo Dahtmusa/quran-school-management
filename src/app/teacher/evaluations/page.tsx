@@ -11,6 +11,24 @@ import NumberInput from '@/components/NumberInput';
 import { useEffect, useMemo, useState } from 'react';
 import { loadTeacherEvalEntries, loadTeacherEvalWindows, submitTeacherEvaluation, type TeacherEvalEntry, type TeacherEvalWindow } from '@/lib/live-store';
 import { SURAHS, absoluteProgress, calculateEvaluation } from '@/lib/quran';
+import { createClient } from '@/lib/supabase/client';
+
+// Entries are kept on this device as they are typed, so nothing is lost if the
+// login expires or the page reloads before submitting.
+const SAVED_FORMS_KEY = 'amqm-teacher-eval-forms';
+function loadSavedForms(): Record<string, any> {
+  try { return JSON.parse(localStorage.getItem(SAVED_FORMS_KEY) || '{}') || {}; } catch { return {}; }
+}
+function saveForms(forms: Record<string, any>) {
+  try { localStorage.setItem(SAVED_FORMS_KEY, JSON.stringify(forms)); } catch { /* storage unavailable */ }
+}
+
+// An expired login makes every request anonymous: the page still shows what it
+// loaded, but submitting fails with "permission denied". Check first.
+async function stillSignedIn(): Promise<boolean> {
+  try { const { data } = await createClient().auth.getUser(); return !!data?.user; } catch { return false; }
+}
+const SIGNED_OUT_MESSAGE = 'Your login has expired. Please sign out and sign in again, then come back to Evaluations — your entries are saved on this device.';
 
 type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string };
 
@@ -18,6 +36,10 @@ export default function TeacherEvaluationsPage() {
   const [entries, setEntries] = useState<TeacherEvalEntry[]>([]);
   const [windows, setWindows] = useState<TeacherEvalWindow[]>([]);
   const [forms, setForms] = useState<Record<string, EvalForm>>({});
+  const [restored, setRestored] = useState(false);
+  // Restore entries typed earlier on this device, then keep saving them.
+  useEffect(() => { setForms(prev => ({ ...loadSavedForms(), ...prev })); setRestored(true); }, []);
+  useEffect(() => { if (restored) saveForms(forms); }, [forms, restored]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [now, setNow] = useState<number>(Date.now());
@@ -95,6 +117,8 @@ export default function TeacherEvaluationsPage() {
     const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
     const score = Math.round(absoluteProgress({ surah: f.toSurah, ayah: f.toAyah }, dir).percent * 10) / 10;
     await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
+    // Submitted: no need to keep this entry on the device any more.
+    setForms(p => { const n = { ...p }; delete n[r.evaluation_id]; return n; });
   }
 
   // Submit everyone who is ready; students without a valid stopping position
@@ -106,6 +130,7 @@ export default function TeacherEvaluationsPage() {
       setMessage('No student has a stopping position yet. Enter where each student stopped (it must move forward from their starting position).');
       return;
     }
+    if (!(await stillSignedIn())) { setMessage(SIGNED_OUT_MESSAGE); return; }
     setBusy(true); setMessage('');
     let done = 0;
     const failed: string[] = [];
@@ -127,6 +152,7 @@ export default function TeacherEvaluationsPage() {
       setMessage(`${r.full_name}: the stopping position must move from the starting position in the correct memorization direction.`);
       return;
     }
+    if (!(await stillSignedIn())) { setMessage(SIGNED_OUT_MESSAGE); return; }
     setBusy(true); setMessage('');
     try {
       await submitOne(r);
