@@ -124,7 +124,10 @@ export async function loadEvaluations(): Promise<Evaluation[]> {
     query = query.in('student_id', studentIds);
   } else {
     const { data: currentTerm } = await db.from('terms').select('id').eq('is_current', true).order('starts_on', { ascending: false }).limit(1).maybeSingle();
-    if (currentTerm?.id) query = query.eq('term_id', currentTerm.id);
+    // Current term, plus anything still waiting on someone from any term:
+    // an evaluation sent back and resubmitted can belong to an earlier term,
+    // and must still reach the admin's review queue and counts.
+    if (currentTerm?.id) query = query.or(`term_id.eq.${currentTerm.id},status.in.(pending_approval,returned)`);
     query = query.limit(1000);
   }
 
