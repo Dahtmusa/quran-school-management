@@ -12,7 +12,7 @@
 -- place by hand (whether each removal/reinstatement was intended is theirs to judge).
 
 alter table public.students
-  add column if not exists removed_from_class_id uuid references public.classes(id) on delete set null;
+  add column if not exists removed_from_class_id uuid;  -- no FK: a second students->classes link breaks class loading
 
 -- The class a student last belonged to, if it still exists and is active.
 create or replace function public.amqm_last_known_class(p_student_id uuid)

@@ -14,7 +14,7 @@
 
 -- Same column as 20261109120000 (safe whichever runs first).
 alter table public.students
-  add column if not exists removed_from_class_id uuid references public.classes(id) on delete set null;
+  add column if not exists removed_from_class_id uuid;  -- no FK: a second students->classes link breaks class loading
 
 create or replace function public.admin_remove_student(
   p_student_id uuid,
