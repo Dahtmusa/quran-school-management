@@ -29,9 +29,21 @@ export function label(p:Position){ return `${surah(p.surah).name} ${p.ayah}`; }
 export function pageForPosition(p:Position){ return getAyahMeta(positionOrdinal(p)).page; }
 export function juzForPosition(p:Position){ return getAyahMeta(positionOrdinal(p)).juz; }
 export function hizbForPosition(p:Position){ return getAyahMeta(positionOrdinal(p)).hizbId; }
+// Ayahs covered going from `start` to `stop` along the journey. Nas-to-Baqarah
+// moves to lower surah numbers, but inside each surah the ayahs still go
+// forward: finish the rest of the start surah, the surahs in between, then
+// the stop surah up to the stop ayah.
+function nasAyahsBetween(start:Position,stop:Position){
+  if(stop.surah===start.surah) return Math.max(0,stop.ayah-start.ayah+1);
+  if(stop.surah>start.surah) return 0;
+  const ayahs=(id:number)=>SURAHS.find(s=>s.id===id)?.ayahs??0;
+  let n=Math.max(0,ayahs(start.surah)-start.ayah+1);
+  for(let id=start.surah-1;id>stop.surah;id--) n+=ayahs(id);
+  return n+stop.ayah;
+}
 export function progressBetween(start:Position,current:Position,direction:'Nas-to-Baqarah'|'Baqarah-to-Nas'='Baqarah-to-Nas'){
   const a=positionOrdinal(start), b=positionOrdinal(current);
-  const covered=direction==='Baqarah-to-Nas'?Math.max(0,b-a+1):Math.max(0,a-b+1);
+  const covered=direction==='Baqarah-to-Nas'?Math.max(0,b-a+1):nasAyahsBetween(start,current);
   const scope=direction==='Baqarah-to-Nas'?Math.max(1,TOTAL_AYAHS-a+1):Math.max(1,a);
   const percent=Math.max(0,Math.min(100,(covered/scope)*100));
   const pages=direction==='Baqarah-to-Nas'?Math.max(1,pageForPosition(current)-pageForPosition(start)+1):Math.max(1,pageForPosition(start)-pageForPosition(current)+1);

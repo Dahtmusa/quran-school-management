@@ -137,18 +137,6 @@ export default function TeacherDashboard() {
   function updateForm(evalId:string, updates:Partial<EvalForm>) {
     setForms(prev => { const next={...prev,[evalId]:{...prev[evalId],...updates}}; saveDraft(evalId,next[evalId]); return next; });
   }
-  function hasMoved(ev:any):boolean {
-    const f=forms[ev.id]; if(!f) return false; const dir=ev.students?.memorization_direction;
-    const fs=Number(ev.from_surah), fa=Number(ev.from_ayah);
-    if(dir==='baqarah_to_nas') return f.toSurah>fs || (f.toSurah===fs && f.toAyah>fa);
-    return f.toSurah<fs || (f.toSurah===fs && f.toAyah<fa);
-  }
-  async function submitClass(campaignEvals:any[]) {
-    if(!campaignEvals.every((ev:any)=>hasMoved(ev))){setMessage('All students must have a valid stopping position before you can submit the class evaluation.');return;}
-    setBusy(true);setMessage('');
-    try{ for(const ev of campaignEvals){ const f=forms[ev.id]; const score=Math.round(((f.mem+f.acc+f.flu+f.taj+f.ret)/25)*100); await submitTeacherEvaluation({evaluationId:ev.id,toSurah:f.toSurah,toAyah:f.toAyah,memorization:f.mem,accuracy:f.acc,fluency:f.flu,tajweed:f.taj,retention:f.ret,score,comment:f.comment}); clearDraft(ev.id); } setForms({}); await refresh(); setMessage('Class evaluation submitted to Admin for review.'); }
-    catch(err:any){setMessage(err?.message || 'Submission failed.');} finally{setBusy(false);}
-  }
   async function uploadPhoto(file:File|null){ if(!file)return; setBusy(true); try{const url=await uploadProfileImage(file,'staff');setMe((x:any)=>({...x,avatar_url:url}));await updateOwnProfile({avatar_url:url});setMessage('Profile photo updated.');}catch(e:any){setMessage(e?.message||'Photo upload failed');}finally{setBusy(false);} }
   async function markBoardingAttendance(studentId:string,status:'present'|'late'|'absent'|'excused'|'sick'){
     setAttendanceBusy(true);
@@ -179,7 +167,6 @@ export default function TeacherDashboard() {
   async function openAddStudent(){setAddMsg('');setAddSearch('');setUnassigned(await getUnassignedStudents());setAddStudentOpen(true);}
   async function handleAssign(studentId:string){setAddBusy(studentId);setAddMsg('');try{await teacherAssignStudentToClass(studentId);await refresh();setUnassigned(prev=>prev.filter(x=>x.student_id!==studentId));setAddMsg('Student added to your class.');}catch(e:any){setAddMsg(e?.message||'Failed to assign student');}finally{setAddBusy(null);}}
 
-  const doneCount = activeEvals.filter(ev => hasMoved(ev)).length;
   const returnedCount = activeEvals.filter(ev => ev.status === 'returned').length;
   const dayCount = students.filter(s => s.section === 'Day').length;
   const boardingCount = students.filter(s => s.section === 'Boarding').length;

@@ -75,14 +75,16 @@ export default function TeacherEvaluationsPage() {
     return entries.filter(e => e.status !== 'returned' && Number(e.evaluation_number) === picked);
   }, [entries, picked]);
 
-  // "Moved" means teacher really advanced the student from the stored
-  // starting position in the correct direction. Nas-to-Baqarah must
-  // move backward (lower global ayah); Baqarah-to-Nas must move forward.
+  // "Moved" means the stop is further along the student's journey than the
+  // start: Nas-to-Baqarah goes to lower surah numbers, Baqarah-to-Nas to
+  // higher ones.
   function hasMoved(r: TeacherEvalEntry): boolean {
     const f = forms[r.evaluation_id]; if (!f) return false;
     const dir = r.memorization_direction;
-    if (dir === 'baqarah_to_nas') return f.toSurah > r.from_surah || (f.toSurah === r.from_surah && f.toAyah > r.from_ayah);
-    return f.toSurah < r.from_surah || (f.toSurah === r.from_surah && f.toAyah < r.from_ayah);
+    // Inside a surah, ayahs always go forward; only the order of surahs
+    // depends on the direction (must match amqm_journey_rank in the database).
+    if (f.toSurah === r.from_surah) return f.toAyah > r.from_ayah;
+    return dir === 'baqarah_to_nas' ? f.toSurah > r.from_surah : f.toSurah < r.from_surah;
   }
 
   async function submitOne(r: TeacherEvalEntry) {
