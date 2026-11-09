@@ -4,7 +4,7 @@
 import AdminShell from '@/components/AdminShell';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  loadPotentialAlumni, loadAlumniList, loadAlumniFull,
+  loadPotentialAlumni, loadAlumniList, loadAlumniFull, loadStudents,
   promoteToAlumni, toggleAlumniPublication,
   adminSendEvaluationBack, adminCorrectQuranRecord, adminRecordAlumniPayment,
 } from '@/lib/live-store';
@@ -64,6 +64,20 @@ export default function AdminAlumniPage() {
   const [message, setMessage] = useState('');
   const [search, setSearch] = useState('');
   const [promote, setPromote] = useState<Potential | null>(null);
+  // Promote any active student the school confirms has graduated, even if
+  // their records don't show completion.
+  const [pickOpen, setPickOpen] = useState(false);
+  const [pickSearch, setPickSearch] = useState('');
+  const [pickList, setPickList] = useState<any[]>([]);
+  async function openPick() {
+    setPickOpen(true); setPickSearch('');
+    try { setPickList(await loadStudents()); } catch (e: any) { setMessage(e?.message || 'Could not load students.'); }
+  }
+  function choosePick(s: any) {
+    setPickOpen(false);
+    setPromote({ student_id: s.id, full_name: s.name, admission_no: s.admissionNo } as Potential);
+    setPromoteCohort(''); setPromoteYear(new Date().getFullYear());
+  }
   const [promoteYear, setPromoteYear] = useState(new Date().getFullYear());
   const [promoteCohort, setPromoteCohort] = useState('');
   const [promoteTerm, setPromoteTerm] = useState('Term 3');
@@ -262,6 +276,9 @@ export default function AdminAlumniPage() {
           className={`rounded-full px-4 py-2 text-sm font-black ${tab === 'confirmed' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-700'}`}>
           Confirmed ({confirmed.length})
         </button>
+        <button onClick={openPick} className="rounded-full bg-amber-100 px-4 py-2 text-sm font-black text-amber-900 hover:bg-amber-200">
+          + Promote a graduate
+        </button>
       </div>
       <input value={search} onChange={e => setSearch(e.target.value)}
         placeholder="Search name, admission no or cert number..."
@@ -433,6 +450,26 @@ export default function AdminAlumniPage() {
         <button className="btn bg-slate-100" onClick={() => { setFixing(null); setFix(null); }}>Cancel</button>
         <button className="btn btn-primary" disabled={busy || !fix.reason.trim()} onClick={doFix}>{busy ? 'Saving…' : 'Save correction'}</button>
       </div>
+    </div></div>}
+
+    {/* Pick any student to promote */}
+    {pickOpen && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/60 p-4"><div className="mx-auto mt-12 w-full max-w-lg rounded-3xl bg-white p-6 shadow-2xl">
+      <h2 className="text-xl font-black text-emerald-900">Promote a graduate</h2>
+      <p className="mt-1 text-sm text-slate-600">For a student the school confirms has completed the Qur&apos;an. They become alumni and get a certificate.</p>
+      <input autoFocus className="input mt-4 w-full" placeholder="Search name or admission no..." value={pickSearch} onChange={e => setPickSearch(e.target.value)} />
+      <div className="mt-3 max-h-80 divide-y overflow-y-auto rounded-xl border">
+        {pickList
+          .filter(s => !pickSearch.trim() || `${s.name} ${s.admissionNo}`.toLowerCase().includes(pickSearch.trim().toLowerCase()))
+          .slice(0, 50)
+          .map(s => (
+            <button key={s.id} type="button" onClick={() => choosePick(s)} className="flex w-full items-center justify-between gap-3 p-3 text-left hover:bg-emerald-50">
+              <span><b className="text-sm">{s.name}</b><div className="text-xs text-slate-500">{s.admissionNo} · {s.className || 'No class'}</div></span>
+              <span className="text-xs font-bold text-emerald-700">Select →</span>
+            </button>
+          ))}
+        {pickList.length === 0 && <div className="p-4 text-center text-sm text-slate-400">Loading students…</div>}
+      </div>
+      <div className="mt-4 flex justify-end"><button className="btn bg-slate-100" onClick={() => setPickOpen(false)}>Cancel</button></div>
     </div></div>}
 
     {/* Promote modal */}
