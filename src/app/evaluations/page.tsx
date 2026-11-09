@@ -2,6 +2,7 @@
 import AdminShell from '@/components/AdminShell';
 import SectionBadge from '@/components/SectionBadge';
 import MemorizationBadge from '@/components/MemorizationBadge';
+import EvaluationHealthPanel from '@/components/EvaluationHealthPanel';
 import { loadClasses, loadEvaluations, loadOperationalTerms, reviewEvaluation, loadCurrentAcademicTerm, loadAdminEvalRoundState, adminToggleEvaluation, type AdminEvalRoundState } from '@/lib/live-store';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -89,6 +90,8 @@ export default function EvaluationsAdmin() {
   return <AdminShell title="Evaluations">
     <div className="space-y-6">
       {message && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">{message}</div>}
+
+      <EvaluationHealthPanel />
 
       <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

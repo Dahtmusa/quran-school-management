@@ -95,18 +95,29 @@ export default function TeacherEvaluationsPage() {
     await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
   }
 
+  // Submit everyone who is ready; students without a valid stopping position
+  // stay as drafts instead of blocking the whole class.
   async function submitAll() {
-    if (!pickedEntries.every(hasMoved)) {
-      setMessage('Every student needs a valid stopping position — it must move from their starting position in the correct memorization direction.');
+    const ready = pickedEntries.filter(hasMoved);
+    const waiting = pickedEntries.length - ready.length;
+    if (ready.length === 0) {
+      setMessage('No student has a stopping position yet. Enter where each student stopped (it must move forward from their starting position).');
       return;
     }
     setBusy(true); setMessage('');
-    try {
-      for (const r of pickedEntries) await submitOne(r);
-      await refresh();
-      setMessage(`Evaluation ${picked} submitted to Admin for review.`);
-    } catch (e: any) { setMessage(e?.message || 'Submission failed.'); }
-    finally { setBusy(false); }
+    let done = 0;
+    const failed: string[] = [];
+    for (const r of ready) {
+      try { await submitOne(r); done++; }
+      catch (e: any) { failed.push(`${r.full_name}: ${e?.message || 'failed'}`); }
+    }
+    await refresh();
+    setMessage([
+      `${done} student${done === 1 ? '' : 's'} submitted to Admin for review.`,
+      waiting ? `${waiting} still need a stopping position and stay in the list.` : '',
+      failed.length ? `Not submitted — ${failed.join('; ')}` : '',
+    ].filter(Boolean).join(' '));
+    setBusy(false);
   }
 
   async function resubmit(r: TeacherEvalEntry) {
@@ -279,16 +290,16 @@ export default function TeacherEvaluationsPage() {
             <h2 className="text-xl font-black">Evaluation {picked} — enter scores</h2>
             <p className="mt-1 text-sm text-slate-500">Each student starts from the position they ended at last time. Enter where they stopped today and score the 5 rubrics (1 to 5).</p>
           </div>
-          <button className="btn btn-primary" disabled={busy || pickedEntries.length === 0} onClick={submitAll}>
-            {busy ? 'Submitting…' : `Submit all (${pickedEntries.length})`}
+          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(hasMoved)} onClick={submitAll}>
+            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(hasMoved).length} of ${pickedEntries.length})`}
           </button>
         </div>
 
         <div className="divide-y">{pickedEntries.map(renderRow)}</div>
 
         <div className="flex justify-end border-t bg-slate-50 p-4">
-          <button className="btn btn-primary" disabled={busy || pickedEntries.length === 0} onClick={submitAll}>
-            {busy ? 'Submitting…' : `Submit all (${pickedEntries.length})`}
+          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(hasMoved)} onClick={submitAll}>
+            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(hasMoved).length} of ${pickedEntries.length})`}
           </button>
         </div>
       </section>}
