@@ -12,7 +12,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { loadTeacherEvalEntries, loadTeacherEvalWindows, submitTeacherEvaluation, type TeacherEvalEntry, type TeacherEvalWindow } from '@/lib/live-store';
 import { SURAHS, absoluteProgress, calculateEvaluation } from '@/lib/quran';
 
-type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string };
+type EvalForm = { toSurah: number; toAyah: number; mem: number; acc: number; flu: number; taj: number; ret: number; comment: string; noProgress: boolean };
+
+const NO_PROGRESS_NOTE = 'Absent / no new memorization this evaluation.';
 
 export default function TeacherEvaluationsPage() {
   const [entries, setEntries] = useState<TeacherEvalEntry[]>([]);
@@ -49,6 +51,7 @@ export default function TeacherEvaluationsPage() {
           taj: Number(r.tajweed_score      ?? 4),
           ret: Number(r.retention_score    ?? 4),
           comment: r.teacher_comment ?? '',
+          noProgress: false,
         };
       }
       return next;
@@ -85,23 +88,34 @@ export default function TeacherEvaluationsPage() {
     return f.toSurah < r.from_surah || (f.toSurah === r.from_surah && f.toAyah < r.from_ayah);
   }
 
-  async function submitOne(r: TeacherEvalEntry) {
-    const f = forms[r.evaluation_id];
-    // Score = the student's TRUE Qur'an completion % at their new
-    // stopping position (direction-aware). Rubrics are quality
-    // notes stored separately; they do NOT affect the headline %.
-    const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
-    const score = Math.round(absoluteProgress({ surah: f.toSurah, ayah: f.toAyah }, dir).percent * 10) / 10;
-    await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah: f.toSurah, toAyah: f.toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment: f.comment });
+  // Ready = moved forward, or the teacher deliberately ticked "Absent / no new
+  // memorization" (an untouched row never counts as zero progress by accident).
+  function isReady(r: TeacherEvalEntry): boolean {
+    return !!forms[r.evaluation_id]?.noProgress || hasMoved(r);
   }
 
-  // Submit everyone who is ready; students without a valid stopping position
+  async function submitOne(r: TeacherEvalEntry) {
+    const f = forms[r.evaluation_id];
+    const toSurah = f.noProgress ? Number(r.from_surah) : f.toSurah;
+    const toAyah  = f.noProgress ? Number(r.from_ayah)  : f.toAyah;
+    // Score = the student's TRUE Qur'an completion % at their stopping
+    // position (direction-aware). Rubrics are quality notes stored
+    // separately; they do NOT affect the headline %.
+    const dir = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
+    const score = Math.round(absoluteProgress({ surah: toSurah, ayah: toAyah }, dir).percent * 10) / 10;
+    const comment = f.noProgress
+      ? (f.comment.trim() ? `${NO_PROGRESS_NOTE} ${f.comment.trim()}` : NO_PROGRESS_NOTE)
+      : f.comment;
+    await submitTeacherEvaluation({ evaluationId: r.evaluation_id, toSurah, toAyah, memorization: f.mem, accuracy: f.acc, fluency: f.flu, tajweed: f.taj, retention: f.ret, score, comment });
+  }
+
+  // Submit everyone who is ready; students without a stopping position
   // stay as drafts instead of blocking the whole class.
   async function submitAll() {
-    const ready = pickedEntries.filter(hasMoved);
+    const ready = pickedEntries.filter(isReady);
     const waiting = pickedEntries.length - ready.length;
     if (ready.length === 0) {
-      setMessage('No student has a stopping position yet. Enter where each student stopped (it must move forward from their starting position).');
+      setMessage('No student is ready yet. Enter where each student stopped, or tick "Absent / no new memorization" for students who made no progress.');
       return;
     }
     setBusy(true); setMessage('');
@@ -114,15 +128,15 @@ export default function TeacherEvaluationsPage() {
     await refresh();
     setMessage([
       `${done} student${done === 1 ? '' : 's'} submitted to Admin for review.`,
-      waiting ? `${waiting} still need a stopping position and stay in the list.` : '',
+      waiting ? `${waiting} still need a stopping position (or the "Absent / no new memorization" tick) and stay in the list.` : '',
       failed.length ? `Not submitted — ${failed.join('; ')}` : '',
     ].filter(Boolean).join(' '));
     setBusy(false);
   }
 
   async function resubmit(r: TeacherEvalEntry) {
-    if (!hasMoved(r)) {
-      setMessage(`${r.full_name}: the stopping position must move from the starting position in the correct memorization direction.`);
+    if (!isReady(r)) {
+      setMessage(`${r.full_name}: enter where they stopped, or tick "Absent / no new memorization".`);
       return;
     }
     setBusy(true); setMessage('');
@@ -149,12 +163,14 @@ export default function TeacherEvaluationsPage() {
     const start = { surah: Number(r.from_surah), ayah: Number(r.from_ayah) };
     const stop  = { surah: f.toSurah, ayah: f.toAyah };
     const dir   = r.memorization_direction === 'baqarah_to_nas' ? 'Baqarah-to-Nas' : 'Nas-to-Baqarah';
-    const moved = hasMoved(r);
+    const noProg = f.noProgress;
+    const moved = !noProg && hasMoved(r);
+    const ready = noProg || moved;
     // "calc" = ayahs/pages covered THIS evaluation (sub-slice).
     // "progress" = total Qur'an % at the stopping position --
     // this is the real headline score.
     const calc     = moved ? calculateEvaluation(start, stop, dir as any) : { memorizedAyahs: 0, memorizedPages: 0, memorizedHizbs: 0 };
-    const progress = moved ? absoluteProgress(stop, dir as any)           : { ayahs: 0, pages: 0, hizbs: 0, percent: 0, remainingAyahs: 0 };
+    const progress = ready ? absoluteProgress(noProg ? start : stop, dir as any) : { ayahs: 0, pages: 0, hizbs: 0, percent: 0, remainingAyahs: 0 };
     const score    = Math.round(progress.percent * 10) / 10;
     const rubricAvg = Math.round(((f.mem + f.acc + f.flu + f.taj + f.ret) / 25) * 100);
     const startName = SURAHS.find(s => s.id === r.from_surah)?.name ?? '?';
@@ -186,16 +202,21 @@ export default function TeacherEvaluationsPage() {
 
       <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
         <div className="space-y-3">
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className={`grid gap-2 sm:grid-cols-2 ${noProg ? 'opacity-40' : ''}`}>
             <label className="text-[11px] font-bold uppercase text-slate-500">Stopping surah
-              <select className="input mt-1 w-full" value={f.toSurah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toSurah: Number(e.target.value), toAyah: 1 } }))}>
+              <select className="input mt-1 w-full" disabled={noProg} value={f.toSurah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toSurah: Number(e.target.value), toAyah: 1 } }))}>
                 {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
               </select>
             </label>
             <label className="text-[11px] font-bold uppercase text-slate-500">Stopping ayah
-              <NumberInput min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onValue={n => setForms(p => ({ ...p, [r.evaluation_id]: { ...p[r.evaluation_id], toAyah: n } }))} />
+              <NumberInput disabled={noProg} min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onValue={n => setForms(p => ({ ...p, [r.evaluation_id]: { ...p[r.evaluation_id], toAyah: n } }))} />
             </label>
           </div>
+          <label className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-bold ${noProg ? 'border-amber-300 bg-amber-50 text-amber-900' : 'border-slate-200 text-slate-600'}`}>
+            <input type="checkbox" checked={noProg} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...p[r.evaluation_id], noProgress: e.target.checked } }))} />
+            Absent / no new memorization this evaluation
+            <span className="font-normal text-slate-500">(stays at {startName} : {r.from_ayah}; still give scores)</span>
+          </label>
           <div className="grid grid-cols-5 gap-2">
             {([['mem', 'Mem'], ['acc', 'Acc'], ['flu', 'Flu'], ['taj', 'Taj'], ['ret', 'Ret']] as const).map(([k, lbl]) => (
               <label key={k} className="text-center">
@@ -210,14 +231,15 @@ export default function TeacherEvaluationsPage() {
         </div>
         <div className="lg:w-36 lg:shrink-0 text-right lg:text-center">
           <div className="text-[10px] font-bold uppercase text-slate-500">Qur&apos;an complete</div>
-          <div className={`mt-1 text-3xl font-black ${moved ? 'text-emerald-700' : 'text-slate-300'}`}>{moved ? `${score}%` : '—'}</div>
-          {moved && <>
+          <div className={`mt-1 text-3xl font-black ${ready ? 'text-emerald-700' : 'text-slate-300'}`}>{ready ? `${score}%` : '—'}</div>
+          {ready && <>
             <div className="mt-1 text-[10px] text-slate-500">{progress.ayahs.toLocaleString()} / 6,236 ayahs</div>
             <div className="text-[10px] text-slate-500">{progress.pages} / 604 pages</div>
             <div className="mt-2 text-[10px] text-slate-400">This eval: <b>+{calc.memorizedAyahs} ayahs · +{calc.memorizedPages} pages</b></div>
             <div className="mt-1 text-[10px] text-slate-400">Quality: {rubricAvg}%</div>
           </>}
-          {!moved && <div className="mt-1 text-[10px] font-bold text-rose-600">Position not moved</div>}
+          {noProg && <div className="mt-1 text-[10px] font-bold text-amber-700">Absent / no progress</div>}
+          {!ready && <div className="mt-1 text-[10px] font-bold text-rose-600">Enter stopping position</div>}
           {returned && (
             <button className="btn btn-primary mt-3 w-full" disabled={busy} onClick={() => resubmit(r)}>
               {busy ? 'Sending…' : 'Resubmit'}
@@ -290,16 +312,16 @@ export default function TeacherEvaluationsPage() {
             <h2 className="text-xl font-black">Evaluation {picked} — enter scores</h2>
             <p className="mt-1 text-sm text-slate-500">Each student starts from the position they ended at last time. Enter where they stopped today and score the 5 rubrics (1 to 5).</p>
           </div>
-          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(hasMoved)} onClick={submitAll}>
-            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(hasMoved).length} of ${pickedEntries.length})`}
+          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(isReady)} onClick={submitAll}>
+            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(isReady).length} of ${pickedEntries.length})`}
           </button>
         </div>
 
         <div className="divide-y">{pickedEntries.map(renderRow)}</div>
 
         <div className="flex justify-end border-t bg-slate-50 p-4">
-          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(hasMoved)} onClick={submitAll}>
-            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(hasMoved).length} of ${pickedEntries.length})`}
+          <button className="btn btn-primary" disabled={busy || !pickedEntries.some(isReady)} onClick={submitAll}>
+            {busy ? 'Submitting…' : `Submit ready (${pickedEntries.filter(isReady).length} of ${pickedEntries.length})`}
           </button>
         </div>
       </section>}
