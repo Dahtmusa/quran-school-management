@@ -5,6 +5,7 @@
 // Live: subscribes to attendance_records changes for the selected date so
 // scans and teacher marks show up without polling.
 
+import NumberInput from '@/components/NumberInput';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AdminShell from '@/components/AdminShell';
@@ -720,8 +721,8 @@ function SettingsPanel({ onSaved }: { onSaved: () => void }) {
     <div className="mt-5 grid gap-5 md:grid-cols-2">
       <Field label="Morning cutoff (HH:MM, Africa/Lagos)"><input value={s.morning_cutoff_time} onChange={e => set('morning_cutoff_time', e.target.value)} className={INPUT} /></Field>
       <Field label="SMS enabled"><label className="flex items-center gap-2 pt-2"><input type="checkbox" checked={s.sms_enabled} onChange={e => set('sms_enabled', e.target.checked)} /> Send SMS to parents</label></Field>
-      <Field label="Staff LATE fine (₦, flat)"><input type="number" min={0} value={s.staff_late_fine_ngn} onChange={e => set('staff_late_fine_ngn', Number(e.target.value) || 0)} className={INPUT} /></Field>
-      <Field label="Staff ABSENT fine (₦, flat)"><input type="number" min={0} value={s.staff_absent_fine_ngn} onChange={e => set('staff_absent_fine_ngn', Number(e.target.value) || 0)} className={INPUT} /></Field>
+      <Field label="Staff LATE fine (₦, flat)"><NumberInput min={0} value={s.staff_late_fine_ngn} onValue={n => set('staff_late_fine_ngn', n)} className={INPUT} /></Field>
+      <Field label="Staff ABSENT fine (₦, flat)"><NumberInput min={0} value={s.staff_absent_fine_ngn} onValue={n => set('staff_absent_fine_ngn', n)} className={INPUT} /></Field>
       <Field label="SMS · arrival template" full><textarea rows={3} value={s.sms_arrival_template} onChange={e => set('sms_arrival_template', e.target.value)} className={TEXTAREA} /></Field>
       <Field label="SMS · late template" full><textarea rows={3} value={s.sms_late_template} onChange={e => set('sms_late_template', e.target.value)} className={TEXTAREA} /></Field>
       <Field label="SMS · absent template" full><textarea rows={3} value={s.sms_absent_template} onChange={e => set('sms_absent_template', e.target.value)} className={TEXTAREA} /></Field>

@@ -10,6 +10,7 @@ import {
 } from '@/lib/live-store';
 import CertificateModal from './CertificateModal';
 import { SURAHS } from '@/lib/quran';
+import NumberInput from '@/components/NumberInput';
 import { printReceipt, loadReceiptContext, type ReceiptContext } from '@/lib/finance-print';
 
 type FixForm = {
@@ -29,8 +30,7 @@ function PositionInput({ label, surah, ayah, onChange }: { label: string; surah:
         <select className="input w-full" value={surah} onChange={e => onChange(Number(e.target.value), 1)}>
           {SURAHS.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
         </select>
-        <input type="number" min={1} max={max} className="input w-full" value={ayah}
-          onChange={e => onChange(surah, Math.min(max, Math.max(1, Number(e.target.value) || 1)))} />
+        <NumberInput min={1} max={max} className="input w-full" value={ayah} onValue={n => onChange(surah, n)} />
       </div>
     </label>
   );
@@ -446,7 +446,7 @@ export default function AdminAlumniPage() {
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <label className="text-xs font-bold">Graduation year
-          <input type="number" min="2020" max="2100" className="input mt-1 w-full" value={promoteYear} onChange={e => setPromoteYear(Number(e.target.value))} />
+          <NumberInput min={2020} max={2100} emptyValue={new Date().getFullYear()} className="input mt-1 w-full" value={promoteYear} onValue={setPromoteYear} />
         </label>
         <label className="text-xs font-bold">Final term
           <input className="input mt-1 w-full" value={promoteTerm} onChange={e => setPromoteTerm(e.target.value)} placeholder="e.g. Term 3" />

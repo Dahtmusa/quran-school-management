@@ -1,5 +1,6 @@
 'use client';
 
+import NumberInput from '@/components/NumberInput';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
@@ -296,8 +297,7 @@ function getMetrics(student: Student, e: EntryState): ComputedMetrics {
             </div>
             <div>
               <label className="block text-xs font-medium text-neutral-600 mb-1">Pages expected (100% = this many pages)</label>
-              <input type="number" min={1} max={200} value={targetPages}
-                onChange={e => setTargetPages(Math.max(1, Number(e.target.value)))}
+              <NumberInput min={1} max={200} value={targetPages} onValue={setTargetPages}
                 className="w-full text-sm border border-neutral-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-teal-400" />
             </div>
             {selectedClassId && (

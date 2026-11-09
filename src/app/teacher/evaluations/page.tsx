@@ -7,6 +7,7 @@
 // admin's note, whether or not an evaluation window is open.
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
+import NumberInput from '@/components/NumberInput';
 import { useEffect, useMemo, useState } from 'react';
 import { loadTeacherEvalEntries, loadTeacherEvalWindows, submitTeacherEvaluation, type TeacherEvalEntry, type TeacherEvalWindow } from '@/lib/live-store';
 import { SURAHS, absoluteProgress, calculateEvaluation } from '@/lib/quran';
@@ -181,7 +182,7 @@ export default function TeacherEvaluationsPage() {
               </select>
             </label>
             <label className="text-[11px] font-bold uppercase text-slate-500">Stopping ayah
-              <input type="number" min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onChange={e => setForms(p => ({ ...p, [r.evaluation_id]: { ...f, toAyah: Math.max(1, Number(e.target.value)) } }))} />
+              <NumberInput min={1} max={SURAHS.find(s => s.id === f.toSurah)?.ayahs ?? 286} className="input mt-1 w-full" value={f.toAyah} onValue={n => setForms(p => ({ ...p, [r.evaluation_id]: { ...p[r.evaluation_id], toAyah: n } }))} />
             </label>
           </div>
           <div className="grid grid-cols-5 gap-2">

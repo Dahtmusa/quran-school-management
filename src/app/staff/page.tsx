@@ -1,4 +1,5 @@
 'use client';
+import NumberInput from '@/components/NumberInput';
 import AdminShell from '@/components/AdminShell';
 import Link from 'next/link';
 import { loadStaffProfiles, createStaffAccount, updateStaffProfile, updateStaffCredentials, loadClasses, uploadProfileImage, type LiveClass, loadStaffSignaturesAdmin, adminClearStaffSignature, type StaffSignatureRow, adminLayOffStaff, adminReinstateStaff } from '@/lib/live-store';
@@ -340,7 +341,7 @@ function StaffPageInner(){
          <label className="text-xs font-bold sm:col-span-2">Full name<input required className="input mt-1 w-full" placeholder="e.g. Dr. Aliyu Musa" value={editL.full_name||''} onChange={e=>setEditL({...editL,full_name:e.target.value})}/></label>
          <label className="text-xs font-bold">Role / title<select className="input mt-1 w-full" value={editL.role_title||'Director'} onChange={e=>setEditL({...editL,role_title:e.target.value})}>{ROLE_TITLES.map(r=><option key={r}>{r}</option>)}</select></label>
          <label className="text-xs font-bold">Category<select className="input mt-1 w-full" value={editL.category||'leadership'} onChange={e=>setEditL({...editL,category:e.target.value})}><option value="leadership">Leadership</option><option value="staff">General Staff</option></select></label>
-         <label className="text-xs font-bold">Sort order<input type="number" min="0" className="input mt-1 w-full" value={editL.sort_order??0} onChange={e=>setEditL({...editL,sort_order:Number(e.target.value)})}/></label>
+         <label className="text-xs font-bold">Sort order<NumberInput min={0} className="input mt-1 w-full" value={editL.sort_order??0} onValue={n=>setEditL({...editL,sort_order:n})}/></label>
        </div>
      </div>
      <div className="p-5 space-y-3">

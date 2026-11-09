@@ -7,6 +7,7 @@ import { Student } from '@/lib/data';
 import { createStudent, loadClasses, loadStudents, loadSurahs, updateStudentMemorization, uploadProfileImage, loadStudentExtended, adminUpdateStudentProfile, loadRemovedStudents, removeStudent, reinstateStudent, type LiveClass, type RemovedStudent } from '@/lib/live-store';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import NumberInput from '@/components/NumberInput';
 import { loadCMSSettings } from '@/lib/cms-live-store';
 import { printAcademicIdCard } from '@/lib/id-card';
 import { label, SURAHS } from '@/lib/quran';
@@ -489,12 +490,12 @@ function Students(){
        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 pt-1">Starting position</div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Starting surah<select className="input mt-1 w-full" value={edit.start.surah} onChange={e=>setEdit({...edit,start:{...edit.start,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
-         <label className="text-xs font-bold">Starting ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.start.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.start.ayah} onChange={e=>setEdit({...edit,start:{...edit.start,ayah:Math.max(1,Number(e.target.value))}})}/></label>
+         <label className="text-xs font-bold">Starting ayah<NumberInput min={1} max={SURAHS.find(s=>s.id===edit.start.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.start.ayah} onValue={n=>setEdit({...edit,start:{...edit.start,ayah:n}})}/></label>
        </div>
        <div className="text-xs font-bold uppercase tracking-wide text-slate-400 pt-1">Current position <span className="normal-case font-normal text-slate-400">(admin can correct this)</span></div>
        <div className="grid gap-3 sm:grid-cols-2">
          <label className="text-xs font-bold">Current surah<select className="input mt-1 w-full" value={edit.current.surah} onChange={e=>setEdit({...edit,current:{...edit.current,surah:Number(e.target.value),ayah:1}})}>{SURAHS.map(s=><option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}</select></label>
-         <label className="text-xs font-bold">Current ayah<input type="number" min="1" max={SURAHS.find(s=>s.id===edit.current.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.current.ayah} onChange={e=>setEdit({...edit,current:{...edit.current,ayah:Math.max(1,Number(e.target.value))}})}/></label>
+         <label className="text-xs font-bold">Current ayah<NumberInput min={1} max={SURAHS.find(s=>s.id===edit.current.surah)?.ayahs??286} className="input mt-1 w-full" value={edit.current.ayah} onValue={n=>setEdit({...edit,current:{...edit.current,ayah:n}})}/></label>
        </div>
      </div>
      <div className="p-5 space-y-3">

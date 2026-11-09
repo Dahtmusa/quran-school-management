@@ -1,5 +1,6 @@
 'use client';
 
+import NumberInput from '@/components/NumberInput';
 import AdminShell from '@/components/AdminShell';
 import {loadAdmissionApplications,updateAdmissionApplication,enrollAdmissionApplication,loadClasses,scheduleAdmissionScreening,saveAdmissionScreening} from '@/lib/live-store';
 import {loadCMSSettings,saveCMSSetting} from '@/lib/cms-live-store';
@@ -211,7 +212,7 @@ function AdmissionsManageInner(){
 
     <div className="grid gap-4 p-5 lg:grid-cols-2">
       <label className="text-xs font-black text-slate-600 lg:col-span-2">Admission fee (₦) — one-time, non-refundable
-        <input type="number" className="input mt-1 w-full" value={admissionSettings.admission_fee_ngn} onChange={e=>setS('admission_fee_ngn',Number(e.target.value)||0 as any)} />
+        <NumberInput min={0} className="input mt-1 w-full" value={admissionSettings.admission_fee_ngn} onValue={n=>setS('admission_fee_ngn',n as any)} />
         <div className="mt-1 text-[11px] font-medium text-slate-500">Applicants pay this after submitting the form and use their application number as the transfer reference.</div>
       </label>
       <label className="text-xs font-black text-slate-600">Portal opens on
